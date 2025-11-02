@@ -116,12 +116,13 @@ void main(){
     M *= rot;
 
     float m = 0.0;
-    for(float i = 0.0; i < 1.0; i += 1.0 / NUM_LAYERS){
-        float z = fract(t + i);
-        // ⬅️ Увеличил минимальный размер → меньше "близких" элементов
-        float size = mix(8.0, 2.0, z); // было mix(15.0, 0.0, z)
-        float fade = S(0.0, 0.006, z) * S(0.0, 0.08, z);
-        m += fade * NetLayer(st * size - M * z, i, timePoints, timeLines);
+for(float i = 0.0; i < 1.0; i += 1.0 / NUM_LAYERS){
+    float z = fract(t + i);
+    // Уменьшаем масштаб: вместо 15 → 8, вместо 0 → 3
+    // Это "отодвигает" всё назад, но сохраняет целостность
+    float size = mix(8.0, 3.0, z); // было mix(15.0, 0.0, z)
+    float fade = S(0.0, 0.006, z) * S(0.0, 0.08, z);
+    m += fade * NetLayer(st * size - M * z, i, timePoints, timeLines);
     }
 
     vec3 leftColor = vec3(0.8, 0.0, 1.0);
@@ -385,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
