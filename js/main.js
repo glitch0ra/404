@@ -98,7 +98,7 @@ vec3 lavaLamp(vec3 ro, vec3 rd, vec3 cd, float maxDist) {
         pos *= 3.0;
         pos.z += iTime * 0.4;
         vec3 proj = abs(fract(pos) - 0.5);
-        proj = smoothstep(0.15, 0.0, proj); // ← тоньше линии (было 0.1)
+        proj = smoothstep(0.25, 0.0, proj); // ← тоньше линии (было 0.1)
         col = proj * smoothstep(0.1, 0.9, vec3(1.0) - abs(nor));
         col = vec3(max(max(col.x, col.y), col.z));
 
@@ -405,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
