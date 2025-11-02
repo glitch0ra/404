@@ -1,3 +1,6 @@
+
+document.addEventListener('DOMContentLoaded', () => {
+
 // === ВСТРОЕННЫЙ WEBGL-ШЕЙДЕР: The Universe Within (BigWings) ===
 const canvas = document.getElementById('shader-canvas');
 const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -431,9 +434,7 @@ function render() {
   requestAnimationFrame(render);
 }
 render();
-
-
-document.addEventListener('DOMContentLoaded', () => {
+	
   const galleries = {
     vhs: [
       { src: "https://glichorahost.pages.dev/Shylily.png", title: "VHS Glitch #01", desc: "Analog decay with hidden signal." },
@@ -591,6 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
