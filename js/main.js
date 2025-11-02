@@ -190,6 +190,11 @@ precision highp float;
 uniform vec2 iResolution;
 uniform float iTime;
 
+// вспомогательная функция плавного смешения двух цветов
+vec3 neonMix(vec3 a, vec3 b, float t) {
+    return mix(a, b, 0.5 + 0.5 * sin(t));
+}
+
 void mainImage(out vec4 O, vec2 I)
 {
     O = vec4(0.0);
@@ -197,11 +202,15 @@ void mainImage(out vec4 O, vec2 I)
     float d = 0.0;
     vec3 p;
 
-    // --- Raymarch (20 шагов) ---
+    // --- Основные цвета ---
+    vec3 col1 = vec3(1.0, 0.0, 1.0);   // неоновый пурпурный
+    vec3 col2 = vec3(0.0, 1.0, 0.6);   // неоновый зелёный
+    vec3 col3 = vec3(0.0, 1.0, 1.0);   // неоновый голубой
+    vec3 col4 = vec3(1.0, 0.4, 0.8);   // неоновый розовый
+
+    // --- Raymarch ---
     for (int i = 0; i < 20; i++) {
         float fi = float(i);
-
-        // направление луча и координаты
         p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
         p = vec3(
             atan(p.y / 0.2, p.x) * 2.0,
@@ -209,20 +218,31 @@ void mainImage(out vec4 O, vec2 I)
             length(p.xy) - 5.0 - z * 0.2
         );
 
-        // --- Турбулентность и рефракция ---
+        // Турбулентность
         for (int j = 1; j <= 7; j++) {
             float fj = float(j);
             p += sin(p.yzx * fj + iTime + 0.3 * fi) / fj;
         }
 
-        // --- Расстояние и наслоение ---
         z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
-        O += (1.0 + cos(p.x + fi * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
+
+        // Цветовое ядро: динамическое смешение четырёх неоновых цветов
+        vec3 neonBlend = neonMix(
+            neonMix(col1, col2, 0.3 * fi + iTime * 0.5),
+            neonMix(col3, col4, 0.4 * fi - iTime * 0.4),
+            sin(iTime * 0.2 + fi * 0.1)
+        );
+
+        // Освещение и яркость
+        O.rgb += (1.0 + cos(p.x + fi * 0.4 + z)) / d * neonBlend;
     }
 
-    // --- "Tanh"-подобный тонмап, ближе к оригиналу ---
+    // Тонмап (эквивалент tanh)
     O = (exp(O * O / 400.0) - exp(-O * O / 400.0)) /
         (exp(O * O / 400.0) + exp(-O * O / 400.0));
+
+    // Усиливаем контраст
+    O.rgb = pow(O.rgb, vec3(0.8));
 }
 
 void main() {
@@ -232,6 +252,7 @@ void main() {
     gl_FragColor = color;
 }
 `;
+
 
 
 
@@ -277,6 +298,7 @@ void main() {
   
 })();
 });
+
 
 
 
