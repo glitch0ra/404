@@ -203,7 +203,7 @@ void main(){
   let startTime = performance.now();
   function render(now) {
     resizeCanvas();
-    const t = (now - startTime) / 1000.0;
+    const t = now - startTime;
     if (uniRes) gl.uniform3f(uniRes, canvas.width, canvas.height, 0.0);
     if (uniTime) gl.uniform1f(uniTime, t);
     if (uniMouse) gl.uniform4f(uniMouse, mouseX, mouseY, clickX, clickY);
@@ -374,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
