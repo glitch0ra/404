@@ -155,4 +155,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const hash = window.location.hash.replace('#', '') || 'home';
     showPage(hash);
   });
+
+// Загрузка шейдера из файла
+const shaderCanvas = document.getElementById('universe-shader');
+if (shaderCanvas) {
+  fetch('assets/universe.glsl')
+    .then(response => response.text())
+    .then(fragmentCode => {
+      // Создаём экземпляр GLSLCanvas
+      const sandbox = new GlslCanvas(shaderCanvas);
+      sandbox.load(fragmentCode);
+    })
+    .catch(err => {
+      console.warn('Failed to load shader:', err);
+      // Можно скрыть canvas или показать fallback
+      shaderCanvas.style.display = 'none';
+    });
+}
+  
 });
+
