@@ -192,13 +192,16 @@ uniform float iTime;
 
 void mainImage(out vec4 O, vec2 I)
 {
+    O = vec4(0.0);
     float z = 0.0;
     float d = 0.0;
     vec3 p;
-    O = vec4(0.0);
 
-    // Главный raymarch цикл — фиксированные итерации
+    // --- Raymarch (20 шагов) ---
     for (int i = 0; i < 20; i++) {
+        float fi = float(i);
+
+        // направление луча и координаты
         p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
         p = vec3(
             atan(p.y / 0.2, p.x) * 2.0,
@@ -206,18 +209,20 @@ void mainImage(out vec4 O, vec2 I)
             length(p.xy) - 5.0 - z * 0.2
         );
 
-        // Внутренний цикл турбулентности — фиксированный
+        // --- Турбулентность и рефракция ---
         for (int j = 1; j <= 7; j++) {
-            float jf = float(j);
-            p += sin(p.yzx * jf + iTime + 0.3 * float(i)) / jf;
+            float fj = float(j);
+            p += sin(p.yzx * fj + iTime + 0.3 * fi) / fj;
         }
 
+        // --- Расстояние и наслоение ---
         z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
-        O += (1.0 + cos(p.x + float(i) * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
+        O += (1.0 + cos(p.x + fi * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
     }
 
-    // Тонмап (замена tanh)
-    O = O * O / (O * O + 400.0);
+    // --- "Tanh"-подобный тонмап, ближе к оригиналу ---
+    O = (exp(O * O / 400.0) - exp(-O * O / 400.0)) /
+        (exp(O * O / 400.0) + exp(-O * O / 400.0));
 }
 
 void main() {
@@ -227,6 +232,7 @@ void main() {
     gl_FragColor = color;
 }
 `;
+
 
 
   function compileShader(type, src) {
@@ -271,6 +277,7 @@ void main() {
   
 })();
 });
+
 
 
 
