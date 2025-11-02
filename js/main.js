@@ -76,7 +76,7 @@ mat3 setCamera(vec3 ro, vec3 ta) {
     return mat3(cu, cv, cw);
 }
 
-// Рендер лавовой лампы
+// Рендер лавовой лампы с модифицированными линиями
 vec3 lavaLamp(vec3 ro, vec3 rd, vec3 cd, float maxDist) {
     float t = 1.0;
     float d = 0.0;
@@ -94,20 +94,20 @@ vec3 lavaLamp(vec3 ro, vec3 rd, vec3 cd, float maxDist) {
         vec3 pos = ro + t * rd;
         vec3 nor = calcNormal(pos);
 
-        // Проекция "клетчатого" узора
+        // Проекция "клетчатого" узора — линии тоньше
         pos *= 3.0;
         pos.z += iTime * 0.4;
         vec3 proj = abs(fract(pos) - 0.5);
-        proj = smoothstep(0.1, 0.0, proj);
+        proj = smoothstep(0.15, 0.0, proj); // ← тоньше линии (было 0.1)
         col = proj * smoothstep(0.1, 0.9, vec3(1.0) - abs(nor));
         col = vec3(max(max(col.x, col.y), col.z));
 
-        // Цвет — градиент по X (как у тебя!)
-        float uvx = (pos.x + 4.0) / 8.0; // нормализуем по видимой области
-        uvx = clamp(uvx, 0.0, 1.0);
-        vec3 leftColor = vec3(0.8, 0.0, 1.0);   // неон-фиолетовый
-        vec3 rightColor = vec3(0.0, 1.0, 0.3);  // неон-зелёный
-        col *= mix(leftColor, rightColor, uvx);
+        // Градиент по ВЕРТИКАЛИ: сверху — фиолетовый, снизу — зелёный
+        float uvy = (pos.y + 3.0) / 6.0; // нормализация по Y
+        uvy = clamp(uvy, 0.0, 1.0);
+        vec3 topColor = vec3(0.8, 0.0, 1.0);    // фиолетовый
+        vec3 bottomColor = vec3(0.0, 1.0, 0.3); // зелёный
+        col *= mix(bottomColor, topColor, uvy); // сверху → topColor, снизу → bottomColor
 
         col = applyFog(col, d, vec3(0.0));
     }
@@ -131,7 +131,7 @@ void main() {
         vec2 p = (-iResolution.xy + 2.0 * fragCoord) / iResolution.y;
 #endif
 
-        // Позиция камеры (немного смещена вверх и назад)
+        // Позиция камеры
         vec3 ro = vec3(0.0, 0.5, 4.0);
         vec3 ta = vec3(0.0, 0.0, 0.0);
         mat3 cam = setCamera(ro, ta);
@@ -148,8 +148,8 @@ void main() {
     // Гамма-коррекция
     total = pow(total, vec3(1.0 / 2.2));
 
-    // Прозрачность: если цвет почти нулевой — делаем фон прозрачным
-    float alpha = min(1.0, length(total) * 2.0);
+    // Прозрачность ограничена до 50%
+    float alpha = min(0.5, length(total) * 2.0);
     gl_FragColor = vec4(total, alpha);
 }
   `;
@@ -405,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
