@@ -22,123 +22,135 @@ uniform vec3 iResolution;
 uniform float iTime;
 uniform vec4 iMouse;
 
-#define S(a,b,t) smoothstep(a,b,t)
-#define NUM_LAYERS 3.0  // оставим умеренную плотность
+// --- Параметры ---
+#define USE_AA 0      // 1 = сглаживание (медленнее), 0 = без (быстрее)
+#define K 8.0
 
-float timePoints = iTime * 0.5;
-float timeLines = max(0.0, iTime - 2.5) * 0.5; // чуть раньше начнём линии
-
-float N21(vec2 p){
-    vec3 a = fract(vec3(p.xyx)*vec3(613.897,553.453,80.098));
-    a += dot(a,a.yzx+88.76);
-    return fract((a.x+a.y)*a.z);
+// SDF сферы
+float sdSphere(vec3 p, float r) {
+    return length(p) - r;
 }
 
-vec2 GetPos(vec2 id, vec2 offs, float t){
-    float n = N21(id+offs);
-    float n1 = fract(n*0.7);
-    float n2 = fract(n*79.7);
-    float a = t+n;
-    return offs + vec2(sin(a*n1), cos(a*n2)) * 0.7; // чуть больше амплитуда
+// SDF сцены
+float map(vec3 pos) {
+    float r = 0.5;
+    vec3 d = vec3(0.2, 0.7, 0.2);
+    float h = -cos(iTime * 0.125) * 5.0;
+
+    float sminAcc = 0.0;
+    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.5 + 0.2), sin(iTime*0.476 + 0.4) + h, sin(iTime*0.435 + 0.7)), r));
+    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.417 + 1.3), sin(iTime*0.526 + 0.5) + h, sin(iTime*0.4 + 0.2)), r));
+    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.345 + 2.3), sin(iTime*0.333 + 0.3) + h, sin(iTime*0.385 + 0.8)), r));
+    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.455 + 2.9), sin(iTime*0.357 + 0.8) + h, sin(iTime*0.556 + 0.9)), r));
+
+    // Пол (горизонтальная плоскость)
+    sminAcc += exp2(-K * (2.0 - abs(pos.y)));
+
+    return -log2(sminAcc) / K;
 }
 
-float df_line(vec2 a, vec2 b, vec2 p){
-    vec2 pa = p - a;
-    vec2 ba = b - a;
-    float h = clamp(dot(pa,ba)/dot(ba,ba), 0.0, 1.0);
-    return length(pa - ba*h);
+// Нормаль через конечные разности
+vec3 calcNormal(vec3 pos) {
+    const float eps = 0.0005;
+    const vec2 h = vec2(eps, 0.0);
+    float d = map(pos);
+    return normalize(vec3(
+        map(pos + h.xyy) - d,
+        map(pos + h.yxy) - d,
+        map(pos + h.yyx) - d
+    ));
 }
 
-float line(vec2 a, vec2 b, vec2 uv){
-    // ⬇️ СДЕЛАЛИ ТОНЬШЕ
-    float r1 = 0.003;   // было 0.005
-    float r2 = 0.00007; // было 0.0001
-    float d = df_line(a,b,uv);
-    float d2 = length(a-b);
-    float fade = S(0.005,0.05,d2);
-    fade += S(0.0003,0.00015,abs(d2-0.025));
-    return S(r1, r2, d) * fade;
+// Туман (fog)
+vec3 applyFog(vec3 rgb, float distance, vec3 fogColor) {
+    float fogAmount = 1.0 - exp(-distance * 0.3);
+    return mix(rgb, fogColor, fogAmount);
 }
 
-float NetLayer(vec2 st, float n, float tPoints, float tLines){
-    vec2 id = floor(st)+n;
-    st = fract(st)-0.5;
+// Камера
+mat3 setCamera(vec3 ro, vec3 ta) {
+    vec3 cw = normalize(ta - ro);
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 cu = normalize(cross(cw, up));
+    vec3 cv = normalize(cross(cu, cw));
+    return mat3(cu, cv, cw);
+}
 
-    vec2 p[9];
-    p[0] = GetPos(id, vec2(-1.0,-1.0), tPoints);
-    p[1] = GetPos(id, vec2( 0.0,-1.0), tPoints);
-    p[2] = GetPos(id, vec2( 1.0,-1.0), tPoints);
-    p[3] = GetPos(id, vec2(-1.0, 0.0), tPoints);
-    p[4] = GetPos(id, vec2( 0.0, 0.0), tPoints);
-    p[5] = GetPos(id, vec2( 1.0, 0.0), tPoints);
-    p[6] = GetPos(id, vec2(-1.0, 1.0), tPoints);
-    p[7] = GetPos(id, vec2( 0.0, 1.0), tPoints);
-    p[8] = GetPos(id, vec2( 1.0, 1.0), tPoints);
+// Рендер лавовой лампы
+vec3 lavaLamp(vec3 ro, vec3 rd, vec3 cd, float maxDist) {
+    float t = 1.0;
+    float d = 0.0;
 
-    float m = 0.0;
-    float sparkle = 0.0;
-    for (int i = 0; i < 9; i++) {
-        vec2 pt = p[i];
-        float d = length(st - pt);
-        float s = 0.0018/(d*d + 0.0001);
-        s *= S(1.0,0.12,d);
-        float pulse = sin((fract(pt.x)+fract(pt.y)+tPoints)*5.0)*0.4+0.6;
-        pulse = pow(pulse,20.0);
-        s *= pulse;
-        sparkle += s;
+    for (int i = 0; i < 64; i++) {
+        vec3 p = ro + t * rd;
+        float h = map(p);
+        t += h;
+        d = dot(t * rd, cd);
+        if (abs(h) < 0.001 || d > maxDist) break;
     }
 
-    if (tLines > 0.0) {
-        for (int i = 0; i < 9; i++) {
-            if (i != 4) m += line(p[4], p[i], st);
-        }
-        // Убираем рамки — оставляем только звёзды (по желанию можно вернуть)
-        // m += line(p[1],p[3],st);
-        // m += line(p[1],p[5],st);
-        // m += line(p[7],p[5],st);
-        // m += line(p[7],p[3],st);
+    vec3 col = vec3(0.0);
+    if (d < maxDist) {
+        vec3 pos = ro + t * rd;
+        vec3 nor = calcNormal(pos);
+
+        // Проекция "клетчатого" узора
+        pos *= 3.0;
+        pos.z += iTime * 0.4;
+        vec3 proj = abs(fract(pos) - 0.5);
+        proj = smoothstep(0.1, 0.0, proj);
+        col = proj * smoothstep(0.1, 0.9, vec3(1.0) - abs(nor));
+        col = vec3(max(max(col.x, col.y), col.z));
+
+        // Цвет — градиент по X (как у тебя!)
+        float uvx = (pos.x + 4.0) / 8.0; // нормализуем по видимой области
+        uvx = clamp(uvx, 0.0, 1.0);
+        vec3 leftColor = vec3(0.8, 0.0, 1.0);   // неон-фиолетовый
+        vec3 rightColor = vec3(0.0, 1.0, 0.3);  // неон-зелёный
+        col *= mix(leftColor, rightColor, uvx);
+
+        col = applyFog(col, d, vec3(0.0));
     }
-
-    float sPhase = (sin(tPoints + n) + sin(tPoints * 0.1)) * 0.25 + 0.5;
-    sPhase += pow(sin(tPoints * 0.1) * 0.5 + 0.5, 50.0) * 4.0;
-    m += sparkle * sPhase;
-
-    return m;
+    return col;
 }
 
-void main(){
+void main() {
     vec2 fragCoord = vUv * iResolution.xy;
-    float aspect = min(iResolution.x, iResolution.y);
-    vec2 uv = (fragCoord - iResolution.xy * 0.5) / aspect;
-    vec2 M = iMouse.xy / iResolution.xy - 0.5;
-    float t = iTime * 0.0005;
 
-    float s = sin(t);
-    float c = cos(t);
-    mat2 rot = mat2(c, -s, s, c);
-    vec2 st = uv * rot;
-    M *= rot;
+    vec3 total = vec3(0.0);
 
-    float m = 0.0;
-    for(float i = 0.0; i < 1.0; i += 1.0 / NUM_LAYERS){
-        float z = fract(t + i);
-        float size = mix(10.0, 2.0, z); // "отодвинули" немного
-        float fade = S(0.0, 0.006, z) * S(0.0, 0.08, z);
-        m += fade * NetLayer(st * size - M * z, i, timePoints, timeLines);
+#if USE_AA
+    vec2 rook[4];
+    rook[0] = vec2(1.0/8.0, 3.0/8.0);
+    rook[1] = vec2(3.0/8.0, -1.0/8.0);
+    rook[2] = vec2(-1.0/8.0, -3.0/8.0);
+    rook[3] = vec2(-3.0/8.0, 1.0/8.0);
+    for (int n = 0; n < 4; n++) {
+        vec2 p = (-iResolution.xy + 2.0 * (fragCoord + rook[n])) / iResolution.y;
+#else
+        vec2 p = (-iResolution.xy + 2.0 * fragCoord) / iResolution.y;
+#endif
+
+        // Позиция камеры (немного смещена вверх и назад)
+        vec3 ro = vec3(0.0, 0.5, 4.0);
+        vec3 ta = vec3(0.0, 0.0, 0.0);
+        mat3 cam = setCamera(ro, ta);
+        vec3 rd = cam * normalize(vec3(p, 1.0));
+
+        vec3 col = lavaLamp(ro, rd, cam[2], 7.0);
+        total += col;
+
+#if USE_AA
     }
+    total /= 4.0;
+#endif
 
-    // 💜➡️💚 ЦВЕТ ПО ВЕРТИКАЛИ (Y), а не по X!
-    float yGradient = vUv.y; // 0 = низ, 1 = верх
-    vec3 topColor = vec3(0.8, 0.0, 1.0);    // фиолетовый — сверху
-    vec3 bottomColor = vec3(0.0, 1.0, 0.3); // зелёный — снизу
-    vec3 blendColor = mix(bottomColor, topColor, yGradient); // низ → верх
+    // Гамма-коррекция
+    total = pow(total, vec3(1.0 / 2.2));
 
-    vec3 col = blendColor * m * 1.8; // чуть меньше яркость
-
-    // ⬇️ ПРОЗРАЧНОСТЬ ~50% максимум
-    float alpha = min(0.5, length(col)); // не более 0.5
-
-    gl_FragColor = vec4(col, alpha);
+    // Прозрачность: если цвет почти нулевой — делаем фон прозрачным
+    float alpha = min(1.0, length(total) * 2.0);
+    gl_FragColor = vec4(total, alpha);
 }
   `;
 
@@ -393,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
