@@ -23,11 +23,10 @@ uniform float iTime;
 uniform vec4 iMouse;
 
 #define S(a,b,t) smoothstep(a,b,t)
-#define NUM_LAYERS 4.0
+#define NUM_LAYERS 2.0  // ⬅️ Было 4.0 — уменьшили количество слоёв
 
-// Время для плавного появления: точки появляются раньше линий
-float timePoints = iTime * 0.5;   // точки появляются быстрее
-float timeLines = max(0.0, iTime - 3.0) * 0.5; // линии появляются позже
+float timePoints = iTime * 0.5;
+float timeLines = max(0.0, iTime - 3.0) * 0.5;
 
 float N21(vec2 p){
     vec3 a = fract(vec3(p.xyx)*vec3(613.897,553.453,80.098));
@@ -40,7 +39,8 @@ vec2 GetPos(vec2 id, vec2 offs, float t){
     float n1 = fract(n*0.7);
     float n2 = fract(n*79.7);
     float a = t+n;
-    return offs + vec2(sin(a*n1), cos(a*n2))*0.5;
+    // ⬅️ Увеличил амплитуду движения — точки дальше от центра ячейки
+    return offs + vec2(sin(a*n1), cos(a*n2)) * 1.2; // было *0.5
 }
 
 float df_line(vec2 a, vec2 b, vec2 p){
@@ -51,56 +51,52 @@ float df_line(vec2 a, vec2 b, vec2 p){
 }
 
 float line(vec2 a, vec2 b, vec2 uv){
-    float r1 = 0.005;
-    float r2 = 0.0001;
+    float r1 = 0.004;   // ⬅️ чуть тоньше
+    float r2 = 0.00008;
     float d = df_line(a,b,uv);
     float d2 = length(a-b);
-    float fade = S(0.005,0.05,d2);
-    fade += S(0.0005,0.0002,abs(d2-0.025));
-    return S(r1,r2,d)*fade;
+    // Убрал один из fade-эффектов, чтобы не было "слипания"
+    float fade = S(0.01, 0.06, d2); // начало fade позже → меньше коротких линий
+    return S(r1, r2, d) * fade;
 }
 
 float NetLayer(vec2 st, float n, float tPoints, float tLines){
-    vec2 id = floor(st)+n;
-    st = fract(st)-0.5;
+    // ⬅️ МАСШТАБИРОВАНИЕ СЕТКИ: делаем ячейки крупнее → меньше точек на экране
+    st *= 0.6; // сжимаем координаты → крупнее сетка
+    vec2 id = floor(st) + n;
+    st = fract(st) - 0.5;
 
-    vec2 p[9];
-    p[0] = GetPos(id, vec2(-1.0,-1.0), tPoints);
-    p[1] = GetPos(id, vec2( 0.0,-1.0), tPoints);
-    p[2] = GetPos(id, vec2( 1.0,-1.0), tPoints);
-    p[3] = GetPos(id, vec2(-1.0, 0.0), tPoints);
-    p[4] = GetPos(id, vec2( 0.0, 0.0), tPoints);
-    p[5] = GetPos(id, vec2( 1.0, 0.0), tPoints);
-    p[6] = GetPos(id, vec2(-1.0, 1.0), tPoints);
-    p[7] = GetPos(id, vec2( 0.0, 1.0), tPoints);
-    p[8] = GetPos(id, vec2( 1.0, 1.0), tPoints);
+    // Только 5 ключевых точек вместо 9 (углы + центр)
+    vec2 p[5];
+    p[0] = GetPos(id, vec2( 0.0,  0.0), tPoints); // центр
+    p[1] = GetPos(id, vec2(-1.5, -1.5), tPoints); // верх-лево
+    p[2] = GetPos(id, vec2( 1.5, -1.5), tPoints); // верх-право
+    p[3] = GetPos(id, vec2(-1.5,  1.5), tPoints); // низ-лево
+    p[4] = GetPos(id, vec2( 1.5,  1.5), tPoints); // низ-право
 
     float m = 0.0;
     float sparkle = 0.0;
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 5; i++) {
         vec2 pt = p[i];
         float d = length(st - pt);
-        float s = 0.002/(d*d + 0.0001);
-        s *= S(1.0,0.1,d);
+        // Слегка уменьшил размер точек
+        float s = 0.0015 / (d * d + 0.0001);
+        s *= S(1.0, 0.15, d); // чуть мягче затухание
         float pulse = sin((fract(pt.x)+fract(pt.y)+tPoints)*5.0)*0.4+0.6;
-        pulse = pow(pulse,20.0);
+        pulse = pow(pulse, 20.0);
         s *= pulse;
         sparkle += s;
     }
 
-    // Линии появляются ПОЗЖЕ
+    // Линии только от центра к углам — убрали рамки
     if (tLines > 0.0) {
-        for (int i = 0; i < 9; i++) {
-            if (i != 4) m += line(p[4], p[i], st);
+        for (int i = 1; i < 5; i++) {
+            m += line(p[0], p[i], st);
         }
-        m += line(p[1],p[3],st);
-        m += line(p[1],p[5],st);
-        m += line(p[7],p[5],st);
-        m += line(p[7],p[3],st);
     }
 
     float sPhase = (sin(tPoints + n) + sin(tPoints * 0.1)) * 0.25 + 0.5;
-    sPhase += pow(sin(tPoints * 0.1) * 0.5 + 0.5, 50.0) * 5.0;
+    sPhase += pow(sin(tPoints * 0.1) * 0.5 + 0.5, 50.0) * 3.0; // чуть меньше
     m += sparkle * sPhase;
 
     return m;
@@ -122,24 +118,18 @@ void main(){
     float m = 0.0;
     for(float i = 0.0; i < 1.0; i += 1.0 / NUM_LAYERS){
         float z = fract(t + i);
-        float size = mix(15.0, 0.0, z);
+        // ⬅️ Увеличил минимальный размер → меньше "близких" элементов
+        float size = mix(8.0, 2.0, z); // было mix(15.0, 0.0, z)
         float fade = S(0.0, 0.006, z) * S(0.0, 0.08, z);
         m += fade * NetLayer(st * size - M * z, i, timePoints, timeLines);
     }
 
-    // УБРАЛИ ПОТЕМНЕНИЕ ПО КРАЯМ: закомментировано или удалено
-    // col *= 1.0 - dot(uv, uv);
+    vec3 leftColor = vec3(0.8, 0.0, 1.0);
+    vec3 rightColor = vec3(0.0, 1.0, 0.3);
+    vec3 blendColor = mix(leftColor, rightColor, vUv.x);
+    vec3 col = blendColor * m * 2.2;
 
-    // ГРАДИЕНТ ЦВЕТА: слева — фиолетовый, справа — зелёный
-    vec3 leftColor = vec3(0.8, 0.0, 1.0);   // неоново-фиолетовый
-    vec3 rightColor = vec3(0.0, 1.0, 0.3);  // неоново-зелёный
-    vec3 blendColor = mix(leftColor, rightColor, vUv.x); // градиент по X
-
-    vec3 col = blendColor * m * 2.0; // усиливаем яркость
-
-    // Прозрачность: alpha = яркость результата
-    float alpha = min(1.0, length(col)); // или просто m, но лучше на основе цвета
-
+    float alpha = min(1.0, length(col));
     gl_FragColor = vec4(col, alpha);
 }
   `;
@@ -395,6 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
