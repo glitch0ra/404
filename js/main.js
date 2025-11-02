@@ -35,17 +35,22 @@ vec2 hash2(vec2 v) {
 	return fract(sin(v)*43758.5453123);
 }
 vec4 hash4(vec2 v) {
-    vec4 p = vec4(v * mat4x2( 127.1, 311.7,
-                              269.5, 183.3,
-                              113.5, 271.9,
-                              246.1, 124.6 ));
+    vec4 p = vec4(
+        dot(v, vec2(127.1, 311.7)),
+        dot(v, vec2(269.5, 183.3)),
+        dot(v, vec2(113.5, 271.9)),
+        dot(v, vec2(246.1, 124.6))
+    );
     return fract(sin(p)*43758.5453123);
 }
+
 vec4 hash4(vec3 v) {
-    vec4 p = vec4(v * mat4x3( 127.1, 311.7, 74.7,
-                              269.5, 183.3, 246.1,
-                              113.5, 271.9, 124.6,
-                              271.9, 269.5, 311.7 ) );
+    vec4 p = vec4(
+        dot(v, vec3(127.1, 311.7, 74.7)),
+        dot(v, vec3(269.5, 183.3, 246.1)),
+        dot(v, vec3(113.5, 271.9, 124.6)),
+        dot(v, vec3(271.9, 269.5, 311.7))
+    );
     return fract(sin(p)*43758.5453123);
 }
 float rune_line(vec2 p, vec2 a, vec2 b) {
@@ -545,6 +550,7 @@ void main() {
     showPage(hash);
   });
 });
+
 
 
 
