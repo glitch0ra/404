@@ -186,32 +186,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Фрагментный шейдер (твой Accretion)
   const fragmentSrc = `
-    precision highp float;
-    uniform vec2 iResolution;
-    uniform float iTime;
+precision highp float;
+uniform vec2 iResolution;
+uniform float iTime;
 
-    void mainImage(out vec4 O, vec2 I)
-    {
-        float z, d, i;
-        for(O*=i; i++<2e1; )
-        {
-            vec3 p = z*normalize(vec3(I+I,0.0)-iResolution.xyx)+.1;
-            p = vec3(atan(p.y/.2,p.x)*2.0, p.z/3.0, length(p.xy)-5.0-z*.2);
-            for(d=0.0; d++<7.0;)
-                p += sin(p.yzx*d+iTime+.3*i)/d;
-            z += d = length(vec4(.4*cos(p)-.4, p.z));
-            O += (1.0+cos(p.x+i*.4+z+vec4(6,1,2,0)))/d;
+void mainImage(out vec4 O, vec2 I)
+{
+    float z = 0.0;
+    float d = 0.0;
+    float i = 0.0;
+    O = vec4(0.0);
+
+    for(i = 0.0; i < 20.0; i++) {
+        vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
+        p = vec3(atan(p.y / 0.2, p.x) * 2.0, p.z / 3.0, length(p.xy) - 5.0 - z * 0.2);
+
+        for(d = 0.0; d < 7.0; d++) {
+            p += sin(p.yzx * d + iTime + 0.3 * i) / d;
         }
-        O = tanh(O*O/400.0);
+
+        z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
+        O += (1.0 + cos(p.x + i * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
     }
 
-    void main() {
-      vec2 uv = gl_FragCoord.xy;
-      vec4 color = vec4(0.0);
-      mainImage(color, uv);
-      gl_FragColor = color;
-    }
-  `;
+    // --- Вместо tanh используем безопасную аппроксимацию ---
+    O = O * O / (O * O + 400.0);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy;
+    vec4 color = vec4(0.0);
+    mainImage(color, uv);
+    gl_FragColor = color;
+}
+`;
 
   function compileShader(type, src) {
     const shader = gl.createShader(type);
@@ -255,4 +263,5 @@ document.addEventListener('DOMContentLoaded', () => {
   
 })();
 });
+
 
