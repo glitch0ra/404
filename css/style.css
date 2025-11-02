@@ -437,6 +437,7 @@ h2 {
   z-index: 5; 
   margin: 0 auto;
   overflow: hidden; 
+  pointer-events: none;
 }
 
 /* Стили для видео в шапке */
@@ -445,6 +446,7 @@ h2 {
   height: 430px; 
   display: block; 
   object-fit: contain;
+  pointer-events: none;
 }
 
 @media (max-width: 900px) {
@@ -463,6 +465,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
