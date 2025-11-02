@@ -194,14 +194,11 @@ void mainImage(out vec4 O, vec2 I)
 {
     float z = 0.0;
     float d = 0.0;
-    float i = 0.0;
-    float dd = 0.0;
     vec3 p;
     O = vec4(0.0);
 
-    // --- Главный raymarch цикл ---
-    i = 0.0;
-    while (i < 20.0) {
+    // Главный raymarch цикл — фиксированные итерации
+    for (int i = 0; i < 20; i++) {
         p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
         p = vec3(
             atan(p.y / 0.2, p.x) * 2.0,
@@ -209,19 +206,17 @@ void mainImage(out vec4 O, vec2 I)
             length(p.xy) - 5.0 - z * 0.2
         );
 
-        dd = 1.0;
-        while (dd <= 7.0) {
-            p += sin(p.yzx * dd + iTime + 0.3 * i) / dd;
-            dd += 1.0;
+        // Внутренний цикл турбулентности — фиксированный
+        for (int j = 1; j <= 7; j++) {
+            float jf = float(j);
+            p += sin(p.yzx * jf + iTime + 0.3 * float(i)) / jf;
         }
 
         z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
-        O += (1.0 + cos(p.x + i * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
-
-        i += 1.0;
+        O += (1.0 + cos(p.x + float(i) * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
     }
 
-    // --- Тонмап (без tanh) ---
+    // Тонмап (замена tanh)
     O = O * O / (O * O + 400.0);
 }
 
@@ -232,6 +227,7 @@ void main() {
     gl_FragColor = color;
 }
 `;
+
 
   function compileShader(type, src) {
     const shader = gl.createShader(type);
@@ -275,6 +271,7 @@ void main() {
   
 })();
 });
+
 
 
 
