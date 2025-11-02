@@ -22,135 +22,69 @@ uniform vec3 iResolution;
 uniform float iTime;
 uniform vec4 iMouse;
 
-// --- Параметры ---
-#define USE_AA 0      // 1 = сглаживание (медленнее), 0 = без (быстрее)
-#define K 8.0
-
-// SDF сферы
-float sdSphere(vec3 p, float r) {
-    return length(p) - r;
+// Генератор псевдослучайных чисел
+float rand(float n) {
+    return fract(sin(n) * 43758.5453);
 }
 
-// SDF сцены
-float map(vec3 pos) {
-    float r = 0.5;
-    vec3 d = vec3(0.2, 0.7, 0.2);
-    float h = -cos(iTime * 0.125) * 5.0;
-
-    float sminAcc = 0.0;
-    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.5 + 0.2), sin(iTime*0.476 + 0.4) + h, sin(iTime*0.435 + 0.7)), r));
-    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.417 + 1.3), sin(iTime*0.526 + 0.5) + h, sin(iTime*0.4 + 0.2)), r));
-    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.345 + 2.3), sin(iTime*0.333 + 0.3) + h, sin(iTime*0.385 + 0.8)), r));
-    sminAcc += exp2(-K * sdSphere(pos - d * vec3(sin(iTime*0.455 + 2.9), sin(iTime*0.357 + 0.8) + h, sin(iTime*0.556 + 0.9)), r));
-
-    // Пол (горизонтальная плоскость)
-    sminAcc += exp2(-K * (2.0 - abs(pos.y)));
-
-    return -log2(sminAcc) / K;
-}
-
-// Нормаль через конечные разности
-vec3 calcNormal(vec3 pos) {
-    const float eps = 0.0005;
-    const vec2 h = vec2(eps, 0.0);
-    float d = map(pos);
-    return normalize(vec3(
-        map(pos + h.xyy) - d,
-        map(pos + h.yxy) - d,
-        map(pos + h.yyx) - d
-    ));
-}
-
-// Туман (fog)
-vec3 applyFog(vec3 rgb, float distance, vec3 fogColor) {
-    float fogAmount = 1.0 - exp(-distance * 0.3);
-    return mix(rgb, fogColor, fogAmount);
-}
-
-// Камера
-mat3 setCamera(vec3 ro, vec3 ta) {
-    vec3 cw = normalize(ta - ro);
-    vec3 up = vec3(0.0, 1.0, 0.0);
-    vec3 cu = normalize(cross(cw, up));
-    vec3 cv = normalize(cross(cu, cw));
-    return mat3(cu, cv, cw);
-}
-
-// Рендер лавовой лампы с модифицированными линиями
-vec3 lavaLamp(vec3 ro, vec3 rd, vec3 cd, float maxDist) {
-    float t = 1.0;
-    float d = 0.0;
-
-    for (int i = 0; i < 64; i++) {
-        vec3 p = ro + t * rd;
-        float h = map(p);
-        t += h;
-        d = dot(t * rd, cd);
-        if (abs(h) < 0.001 || d > maxDist) break;
-    }
-
-    vec3 col = vec3(0.0);
-    if (d < maxDist) {
-        vec3 pos = ro + t * rd;
-        vec3 nor = calcNormal(pos);
-
-        // Проекция "клетчатого" узора — линии тоньше
-        pos *= 3.0;
-        pos.z += iTime * 0.4;
-        vec3 proj = abs(fract(pos) - 0.5);
-        proj = smoothstep(0.25, 0.0, proj); // ← тоньше линии (было 0.1)
-        col = proj * smoothstep(0.1, 0.9, vec3(1.0) - abs(nor));
-        col = vec3(max(max(col.x, col.y), col.z));
-
-        // Градиент по ВЕРТИКАЛИ: сверху — фиолетовый, снизу — зелёный
-        float uvy = (pos.y + 3.0) / 6.0; // нормализация по Y
-        uvy = clamp(uvy, 0.0, 1.0);
-        vec3 topColor = vec3(0.8, 0.0, 1.0);    // фиолетовый
-        vec3 bottomColor = vec3(0.0, 1.0, 0.3); // зелёный
-        col *= mix(bottomColor, topColor, uvy); // сверху → topColor, снизу → bottomColor
-
-        col = applyFog(col, d, vec3(0.0));
-    }
-    return col;
+float rand(vec2 n) {
+    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
 }
 
 void main() {
-    vec2 fragCoord = vUv * iResolution.xy;
+    // Нормализованные координаты: (0,0) внизу-слева → (1,1) вверху-справа
+    vec2 uv = vUv;
+    vec2 coord = floor(uv * vec2(iResolution.x * 0.05, 1.0)); // ~20 пикс на символ по X
 
-    vec3 total = vec3(0.0);
+    // Номер столбца (целое число)
+    float col = coord.x;
 
-#if USE_AA
-    vec2 rook[4];
-    rook[0] = vec2(1.0/8.0, 3.0/8.0);
-    rook[1] = vec2(3.0/8.0, -1.0/8.0);
-    rook[2] = vec2(-1.0/8.0, -3.0/8.0);
-    rook[3] = vec2(-3.0/8.0, 1.0/8.0);
-    for (int n = 0; n < 4; n++) {
-        vec2 p = (-iResolution.xy + 2.0 * (fragCoord + rook[n])) / iResolution.y;
-#else
-        vec2 p = (-iResolution.xy + 2.0 * fragCoord) / iResolution.y;
-#endif
+    // Случайная фаза и скорость для каждого столбца
+    float phase = rand(col * 10.0) * 100.0;
+    float speed = 0.5 + rand(col * 7.0 + 1.0) * 2.0; // от 0.5 до 2.5
 
-        // Позиция камеры
-        vec3 ro = vec3(0.0, 0.5, 4.0);
-        vec3 ta = vec3(0.0, 0.0, 0.0);
-        mat3 cam = setCamera(ro, ta);
-        vec3 rd = cam * normalize(vec3(p, 1.0));
+    // Текущая "голова" потока в этом столбце
+    float head = mod(iTime * speed + phase, iResolution.y * 0.01 + 10.0);
 
-        vec3 col = lavaLamp(ro, rd, cam[2], 7.0);
-        total += col;
+    // Позиция текущего пикселя по вертикали (в "символьных" единицах)
+    float row = uv.y * iResolution.y * 0.01; // масштабируем Y
 
-#if USE_AA
+    // Расстояние от "головы" вниз (с учётом циклического переноса)
+    float dist;
+    if (row < head) {
+        dist = head - row;
+    } else {
+        dist = (iResolution.y * 0.01 + 10.0) - (row - head);
     }
-    total /= 4.0;
-#endif
 
-    // Гамма-коррекция
-    total = pow(total, vec3(1.0 / 2.2));
+    // Только рисуем, если мы в пределах "хвоста" (например, 15 символов)
+    float tailLength = 15.0;
+    float brightness = 0.0;
 
-    // Прозрачность ограничена до 50%
-    float alpha = min(0.5, length(total) * 2.0);
-    gl_FragColor = vec4(total, alpha);
+    if (dist < tailLength) {
+        // Голова — яркая, хвост — затухает
+        brightness = 1.0 - (dist / tailLength);
+
+        // Добавим "мигание" символов в хвосте
+        float flicker = rand(col + floor(row * 3.0) * 0.1 + iTime * 0.3);
+        brightness *= (0.3 + 0.7 * flicker);
+
+        // Голова — всегда яркая
+        if (dist < 1.0) {
+            brightness = 1.0;
+        }
+    }
+
+    // Цвет — белый
+    vec3 color = vec3(brightness);
+
+    // Небольшое свечение (необязательно)
+    color = pow(color, vec3(1.0 / 2.2)); // гамма для мягкости
+
+    // Прозрачность — только там, где есть символы
+    float alpha = min(0.8, brightness * 1.5); // макс прозрачность ~0.8
+
+    gl_FragColor = vec4(color, alpha);
 }
   `;
 
@@ -405,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(hash);
   });
 });
+
 
 
 
