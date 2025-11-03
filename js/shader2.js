@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // размер и вьюпорт
+  // Поддержка чётких размеров
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas2.width = Math.round(window.innerWidth * dpr);
@@ -25,11 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', resize);
   resize();
 
-  // Включаем альфа-композитинг, чтобы накладывать поверх красиво
+  // Прозрачное наложение
   gl2.enable(gl2.BLEND);
   gl2.blendFunc(gl2.SRC_ALPHA, gl2.ONE_MINUS_SRC_ALPHA);
 
-  // Вершинный шейдер (обычный full-screen quad)
   const vertexSrc2 = `#version 300 es
   precision highp float;
   layout(location = 0) in vec2 a_position;
@@ -37,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
-  // Фрагментный шейдер — адаптация оригинальной glitch-петли (красный)
   const fragmentSrc2 = `#version 300 es
   precision highp float;
   out vec4 fragColor;
@@ -45,14 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform vec3 iResolution;
   uniform float iTime;
 
-  float rand(vec2 p)
-  {
-      float t = floor(iTime * 20.0) / 10.0; // glitch FPS
+  // Случайность
+  float rand(vec2 p) {
+      // Замедление в 3 раза и постоянная активность
+      float t = mod(iTime * 6.67, 100.0); // вместо floor(iTime * 20.) / 10.
       return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
   }
 
-  float noise(vec2 uv, float blockiness)
-  {
+  float noise(vec2 uv, float blockiness) {
       vec2 lv = fract(uv);
       vec2 id = floor(uv);
 
@@ -62,18 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
       float n4 = rand(id + vec2(1.0, 1.0));
 
       vec2 u = smoothstep(0.0, 1.0 + blockiness, lv);
-
       return mix(mix(n1, n2, u.x), mix(n3, n4, u.x), u.y);
   }
 
-  float fbm(vec2 uv, int count, float blockiness, float complexity)
-  {
+  float fbm(vec2 uv, int count, float blockiness, float complexity) {
       float val = 0.0;
       float amp = 0.5;
-      // Используем цикл while, как в оригинале
-      while(count != 0)
-      {
-          val += amp * noise(uv + (rand(ceil(uv * 3.0) / 3.0) * 2.0 + (float(floor(iTime * 20.0) / 10.0) / float(count)) - 1.0), blockiness);
+
+      while(count != 0) {
+          val += amp * noise(uv + (rand(ceil(uv * 3.0) / 3.0) * 2.0
+                + (float(floor(iTime * 6.67) / 10.0) / float(count)) - 1.0), blockiness);
           amp *= 0.5;
           uv *= complexity;
           count--;
@@ -81,25 +77,32 @@ document.addEventListener('DOMContentLoaded', () => {
       return val;
   }
 
-  // mainImage как в оригинале; возвращает красные глитч-облака
-  void mainImage(out vec4 outColor, in vec2 fragCoord)
-  {
+  // 4 неоновых цвета для случайных "кусочков"
+  vec3 getRandomColor(vec2 uv) {
+      float r = rand(uv * 12.345 + iTime);
+      if (r < 0.25) return vec3(1.0, 0.0, 1.0);    // 💜 пурпурный
+      else if (r < 0.5) return vec3(0.0, 1.0, 0.58); // 💚 зелёный
+      else if (r < 0.75) return vec3(0.0, 1.0, 1.0); // 💙 голубой
+      else return vec3(1.0, 0.4, 0.8);               // 💗 розовый
+  }
+
+  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       vec2 uv = fragCoord / iResolution.xy;
       vec2 uv2 = uv;
 
       uv *= 5.0;
       uv.x *= fbm(uv, 2, 3.0, 1.0);
 
-      float noiseVal = smoothstep(0.5, 1.0, fbm(uv, 2, 3.0, 1.5)); // take the noise
+      // ↓ плотность шумовых блоков уменьшена в 1.5 раза
+      float noiseVal = smoothstep(0.55, 1.0, fbm(uv * 0.8, 2, 3.0, 1.3));
 
-      // В оригинале берётся текстура iChannel0; у нас нет текстуры, поэтому используем красный,
-      // как ты просил — максимально как оригинал (красный глитч).
-      vec3 col = vec3(1.0, 0.0, 0.0) * smoothstep(0.2, 0.3, noiseVal);
+      // случайный цвет для каждой области
+      vec3 color = getRandomColor(floor(uv * 10.0));
 
-      // alpha — деликатная прозрачность, чтобы не перекрывать слишком сильно
-      float alpha = smoothstep(0.18, 0.35, noiseVal) * 0.9;
+      // применяем альфа и плавность появления
+      float intensity = smoothstep(0.22, 0.33, noiseVal);
 
-      outColor = vec4(col, alpha);
+      fragColor = vec4(color * intensity, intensity * 0.8);
   }
 
   void main() {
@@ -108,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fragColor = c;
   }`;
 
-  // Компиляция шейдера
+  // компиляция
   function compileShader(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -135,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   gl2.useProgram(prog2);
 
-  // Квад для full-screen
+  // Квад
   const quad2 = gl2.createBuffer();
   gl2.bindBuffer(gl2.ARRAY_BUFFER, quad2);
   gl2.bufferData(gl2.ARRAY_BUFFER, new Float32Array([
@@ -146,24 +149,18 @@ document.addEventListener('DOMContentLoaded', () => {
   gl2.enableVertexAttribArray(0);
   gl2.vertexAttribPointer(0, 2, gl2.FLOAT, false, 0, 0);
 
-  // Uniform locations
   const iResolutionLoc2 = gl2.getUniformLocation(prog2, 'iResolution');
   const iTimeLoc2 = gl2.getUniformLocation(prog2, 'iTime');
 
   let start = performance.now();
-
   function render() {
     resize();
     const t = (performance.now() - start) * 0.001;
     gl2.useProgram(prog2);
     gl2.uniform3f(iResolutionLoc2, canvas2.width, canvas2.height, 1.0);
     gl2.uniform1f(iTimeLoc2, t);
-    // Не очищаем background — пусть наложение происходит аккуратно (clear только если нужно)
-    // gl2.clearColor(0,0,0,0);
-    // gl2.clear(gl2.COLOR_BUFFER_BIT);
     gl2.drawArrays(gl2.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
-
   requestAnimationFrame(render);
 });
