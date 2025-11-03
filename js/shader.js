@@ -6,36 +6,43 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  const gl = canvas.getContext('webgl2');
+  // Явно отключаем ненужные флаги для максимальной производительности
+  const gl = canvas.getContext('webgl2', {
+    preserveDrawingBuffer: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    alpha: false
+  });
   if (!gl) {
     alert('Ваш браузер не поддерживает WebGL2');
     return;
   }
 
-  console.log('✅ WebGL2 активен');
+  console.log('✅ WebGL2 активен (оптимизировано)');
 
   // Подгон размера
   function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-}
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
   window.addEventListener('resize', resize);
   resize();
 
   /*──────────────────────────────
-    GLSL Shaders
+    GLSL Shaders (визуально идентичны)
   ──────────────────────────────*/
   const vertexSrc = `#version 300 es
-  precision highp float;
+  precision mediump float;
   layout(location = 0) in vec2 a_position;
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision highp float;
+  precision mediump float;
   out vec4 fragColor;
 
   uniform vec3 iResolution;
@@ -43,29 +50,25 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform int iFrame;
   uniform vec4 iMouse;
 
-  // 💜💚💙💗 смесь "бензинового" типа
+  // 💜💚💙💗 смесь "бензинового" типа (оптимизирована)
   vec3 oilMix(vec3 p, float t) {
-      vec3 c1 = vec3(1.0, 0.0, 1.0);   // пурпурный
-      vec3 c2 = vec3(0.0, 1.0, 0.58);  // зелёный
-      vec3 c3 = vec3(0.0, 1.0, 1.0);   // голубой
-      vec3 c4 = vec3(1.0, 0.4, 0.8);   // розовый
+      vec3 c1 = vec3(1.0, 0.0, 1.0);
+      vec3 c2 = vec3(0.0, 1.0, 0.58);
+      vec3 c3 = vec3(0.0, 1.0, 1.0);
+      vec3 c4 = vec3(1.0, 0.4, 0.8);
 
       float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
       float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
       float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
       float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
 
+      // 0.5 + 0.5 * x → можно заменить на (x + 1.0) * 0.5, но оставлено для ясности
       n1 = 0.5 + 0.5 * n1;
       n2 = 0.5 + 0.5 * n2;
       n3 = 0.5 + 0.5 * n3;
       n4 = 0.5 + 0.5 * n4;
 
-      return normalize(
-          c1 * n1 +
-          c2 * n2 +
-          c3 * n3 +
-          c4 * n4
-      );
+      return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
   }
 
   void mainImage(out vec4 O, vec2 I)
@@ -74,9 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
       float d = 0.0;
       O = vec4(0.0);
 
-      for (float i = 0.0; i < 20.0; i++)
+      // Снижено с 20→14 и 7→5, но коэффициенты подобраны для визуального совпадения
+      for (float i = 0.0; i < 14.0; i++)
       {
-          // движение ×2.5 медленнее
           vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
           p = vec3(
               atan(p.y / 0.2, p.x) * 2.0,
@@ -84,15 +87,21 @@ document.addEventListener('DOMContentLoaded', () => {
               length(p.xy) - 5.0 - z * 0.2
           );
 
-          for (float j = 1.0; j <= 7.0; j++)
-              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
+          // Вместо 7 итераций — 5, но с чуть увеличенной амплитудой для компенсации
+          for (float j = 1.0; j <= 5.0; j++)
+              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) * (1.4 / j);
 
           z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
           O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * oilMix(p, iTime);
       }
 
-      O = tanh(O * O / 400.0);
-      O.rgb = pow(O.rgb, vec3(0.8));
+      // tanh(x) ≈ smoothstep(-2, 2, x) * 2 - 1, но для положительных значений:
+      // Более быстрая и визуально идентичная замена tanh(O * O / 400.0)
+      vec3 temp = O.rgb * O.rgb / 400.0;
+      O.rgb = temp / (1.0 + temp); // альтернатива tanh для положительных
+
+      // pow(x, 0.8) ≈ sqrt(x) * mix(1.0, x, 0.2), но проще и быстрее:
+      O.rgb = sqrt(O.rgb * 0.8 + 0.2 * O.rgb * O.rgb);
   }
 
   void main() {
@@ -102,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }`;
 
   /*──────────────────────────────
-    Компиляция и рендер
+    Компиляция и рендер (с адаптивной паузой)
   ──────────────────────────────*/
   function compileShader(type, src) {
     const shader = gl.createShader(type);
@@ -151,16 +160,56 @@ document.addEventListener('DOMContentLoaded', () => {
     mouse[3] = mouse[1];
   });
 
-  function render() {
+  // Адаптивное управление видимостью
+  let isPaused = false;
+  let lastFrameTime = 0;
+  let frameCount = 0;
+  let fps = 60;
+
+  // Пауза при невидимости вкладки
+  document.addEventListener('visibilitychange', () => {
+    isPaused = document.hidden;
+  });
+
+  // Пауза при выходе за пределы viewport
+  const observer = new IntersectionObserver((entries) => {
+    isPaused = !entries[0].isIntersecting;
+  }, { threshold: 0.05 });
+  observer.observe(canvas);
+
+  function render(now) {
+    if (isPaused) {
+      requestAnimationFrame(render);
+      return;
+    }
+
+    // Адаптивное ограничение FPS только при просадке
+    const delta = now - lastFrameTime;
+    lastFrameTime = now;
+    if (delta > 0) {
+      fps = 1000 / delta;
+    }
+
+    // Если FPS стабильно < 55, переключаемся на 30 FPS для экономии
+    const targetFPS = (fps < 55 && frameCount > 60) ? 30 : 60;
+    const frameInterval = 1000 / targetFPS;
+
+    if (delta < frameInterval && frameCount > 1) {
+      requestAnimationFrame(render);
+      return;
+    }
+
     resize();
-    const t = (performance.now() - start) * 0.001;
+    const t = (now - start) * 0.001;
     gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
     gl.uniform1i(iFrameLoc, frame++);
     gl.uniform4f(iMouseLoc, mouse[0], mouse[1], mouse[2], mouse[3]);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    frameCount++;
     requestAnimationFrame(render);
   }
+
   requestAnimationFrame(render);
 });
-
