@@ -183,9 +183,11 @@ vec3 oilMix(vec3 p, float t) {
                         float q = fract(v * chars_count);
                         vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
                         if (char_hash.x >= 0.1 || c == 0.) {
-                            float time_factor = floor(c == 0. ? time * 14.0 :
-                                time * 5.0 * (1.2 * cell_hash2.z +   
-                                    cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
+                            float time_hash = hash(vec2(time * 0.1 + cell_hash2.x * 7.3, cell_hash2.y * 13.1));
+                              float time_factor = floor(c == 0. 
+                                  ? mod(time * 14.0 + time_hash * 200.0, 1000.0)
+                                   : mod(time * 5.0 * (1.2 * cell_hash2.z +   
+                                      cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)) + time_hash * 500.0, 1000.0));
                             float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
                             a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
 
@@ -284,6 +286,7 @@ vec3 col = baseColor / attenuation;
   }
   requestAnimationFrame(render);
 });
+
 
 
 
