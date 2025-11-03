@@ -234,4 +234,9 @@ document.addEventListener("DOMContentLoaded", () => {
     gl3.clear(gl3.COLOR_BUFFER_BIT);
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0,
+    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0, 0.0);
+    gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+});
