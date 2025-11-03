@@ -1,4 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+const canvas = document.getElementById('shader-canvas');
+  if (!canvas) {
+    console.error('Canvas #shader-canvas не найден!');
+    return;
+  }
+
+  let gl = canvas.getContext('webgl2');   // 👈 WebGL 2
+  if (!gl) {
+    console.warn('WebGL2 не поддерживается, fallback на WebGL1');
+    gl = canvas.getContext('webgl');      // fallback
+  }
+  if (!gl) {
+    alert('Ваш браузер не поддерживает WebGL вообще');
+    return;
+  }
+
+  console.log('Используется контекст:', gl instanceof WebGL2RenderingContext ? 'WebGL2' : 'WebGL1');
+  
   const galleries = {
     vhs: [
       { src: "https://glichorahost.pages.dev/Shylily.png", title: "VHS Glitch #01", desc: "Analog decay with hidden signal." },
@@ -158,15 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // === GLSL Shader: "Accretion" by @XorDev ===
 (() => {
-  const canvas = document.getElementById('shader-canvas');
-  if (!canvas) return;
-
-  const gl = canvas.getContext('webg2');
-  if (!gl) {
-    console.error('WebGL не поддерживается.');
-    return;
-  }
-
+  
   // Размер под окно
   function resize() {
     canvas.width = window.innerWidth;
@@ -313,6 +324,7 @@ void main() {
   
 })();
 });
+
 
 
 
