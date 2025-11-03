@@ -29,9 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform vec3 iResolution;
   uniform float iTime;
 
-  // Немного замедляем тайм — 3× медленнее
+  // замедляем — 3x медленнее
   float rand(vec2 p) {
-      float t = floor(iTime * 6.6) / 30.0; // вместо 20 — 3x медленнее
+      float t = floor(iTime * 6.6) / 30.0;
       return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
   }
 
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return val;
   }
 
-  // 4 ярких цвета 💜💚💙💗
+  // цвета 💜💚💙💗
   vec3 randomColor(vec2 uv) {
       float r = rand(uv * 10.0 + iTime * 0.5);
       if (r < 0.25) return vec3(1.0, 0.0, 1.0);   // пурпурный
@@ -71,25 +71,21 @@ document.addEventListener('DOMContentLoaded', () => {
       vec2 uv = fragCoord / iResolution.xy;
       vec2 uv2 = uv;
 
-      // меньше масштаба — реже блоки
       uv *= 3.5;
-
-      // характерные “ломаные” искажения
       uv.x *= fbm(uv, 2, 2.5, 1.0);
-
       float n = fbm(uv, 2, 2.0, 1.4);
-
-      // создаем редкие, но явные всплески
       float glitch = smoothstep(0.55, 0.8, n);
 
-      // теперь глитчи живут дольше и исчезают плавно
       float pulse = sin(iTime * 0.8 + uv.x * 8.0) * 0.5 + 0.5;
       glitch *= pow(pulse, 0.6);
 
       vec3 color = randomColor(floor(uv * 12.0));
-      float alpha = glitch * 0.8;
 
-      fragColor = vec4(color * alpha, alpha);
+      // 🔥 повысим видимость (яркость и альфа)
+      float alpha = glitch * 1.2;   // было 0.8
+      color *= 1.5;                 // чуть ярче
+
+      fragColor = vec4(color * alpha, clamp(alpha, 0.0, 1.0));
   }
 
   void main() {
