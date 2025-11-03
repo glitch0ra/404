@@ -204,9 +204,9 @@ float noise(vec2 uv, float blockiness) {
     vec2 lv = fract(uv);
     vec2 id = floor(uv);
     float n1 = rand(id);
-    float n2 = rand(id + vec2(1, 0));
-    float n3 = rand(id + vec2(0, 1));
-    float n4 = rand(id + vec2(1, 1));
+    float n2 = rand(id + vec2(1.0, 0.0));
+    float n3 = rand(id + vec2(0.0, 1.0));
+    float n4 = rand(id + vec2(1.0, 1.0));
     vec2 u = smoothstep(0.0, 1.0 + blockiness, lv);
     return mix(mix(n1, n2, u.x), mix(n3, n4, u.x), u.y);
 }
@@ -226,16 +226,16 @@ float fbm(vec2 uv, int count, float blockiness, float complexity) {
 /*──────────────────────────────
   Основное изображение
 ──────────────────────────────*/
-void mainImage(out vec4 O, vec2 I)
+vec4 mainImage(vec2 fragCoord)
 {
+    vec4 O = vec4(0.0);
     float z = 0.0;
     float d = 0.0;
-    O = vec4(0.0);
 
     for (float i = 0.0; i < 20.0; i++)
     {
         // замедление движения ×2.5
-        vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
+        vec3 p = z * normalize(vec3(fragCoord + fragCoord, 0.0) - iResolution.xyx) + 0.1;
         p = vec3(
             atan(p.y / 0.2, p.x) * 2.0,
             p.z / 3.0,
@@ -256,12 +256,11 @@ void mainImage(out vec4 O, vec2 I)
     O.rgb = pow(O.rgb, vec3(0.8));
 
     /*──────────────────────
-      Глитч поверх волн
+      Glitch поверх волн
     ──────────────────────*/
-    vec2 uv = I / iResolution.xy;
+    vec2 uv = fragCoord / iResolution.xy;
     uv *= 5.0;
 
-    // легкие и редкие искажения
     float glitchVal = smoothstep(0.5, 1.0, fbm(uv + iTime * 0.3, 2, 3.0, 1.5));
     float glitchPower = step(0.96, fract(sin(iTime * 0.8) * 0.5 + 0.5));
 
@@ -271,16 +270,15 @@ void mainImage(out vec4 O, vec2 I)
     vec3 g4 = vec3(1.0, 0.4, 0.8);   // 💗
     vec3 glitchColor = normalize(g1 + g2 + g3 + g4) * glitchVal * glitchPower;
 
-    // смешиваем glitch с основой
     O.rgb += glitchColor * 0.4;
+    return O;
 }
 
 /*──────────────────────────────
   MAIN
 ──────────────────────────────*/
 void main() {
-    vec4 color = vec4(0.0);
-    mainImage(color, gl_FragCoord.xy);
+    vec4 color = mainImage(gl_FragCoord.xy);
     fragColor = color;
 }`;
 
@@ -348,6 +346,7 @@ void main() {
   requestAnimationFrame(render);
 
 });
+
 
 
 
