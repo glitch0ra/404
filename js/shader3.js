@@ -45,6 +45,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const float BLOCKS_BEFORE_TURN = 3.0;
   const float PI = 3.14159265359;
 
+vec3 oilMix(vec3 p, float t) {
+    vec3 c1 = vec3(1.0, 0.0, 1.0);   // 💜 пурпурный
+    vec3 c2 = vec3(0.0, 1.0, 0.58);  // 💚 зелёный
+    vec3 c3 = vec3(0.0, 1.0, 1.0);   // 💙 голубой
+    vec3 c4 = vec3(1.0, 0.4, 0.8);   // 💗 розовый
+
+    float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
+    float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
+    float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
+    float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
+
+    n1 = 0.5 + 0.5 * n1;
+    n2 = 0.5 + 0.5 * n2;
+    n3 = 0.5 + 0.5 * n3;
+    n4 = 0.5 + 0.5 * n4;
+
+    return normalize(
+        c1 * n1 +
+        c2 * n2 +
+        c3 * n3 +
+        c4 * n4
+    );
+}
+
   float hash(float v) { return fract(sin(v) * 43758.5453123); }
   float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
 
@@ -170,7 +194,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             if (a > 0.) {
                                 float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                                vec3 col = (c == 0. ? vec3(0.67, 0.6, 1.0) : vec3(0.3, 0.1, 0.5)) / attenuation;
+                                vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6);
+                                vec3 col = baseColor / attenuation;
                                 float a1 = result.a;
                                 result.a = a1 + (1. - a1) * a;
                                 result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
@@ -249,6 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
