@@ -1,4 +1,3 @@
-// assets/js/shader2.js
 document.addEventListener('DOMContentLoaded', () => {
   const canvas2 = document.getElementById('shader-canvas2');
   if (!canvas2) return console.error('Canvas #shader-canvas2 не найден!');
@@ -29,46 +28,37 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform vec3 iResolution;
   uniform float iTime;
 
-  // 🎛️ Вечный стабильный таймер (сброс каждые 60 сек)
-  float timeCycle = mod(iTime, 60.0);
-
-  // медленный рандом, без затухания
-  float rand(vec2 p) {
-      float t = timeCycle * 0.1; // скорость появления блоков
-      return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
+  // Вечный шум — цикличный каждые 120 секунд
+  float rand(vec2 p, float t) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233)) + t * 1.2) * 43758.5453);
   }
 
-  float noise(vec2 uv, float blockiness) {
-      vec2 lv = fract(uv);
-      vec2 id = floor(uv);
-      float n1 = rand(id);
-      float n2 = rand(id + vec2(1,0));
-      float n3 = rand(id + vec2(0,1));
-      float n4 = rand(id + vec2(1,1));
-      vec2 u = smoothstep(0.0, 1.0 + blockiness, lv);
-      return mix(mix(n1, n2, u.x), mix(n3, n4, u.x), u.y);
+  float noise(vec2 uv, float t) {
+      vec2 i = floor(uv);
+      vec2 f = fract(uv);
+      float a = rand(i, t);
+      float b = rand(i + vec2(1.0, 0.0), t);
+      float c = rand(i + vec2(0.0, 1.0), t);
+      float d = rand(i + vec2(1.0, 1.0), t);
+      vec2 u = smoothstep(0.0, 1.0, f);
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
   }
 
-  float fbm(vec2 uv, int count, float blockiness, float complexity) {
+  float fbm(vec2 uv, float t) {
       float val = 0.0;
-      float amp = 0.5;
-      while(count != 0) {
-          val += amp * noise(
-              uv + (rand(ceil(uv * 3.) / 3.) * 2.0 +
-              (timeCycle * 0.02 / float(count)) - 1.0),
-              blockiness
-          );
+      float amp = 0.6;
+      for (int i = 0; i < 4; i++) {
+          val += amp * noise(uv, t);
+          uv *= 2.1;
           amp *= 0.5;
-          uv *= complexity;
-          count--;
       }
       return val;
   }
 
-  // цвета 💜💚💙💗
-  vec3 randomColor(vec2 uv) {
-      float r = rand(uv * 10.0 + timeCycle * 0.5);
-      if (r < 0.25) return vec3(1.0, 0.0, 1.0);   // пурпурный
+  // 💜💚💙💗 — выбираем случайный цвет для каждого блока
+  vec3 randomColor(vec2 uv, float t) {
+      float r = rand(uv, t);
+      if (r < 0.25) return vec3(1.0, 0.0, 1.0);     // пурпурный
       else if (r < 0.5) return vec3(0.0, 1.0, 0.58); // зелёный
       else if (r < 0.75) return vec3(0.0, 1.0, 1.0); // голубой
       else return vec3(1.0, 0.4, 0.8);               // розовый
@@ -76,24 +66,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       vec2 uv = fragCoord / iResolution.xy;
-      vec2 uv2 = uv;
+      uv *= vec2(8.0, 5.0); // структура глитч-блоков
 
-      uv *= 3.5;
-      uv.x *= fbm(uv, 2, 2.5, 1.0);
-      float n = fbm(uv, 2, 2.0, 1.4);
+      float t = mod(iTime * 0.33, 120.0); // замедление ×3
 
-      // замедляем общую динамику появления
-      float glitch = smoothstep(0.55, 0.8, n);
-      float pulse = sin(timeCycle * 0.4 + uv.x * 8.0) * 0.5 + 0.5;
-      glitch *= pow(pulse, 0.6);
+      float n = fbm(uv + vec2(0.0, t * 0.6), t);
+      float glitch = smoothstep(0.7, 0.95, n); // более контрастно
 
-      vec3 color = randomColor(floor(uv * 12.0));
+      // делаем появление блоков менее частым
+      if (rand(floor(uv), t) > 0.65) glitch = 0.0;
 
-      // более заметные, живые глитчи
-      float alpha = glitch * 1.4;
-      color *= 1.6;
+      vec3 color = randomColor(floor(uv), t);
+      float alpha = glitch * 0.8;
 
-      fragColor = vec4(color * alpha, clamp(alpha, 0.0, 1.0));
+      fragColor = vec4(color * alpha, alpha);
   }
 
   void main() {
