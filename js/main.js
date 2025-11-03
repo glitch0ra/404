@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('shader-canvas');
   if (!canvas) return;
 
-  const gl = canvas.getContext('webgl');
+  const gl = canvas.getContext('webg2');
   if (!gl) {
     console.error('WebGL не поддерживается.');
     return;
@@ -186,9 +186,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Фрагментный шейдер (твой Accretion)
   const fragmentSrc = `
+#version 300 es
 precision highp float;
+out vec4 fragColor;
 uniform vec2 iResolution;
 uniform float iTime;
+
 
 vec3 blendNeon(vec3 p, float t) {
     // Базовые цвета
@@ -261,16 +264,11 @@ void mainImage(out vec4 O, vec2 I)
 }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy;
     vec4 color = vec4(0.0);
-    mainImage(color, uv);
-    gl_FragColor = color;
+    mainImage(color, gl_FragCoord.xy);
+    fragColor = color;
 }
 `;
-
-
-
-
 
 
   function compileShader(type, src) {
@@ -315,6 +313,7 @@ void main() {
   
 })();
 });
+
 
 
 
