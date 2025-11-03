@@ -136,10 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage(window.location.hash.replace('#', '') || 'home');
   });
 
-  /* =======================
-     WebGL2: Оригинальный "Accretion" by XorDev
+/* =======================
+     WebGL2 Shader Section
      ======================= */
-
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -164,6 +163,34 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform int iFrame;
   uniform vec4 iMouse;
 
+  // 💜💚💙💗 смесь "бензинового" типа — хаотично перемешиваем 4 цвета
+  vec3 oilMix(vec3 p, float t) {
+      vec3 c1 = vec3(1.0, 0.0, 1.0);   // пурпурный
+      vec3 c2 = vec3(0.0, 1.0, 0.58);  // зелёный
+      vec3 c3 = vec3(0.0, 1.0, 1.0);   // голубой
+      vec3 c4 = vec3(1.0, 0.4, 0.8);   // розовый
+
+      // хаотичные фазы и быстрая смена цветов (ускорено ×2)
+      float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
+      float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
+      float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
+      float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
+
+      n1 = 0.5 + 0.5 * n1;
+      n2 = 0.5 + 0.5 * n2;
+      n3 = 0.5 + 0.5 * n3;
+      n4 = 0.5 + 0.5 * n4;
+
+      // суммарное смешение даёт эффект "переливов"
+      vec3 neon = normalize(
+          c1 * n1 +
+          c2 * n2 +
+          c3 * n3 +
+          c4 * n4
+      );
+      return neon;
+  }
+
   void mainImage(out vec4 O, vec2 I)
   {
       float z = 0.0;
@@ -172,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (float i = 0.0; i < 20.0; i++)
       {
+          // движение замедляем ×2.5
           vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
           p = vec3(
               atan(p.y / 0.2, p.x) * 2.0,
@@ -180,14 +208,16 @@ document.addEventListener('DOMContentLoaded', () => {
           );
 
           for (float j = 1.0; j <= 7.0; j++)
-              p += sin(p.yzx * j + iTime + 0.3 * i) / j;
+              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j; // было iTime, теперь медленнее
 
           z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
 
-          O += (1.0 + cos(p.x + i * 0.4 + z + vec4(6.0, 1.0, 2.0, 0.0))) / d;
+          vec3 neon = oilMix(p, iTime);
+          O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * neon;
       }
 
       O = tanh(O * O / 400.0);
+      O.rgb = pow(O.rgb, vec3(0.8));
   }
 
   void main() {
@@ -237,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let frame = 0;
   const mouse = [0, 0, 0, 0];
 
-  // интерактивность мыши
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
     mouse[0] = e.clientX - rect.left;
@@ -261,3 +290,4 @@ document.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(render);
 
 });
+
