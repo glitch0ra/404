@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform vec4 iMouse;
 
   const int ITERATIONS = 30;   
-  const float SPEED = .13;
+  const float SPEED = .15;
   const float STRIP_CHARS_MIN = 7.0;
   const float STRIP_CHARS_MAX = 40.0;
   const float STRIP_CHAR_HEIGHT = 0.15;
@@ -159,8 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         float q = fract(v * chars_count);
                         vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
                         if (char_hash.x >= 0.1 || c == 0.) {
-                            float time_factor = floor(c == 0. ? time * 7.0 :
-                                time * 2.5 * (1.2 * cell_hash2.z +   
+                            float time_factor = floor(c == 0. ? time * 14.0 :
+                                time * 5.0 * (1.2 * cell_hash2.z +   
                                     cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
                             float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
                             a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
@@ -249,5 +249,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
