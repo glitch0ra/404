@@ -194,8 +194,18 @@ vec3 oilMix(vec3 p, float t) {
 
                             if (a > 0.) {
                                 float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                                vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6);
-                                vec3 col = baseColor / attenuation;
+                                // добавляем индивидуальное смещение цвета для каждой "строки" (колонки)
+float colorShift = hash(vec2(cell)) * 6.2831; // уникальный фазовый сдвиг 0–2π
+vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1),
+                        iTime * 0.6 + colorShift);
+
+// лёгкое рандомное изменение скорости цветового цикла каждой колонки
+float colorSpeed = 0.8 + hash(vec2(cell) + 7.7) * 0.4;
+baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1),
+                   iTime * 0.6 * colorSpeed + colorShift);
+
+vec3 col = baseColor / attenuation;
+
                                 float a1 = result.a;
                                 result.a = a1 + (1. - a1) * a;
                                 result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
@@ -274,6 +284,7 @@ vec3 oilMix(vec3 p, float t) {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
