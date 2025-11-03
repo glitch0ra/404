@@ -29,9 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform vec3 iResolution;
   uniform float iTime;
 
-  // замедляем — 3x медленнее
+  // 🎛️ Вечный стабильный таймер (сброс каждые 60 сек)
+  float timeCycle = mod(iTime, 60.0);
+
+  // медленный рандом, без затухания
   float rand(vec2 p) {
-      float t = floor(iTime * 6.6) / 30.0;
+      float t = timeCycle * 0.1; // скорость появления блоков
       return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
   }
 
@@ -50,7 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
       float val = 0.0;
       float amp = 0.5;
       while(count != 0) {
-          val += amp * noise(uv + (rand(ceil(uv * 3.) / 3.) * 2.0 + (float(floor(iTime * 6.6) / 30.0)/float(count)) - 1.0), blockiness);
+          val += amp * noise(
+              uv + (rand(ceil(uv * 3.) / 3.) * 2.0 +
+              (timeCycle * 0.02 / float(count)) - 1.0),
+              blockiness
+          );
           amp *= 0.5;
           uv *= complexity;
           count--;
@@ -60,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // цвета 💜💚💙💗
   vec3 randomColor(vec2 uv) {
-      float r = rand(uv * 10.0 + iTime * 0.5);
+      float r = rand(uv * 10.0 + timeCycle * 0.5);
       if (r < 0.25) return vec3(1.0, 0.0, 1.0);   // пурпурный
       else if (r < 0.5) return vec3(0.0, 1.0, 0.58); // зелёный
       else if (r < 0.75) return vec3(0.0, 1.0, 1.0); // голубой
@@ -74,16 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
       uv *= 3.5;
       uv.x *= fbm(uv, 2, 2.5, 1.0);
       float n = fbm(uv, 2, 2.0, 1.4);
-      float glitch = smoothstep(0.55, 0.8, n);
 
-      float pulse = sin(iTime * 0.8 + uv.x * 8.0) * 0.5 + 0.5;
+      // замедляем общую динамику появления
+      float glitch = smoothstep(0.55, 0.8, n);
+      float pulse = sin(timeCycle * 0.4 + uv.x * 8.0) * 0.5 + 0.5;
       glitch *= pow(pulse, 0.6);
 
       vec3 color = randomColor(floor(uv * 12.0));
 
-      // 🔥 повысим видимость (яркость и альфа)
-      float alpha = glitch * 1.2;   // было 0.8
-      color *= 1.5;                 // чуть ярче
+      // более заметные, живые глитчи
+      float alpha = glitch * 1.4;
+      color *= 1.6;
 
       fragColor = vec4(color * alpha, clamp(alpha, 0.0, 1.0));
   }
