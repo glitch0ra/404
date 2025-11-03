@@ -155,132 +155,76 @@ document.addEventListener('DOMContentLoaded', () => {
   }`;
 
   const fragmentSrc = `#version 300 es
-precision highp float;
-out vec4 fragColor;
+  precision highp float;
+  out vec4 fragColor;
 
-uniform vec3 iResolution;
-uniform float iTime;
-uniform int iFrame;
-uniform vec4 iMouse;
+  uniform vec3 iResolution;
+  uniform float iTime;
+  uniform int iFrame;
+  uniform vec4 iMouse;
 
-/*──────────────────────────────
-  Оригинальная бензиновая волна
-──────────────────────────────*/
-vec3 oilMix(vec3 p, float t) {
-    vec3 c1 = vec3(1.0, 0.0, 1.0);   // 💜 пурпурный
-    vec3 c2 = vec3(0.0, 1.0, 0.58);  // 💚 зелёный
-    vec3 c3 = vec3(0.0, 1.0, 1.0);   // 💙 голубой
-    vec3 c4 = vec3(1.0, 0.4, 0.8);   // 💗 розовый
+  // 💜💚💙💗 смесь "бензинового" типа — хаотично перемешиваем 4 цвета
+  vec3 oilMix(vec3 p, float t) {
+      vec3 c1 = vec3(1.0, 0.0, 1.0);   // пурпурный
+      vec3 c2 = vec3(0.0, 1.0, 0.58);  // зелёный
+      vec3 c3 = vec3(0.0, 1.0, 1.0);   // голубой
+      vec3 c4 = vec3(1.0, 0.4, 0.8);   // розовый
 
-    // ускоренная смена цветов ×2
-    float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
-    float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
-    float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
-    float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
+      // хаотичные фазы и быстрая смена цветов (ускорено ×2)
+      float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
+      float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
+      float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
+      float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
 
-    n1 = 0.5 + 0.5 * n1;
-    n2 = 0.5 + 0.5 * n2;
-    n3 = 0.5 + 0.5 * n3;
-    n4 = 0.5 + 0.5 * n4;
+      n1 = 0.5 + 0.5 * n1;
+      n2 = 0.5 + 0.5 * n2;
+      n3 = 0.5 + 0.5 * n3;
+      n4 = 0.5 + 0.5 * n4;
 
-    vec3 neon = normalize(
-        c1 * n1 +
-        c2 * n2 +
-        c3 * n3 +
-        c4 * n4
-    );
-    return neon;
-}
+      // суммарное смешение даёт эффект "переливов"
+      vec3 neon = normalize(
+          c1 * n1 +
+          c2 * n2 +
+          c3 * n3 +
+          c4 * n4
+      );
+      return neon;
+  }
 
-/*──────────────────────────────
-  Дополнительный glitch noise
-──────────────────────────────*/
-float rand(vec2 p) {
-    float t = floor(iTime * 20.0) / 10.0;
-    return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
-}
+  void mainImage(out vec4 O, vec2 I)
+  {
+      float z = 0.0;
+      float d = 0.0;
+      O = vec4(0.0);
 
-float noise(vec2 uv, float blockiness) {
-    vec2 lv = fract(uv);
-    vec2 id = floor(uv);
-    float n1 = rand(id);
-    float n2 = rand(id + vec2(1.0, 0.0));
-    float n3 = rand(id + vec2(0.0, 1.0));
-    float n4 = rand(id + vec2(1.0, 1.0));
-    vec2 u = smoothstep(0.0, 1.0 + blockiness, lv);
-    return mix(mix(n1, n2, u.x), mix(n3, n4, u.x), u.y);
-}
+      for (float i = 0.0; i < 20.0; i++)
+      {
+          // движение замедляем ×2.5
+          vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
+          p = vec3(
+              atan(p.y / 0.2, p.x) * 2.0,
+              p.z / 3.0,
+              length(p.xy) - 5.0 - z * 0.2
+          );
 
-float fbm(vec2 uv, int count, float blockiness, float complexity) {
-    float val = 0.0;
-    float amp = 0.5;
-    while(count != 0) {
-        val += amp * noise(uv + (rand(ceil(uv * 3.0) / 3.0) * 2.0 + (float(floor(iTime * 20.0) / 10.0) / float(count)) - 1.0), blockiness);
-        amp *= 0.5;
-        uv *= complexity;
-        count--;
-    }
-    return val;
-}
+          for (float j = 1.0; j <= 7.0; j++)
+              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j; // было iTime, теперь медленнее
 
-/*──────────────────────────────
-  Основное изображение
-──────────────────────────────*/
-vec4 mainImage(vec2 fragCoord)
-{
-    vec4 O = vec4(0.0);
-    float z = 0.0;
-    float d = 0.0;
+          z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
 
-    for (float i = 0.0; i < 20.0; i++)
-    {
-        // замедление движения ×2.5
-        vec3 p = z * normalize(vec3(fragCoord + fragCoord, 0.0) - iResolution.xyx) + 0.1;
-        p = vec3(
-            atan(p.y / 0.2, p.x) * 2.0,
-            p.z / 3.0,
-            length(p.xy) - 5.0 - z * 0.2
-        );
+          vec3 neon = oilMix(p, iTime);
+          O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * neon;
+      }
 
-        for (float j = 1.0; j <= 7.0; j++)
-            p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
+      O = tanh(O * O / 400.0);
+      O.rgb = pow(O.rgb, vec3(0.8));
+  }
 
-        z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
-
-        vec3 neon = oilMix(p, iTime);
-        O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * neon;
-    }
-
-    // tanh тонмап и гамма
-    O = tanh(O * O / 400.0);
-    O.rgb = pow(O.rgb, vec3(0.8));
-
-    /*──────────────────────
-      Glitch поверх волн
-    ──────────────────────*/
-    vec2 uv = fragCoord / iResolution.xy;
-    uv *= 5.0;
-
-    float glitchVal = smoothstep(0.5, 1.0, fbm(uv + iTime * 0.3, 2, 3.0, 1.5));
-    float glitchPower = step(0.96, fract(sin(iTime * 0.8) * 0.5 + 0.5));
-
-    vec3 g1 = vec3(1.0, 0.0, 1.0);   // 💜
-    vec3 g2 = vec3(0.0, 1.0, 0.58);  // 💚
-    vec3 g3 = vec3(0.0, 1.0, 1.0);   // 💙
-    vec3 g4 = vec3(1.0, 0.4, 0.8);   // 💗
-    vec3 glitchColor = normalize(g1 + g2 + g3 + g4) * glitchVal * glitchPower;
-
-    O.rgb += glitchColor * 0.4;
-    return O;
-}
-
-/*──────────────────────────────
-  MAIN
-──────────────────────────────*/
-void main() {
-    vec4 color = mainImage(gl_FragCoord.xy);
-    fragColor = color;
-}`;
+  void main() {
+      vec4 color = vec4(0.0);
+      mainImage(color, gl_FragCoord.xy);
+      fragColor = color;
+  }`;
 
   function compileShader(type, src) {
     const shader = gl.createShader(type);
@@ -346,6 +290,7 @@ void main() {
   requestAnimationFrame(render);
 
 });
+
 
 
 
