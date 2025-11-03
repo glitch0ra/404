@@ -190,9 +190,34 @@ precision highp float;
 uniform vec2 iResolution;
 uniform float iTime;
 
-// плавное смешение цветов
-vec3 neonMix(vec3 a, vec3 b, float t) {
-    return mix(a, b, 0.5 + 0.5 * sin(t));
+vec3 blendNeon(vec3 p, float t) {
+    // Базовые цвета
+    vec3 c1 = vec3(1.0, 0.0, 1.0);   // 💜 пурпурный
+    vec3 c2 = vec3(0.0, 1.0, 0.6);   // 💚 зелёный
+    vec3 c3 = vec3(0.0, 1.0, 1.0);   // 💙 голубой
+    vec3 c4 = vec3(1.0, 0.4, 0.8);   // 💗 розовый
+
+    // Хаотичные фазы для каждого цвета — даёт "масляное" смешение
+    float n1 = sin(p.x * 0.3 + p.y * 0.2 + t * 1.4);
+    float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 1.1);
+    float n3 = sin(p.z * 0.5 + p.x * 0.4 - t * 1.6);
+    float n4 = cos(p.x * 0.2 + p.y * 0.6 + t * 1.8);
+
+    // Каждое значение от -1..1 → 0..1
+    n1 = 0.5 + 0.5 * n1;
+    n2 = 0.5 + 0.5 * n2;
+    n3 = 0.5 + 0.5 * n3;
+    n4 = 0.5 + 0.5 * n4;
+
+    // Смешиваем четыре цвета на основе локальных шумов
+    vec3 neon = normalize(
+        c1 * n1 +
+        c2 * n2 +
+        c3 * n3 +
+        c4 * n4
+    );
+
+    return neon;
 }
 
 void mainImage(out vec4 O, vec2 I)
@@ -202,17 +227,10 @@ void mainImage(out vec4 O, vec2 I)
     float d = 0.0;
     vec3 p;
 
-    // --- Основные цвета ---
-    vec3 col1 = vec3(1.0, 0.0, 1.0);   // пурпурный
-    vec3 col2 = vec3(0.0, 1.0, 0.6);   // зелёный
-    vec3 col3 = vec3(0.0, 1.0, 1.0);   // голубой
-    vec3 col4 = vec3(1.0, 0.4, 0.8);   // розовый
-
-    // --- Основной цикл ---
     for (int i = 0; i < 20; i++) {
         float fi = float(i);
 
-        // ↓ движение в 2 раза медленнее (iTime * 0.5)
+        // движение немного замедляем (iTime * 0.5)
         p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
         p = vec3(
             atan(p.y / 0.2, p.x) * 2.0,
@@ -220,6 +238,7 @@ void mainImage(out vec4 O, vec2 I)
             length(p.xy) - 5.0 - z * 0.2
         );
 
+        // Турбулентность
         for (int j = 1; j <= 7; j++) {
             float fj = float(j);
             p += sin(p.yzx * fj + iTime * 0.5 + 0.3 * fi) / fj;
@@ -227,19 +246,17 @@ void mainImage(out vec4 O, vec2 I)
 
         z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
 
-        // ↑ цветовая анимация — в 2 раза быстрее (iTime * 1.0 → iTime * 2.0)
-        vec3 neonBlend = neonMix(
-            neonMix(col1, col2, 0.3 * fi + iTime * 1.0),
-            neonMix(col3, col4, 0.4 * fi - iTime * 0.8),
-            sin(iTime * 0.4 + fi * 0.1)
-        );
+        // <-- Вместо глобального mix теперь локальное смешение по координатам -->
+        vec3 neon = blendNeon(p, iTime);
 
-        O.rgb += (1.0 + cos(p.x + fi * 0.4 + z)) / d * neonBlend;
+        // Суммируем освещение с локальной палитрой
+        O.rgb += (1.0 + cos(p.x + fi * 0.4 + z)) / d * neon;
     }
 
-    // Тонмап и усиление контраста
+    // "tanh"-тонмап
     O = (exp(O * O / 400.0) - exp(-O * O / 400.0)) /
         (exp(O * O / 400.0) + exp(-O * O / 400.0));
+
     O.rgb = pow(O.rgb, vec3(0.8));
 }
 
@@ -250,6 +267,7 @@ void main() {
     gl_FragColor = color;
 }
 `;
+
 
 
 
@@ -297,6 +315,7 @@ void main() {
   
 })();
 });
+
 
 
 
