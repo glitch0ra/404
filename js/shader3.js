@@ -1,10 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
   const canvas3 = document.getElementById("shader-canvas3");
   if (!canvas3) return console.error("Canvas #shader-canvas3 не найден!");
-  const gl3 = canvas3.getContext("webgl2");
+  const gl3 = canvas3.getContext("webgl2", { alpha: true }); // ✅ прозрачность
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
-  // Resize
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas3.width = window.innerWidth * dpr;
@@ -13,6 +12,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   window.addEventListener("resize", resize);
   resize();
+
+  gl3.enable(gl3.BLEND);
+  gl3.blendFunc(gl3.SRC_ALPHA, gl3.ONE_MINUS_SRC_ALPHA);
 
   const vertexSrc = `#version 300 es
   precision highp float;
@@ -52,7 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   vec4 hash4(vec2 v) {
-    vec4 p = vec4(v * mat4x2(127.1, 311.7, 269.5, 183.3, 113.5, 271.9, 246.1, 124.6));
+    vec4 p = vec4(v * mat4x2(127.1, 311.7,
+                              269.5, 183.3,
+                              113.5, 271.9,
+                              246.1, 124.6));
     return fract(sin(p) * 43758.5453123);
   }
 
@@ -102,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ivec3 cell_shift = ivec3(sign(rd3));
     float t2 = 0.;
     ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
+
     for (int i = 0; i < ITERATIONS; i++) {
       ivec2 cell = next_cell;
       float t2s = t2;
@@ -124,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
       float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
       z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
       int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
+
       for (int j = 0; j < 2; j++) {
         vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
         vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
@@ -134,6 +141,10 @@ document.addEventListener("DOMContentLoaded", () => {
         vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
         vec2 s = target - ro2;
         float tmin = dot(s, rd2);
+
+        // 🧠 фильтрация: не рендерить слишком близкие символы
+        if (tmin < 2.5) continue; // меньше — ближе к "камере"
+
         if (tmin >= t2s && tmin <= t2) {
           float u = s.x * rd2.y - s.y * rd2.x;
           if (abs(u) < target_rad) {
@@ -172,7 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
-    fragColor = vec4(col, 1.0);
+
+    // ✅ прозрачный фон
+    fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
   }
 
   void main() {
@@ -205,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const quad = gl3.createBuffer();
   gl3.bindBuffer(gl3.ARRAY_BUFFER, quad);
-  gl3.bufferData(gl3.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl3.STATIC_DRAW);
+  gl3.bufferData(gl3.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl3.STATIC_DRAW);
   gl3.enableVertexAttribArray(0);
   gl3.vertexAttribPointer(0, 2, gl3.FLOAT, false, 0, 0);
 
@@ -217,11 +230,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function render() {
     resize();
     const t = (performance.now() - start) * 0.001;
+    gl3.clearColor(0, 0, 0, 0); // прозрачный фон
+    gl3.clear(gl3.COLOR_BUFFER_BIT);
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0, 0.0);
-    gl3.drawArrays(gl3.TRIANGLES, 0, 6);
-    requestAnimationFrame(render);
-  }
-  requestAnimationFrame(render);
-});
+    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0,
