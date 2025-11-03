@@ -109,73 +109,81 @@ document.addEventListener("DOMContentLoaded", () => {
     ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
 
     for (int i = 0; i < ITERATIONS; i++) {
-      ivec2 cell = next_cell;
-      float t2s = t2;
-      vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
-      vec2 t2_side = (side - ro2) / rd2;
-      if (t2_side.x < t2_side.y) {
-        t2 = t2_side.x;
-        next_cell.x += cell_shift.x;
-      } else {
-        t2 = t2_side.y;
-        next_cell.y += cell_shift.y;
-      }
-      vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
-      float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
-      if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
-      float t3s = t2s / t3_to_t2;
-      float pos_z = ro3.z + rd3.z * t3s;
-      float xycell_hash = hash(vec2(cell));
-      float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
-      float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
-      z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
-      int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
-
-      for (int j = 0; j < 2; j++) {
-        vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
-        vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
-        float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
-        float target_length = chars_count * STRIP_CHAR_HEIGHT;
-        float target_rad = STRIP_CHAR_WIDTH / 2.;
-        float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-        vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
-        vec2 s = target - ro2;
-        float tmin = dot(s, rd2);
-
-        // 🧠 фильтрация: не рендерить слишком близкие символы
-        if (tmin < 2.5) continue; // меньше — ближе к "камере"
-
-        if (tmin >= t2s && tmin <= t2) {
-          float u = s.x * rd2.y - s.y * rd2.x;
-          if (abs(u) < target_rad) {
-            u = (u / target_rad + 1.) / 2.;
-            float z = ro3.z + rd3.z * tmin / t3_to_t2;
-            float v = (z - target_z) / target_length;
-            if (v >= 0.0 && v < 1.0) {
-              float c = floor(v * chars_count);
-              float q = fract(v * chars_count);
-              vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-              if (char_hash.x >= 0.1 || c == 0.) {
-                float time_factor = floor(c == 0. ? time * 5.0 : time * (1.0 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4. * pow(char_hash.y, 4.)));
-                float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
-                a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-                if (a > 0.) {
-                  float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                  vec3 col = (c == 0. ? vec3(0.67, 0.6, 1.0) : vec3(0.3, 0.1, 0.5)) / attenuation;
-                  float a1 = result.a;
-                  result.a = a1 + (1. - a1) * a;
-                  result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                  if (result.a > 0.98) return result.xyz;
-                }
-              }
-            }
-          }
+        ivec2 cell = next_cell;
+        float t2s = t2;
+        vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
+        vec2 t2_side = (side - ro2) / rd2;
+        if (t2_side.x < t2_side.y) {
+            t2 = t2_side.x;
+            next_cell.x += cell_shift.x;
+        } else {
+            t2 = t2_side.y;
+            next_cell.y += cell_shift.y;
         }
-        zcell += cell_shift.z;
-      }
+
+        vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
+        float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
+        if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
+
+        float t3s = t2s / t3_to_t2;
+        float pos_z = ro3.z + rd3.z * t3s;
+        float xycell_hash = hash(vec2(cell));
+        float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
+        float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
+        z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
+        int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
+
+        for (int j = 0; j < 2; j++) {
+            vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
+            vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
+            float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
+            float target_length = chars_count * STRIP_CHAR_HEIGHT;
+            float target_rad = STRIP_CHAR_WIDTH / 2.;
+            float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
+            vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
+            vec2 s = target - ro2;
+            float tmin = dot(s, rd2);
+            float dist = tmin / t3_to_t2; // расстояние вдоль луча
+
+            // 🚫 пропускаем всё ближе чем 4.0 (чем больше, тем “дальше”)
+            if (dist < 4.0) continue;
+
+            if (tmin >= t2s && tmin <= t2) {
+                float u = s.x * rd2.y - s.y * rd2.x;
+                if (abs(u) < target_rad) {
+                    u = (u / target_rad + 1.) / 2.;
+                    float z = ro3.z + rd3.z * tmin / t3_to_t2;
+                    float v = (z - target_z) / target_length;
+                    if (v >= 0.0 && v < 1.0) {
+                        float c = floor(v * chars_count);
+                        float q = fract(v * chars_count);
+                        vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
+                        if (char_hash.x >= 0.1 || c == 0.) {
+                            float time_factor = floor(c == 0. ? time * 5.0 :
+                                time * (1.0 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4. * pow(char_hash.y, 4.)));
+                            float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
+                            a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
+
+                            // 🌫️ плавное затухание по глубине
+                            a *= smoothstep(4.0, 6.0, dist); 
+
+                            if (a > 0.) {
+                                float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
+                                vec3 col = (c == 0. ? vec3(0.67, 0.6, 1.0) : vec3(0.3, 0.1, 0.5)) / attenuation;
+                                float a1 = result.a;
+                                result.a = a1 + (1. - a1) * a;
+                                result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
+                                if (result.a > 0.98) return result.xyz;
+                            }
+                        }
+                    }
+                }
+            }
+            zcell += cell_shift.z;
+        }
     }
     return result.xyz * result.a;
-  }
+}
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
@@ -240,3 +248,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
