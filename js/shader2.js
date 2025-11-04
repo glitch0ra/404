@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lastRenderTime = now;
     resize();
-    const t = (now - start) * 0.001;
+    const t = ((now - start) * 0.001) % 300;
     gl2.uniform3f(iResolutionLoc, canvas2.width, canvas2.height, 1.0);
     gl2.uniform1f(iTimeLoc, t);
     gl2.drawArrays(gl2.TRIANGLES, 0, 6);
@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
