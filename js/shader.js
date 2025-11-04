@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
           O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * oilMix(p, iTime);
       }
 
-      O = tanh(O * O / 400.0);
+      O = O / (1.0 + abs(O) / 20.0);
       O.rgb = pow(O.rgb, vec3(0.8));
   }
 
@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
