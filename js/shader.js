@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
   observer.observe(canvas);
 
   // ✅ Фиксированный FPS = 45
-  const FPS = 50;
+  const FPS = 45;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
