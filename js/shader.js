@@ -13,13 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
     depth: false,
     stencil: false,
     antialias: false,
-    desynchronized: false
+    desynchronized: false,
   });
 
   if (!gl) {
     alert('Ваш браузер не поддерживает WebGL2');
     return;
   }
+  console.log('✅ WebGL2 активен');
 
   // Подгон размера
   function resize() {
@@ -28,82 +29,76 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.height = window.innerHeight * dpr;
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   }
-
   window.addEventListener('resize', resize);
   resize();
 
   /*────────────────────────────── GLSL Shaders ──────────────────────────────*/
-
   const vertexSrc = `#version 300 es
-precision mediump float;
-layout(location = 0) in vec2 a_position;
-void main() {
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}
-`;
+  precision mediump float;
+  layout(location = 0) in vec2 a_position;
+  void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }`;
 
   const fragmentSrc = `#version 300 es
-precision mediump float;
-out vec4 fragColor;
-uniform vec3 iResolution;
-uniform float iTime;
-uniform int iFrame;
-uniform vec4 iMouse;
+  precision mediump float;
+  out vec4 fragColor;
+  uniform vec3 iResolution;
+  uniform float iTime;
+  uniform int iFrame;
+  uniform vec4 iMouse;
 
-// 💜💚💙💗 смесь "бензинового"
-type vec3 oilMix(vec3 p, float t) {
-  vec3 c1 = vec3(1.0, 0.0, 1.0); // пурпурный
-  vec3 c2 = vec3(0.0, 1.0, 0.58); // зелёный
-  vec3 c3 = vec3(0.0, 1.0, 1.0); // голубой
-  vec3 c4 = vec3(1.0, 0.4, 0.8); // розовый
+  // 💜💚💙💗 смесь "бензинового" типа
+  vec3 oilMix(vec3 p, float t) {
+    vec3 c1 = vec3(1.0, 0.0, 1.0);   // пурпурный
+    vec3 c2 = vec3(0.0, 1.0, 0.58);  // зелёный
+    vec3 c3 = vec3(0.0, 1.0, 1.0);   // голубой
+    vec3 c4 = vec3(1.0, 0.4, 0.8);   // розовый
 
-  float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
-  float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
-  float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
-  float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
+    float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
+    float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
+    float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
+    float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
 
-  n1 = 0.5 + 0.5 * n1;
-  n2 = 0.5 + 0.5 * n2;
-  n3 = 0.5 + 0.5 * n3;
-  n4 = 0.5 + 0.5 * n4;
+    n1 = 0.5 + 0.5 * n1;
+    n2 = 0.5 + 0.5 * n2;
+    n3 = 0.5 + 0.5 * n3;
+    n4 = 0.5 + 0.5 * n4;
 
-  return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
-}
-
-void mainImage(out vec4 O, vec2 I) {
-  float z = 0.0;
-  float d = 0.0;
-  O = vec4(0.0);
-
-  for (float i = 0.0; i < 20.0; i++) {
-    // движение ×2.5 медленнее
-    vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
-    p = vec3(
-      atan(p.y / 0.2, p.x) * 2.0,
-      p.z / 3.0,
-      length(p.xy) - 5.0 - z * 0.2
-    );
-
-    for (float j = 1.0; j <= 7.0; j++)
-      p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
-
-    z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
-    O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * oilMix(p, iTime);
+    return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
   }
 
-  O = tanh(O * O / 400.0);
-  O.rgb = pow(O.rgb, vec3(0.8));
-}
+  void mainImage(out vec4 O, vec2 I) {
+    float z = 0.0;
+    float d = 0.0;
+    O = vec4(0.0);
+    for (float i = 0.0; i < 20.0; i++) {
+      // движение ×2.5 медленнее
+      vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
+      p = vec3(
+        atan(p.y / 0.2, p.x) * 2.0,
+        p.z / 3.0,
+        length(p.xy) - 5.0 - z * 0.2
+      );
 
-void main() {
-  vec4 color = vec4(0.0);
-  mainImage(color, gl_FragCoord.xy);
-  fragColor = color;
-}
-`;
+      for (float j = 1.0; j <= 7.0; j++)
+        p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
+
+      z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
+      O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * oilMix(p, iTime);
+    }
+
+    O = tanh(O * O / 400.0);
+    O.rgb = pow(O.rgb, vec3(0.8));
+  }
+
+  void main() {
+    vec4 color = vec4(0.0);
+    mainImage(color, gl_FragCoord.xy);
+    fragColor = color;
+  }`;
 
   /*────────────────────────────── Компиляция и рендер ──────────────────────────────*/
-
   function compileShader(type, src) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, src);
@@ -134,7 +129,7 @@ void main() {
       -1,  1,
       -1,  1,
        1, -1,
-       1,  1
+       1,  1,
     ]),
     gl.STATIC_DRAW
   );
@@ -172,11 +167,12 @@ void main() {
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
   }, { threshold: 0.05 });
+
   observer.observe(canvas);
 
   // Фиксированный FPS = 50 (интервал = 20 мс)
   const FPS = 50;
-  const FRAME_INTERVAL = 1000 / FPS; // 20 мс
+  const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
   function render(now) {
@@ -184,7 +180,6 @@ void main() {
       requestAnimationFrame(render);
       return;
     }
-
     if (now - lastRenderTime < FRAME_INTERVAL) {
       requestAnimationFrame(render);
       return;
