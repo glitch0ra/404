@@ -1,25 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
   const canvas3 = document.getElementById("shader-canvas3");
   if (!canvas3) return console.error("Canvas #shader-canvas3 не найден!");
-  
-  // Явно отключаем всё ненужное, но оставляем alpha: true
+
   const gl3 = canvas3.getContext("webgl2", {
-    powerPreference: 'high-performance',
-    preserveDrawingBuffer: false,
+    powerPreference: "high-performance",
     alpha: true,
     depth: false,
     stencil: false,
     antialias: false,
-    desynchronized: false
+    preserveDrawingBuffer: false,
   });
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
-  function resize() {
+  const resize = () => {
     const dpr = window.devicePixelRatio || 1;
-    canvas3.width = window.innerWidth * dpr;
-    canvas3.height = window.innerHeight * dpr;
-    gl3.viewport(0, 0, canvas3.width, canvas3.height);
-  }
+    const w = window.innerWidth * dpr;
+    const h = window.innerHeight * dpr;
+    if (canvas3.width !== w || canvas3.height !== h) {
+      canvas3.width = w;
+      canvas3.height = h;
+      gl3.viewport(0, 0, w, h);
+    }
+  };
   window.addEventListener("resize", resize);
   resize();
 
@@ -236,26 +238,21 @@ ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
       fragColor = c;
   }`;
 
-  function compileShader(gl, type, src) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, src);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error(gl.getShaderInfoLog(shader));
-      return null;
-    }
+  const compile = (type, src) => {
+    const shader = gl3.createShader(type);
+    gl3.shaderSource(shader, src);
+    gl3.compileShader(shader);
+    if (!gl3.getShaderParameter(shader, gl3.COMPILE_STATUS))
+      console.error(gl3.getShaderInfoLog(shader));
     return shader;
-  }
+  };
 
-  const vs = compileShader(gl3, gl3.VERTEX_SHADER, vertexSrc);
-  const fs = compileShader(gl3, gl3.FRAGMENT_SHADER, fragmentSrc);
+  const vs = compile(gl3.VERTEX_SHADER, vertexSrc);
+  const fs = compile(gl3.FRAGMENT_SHADER, fragmentSrc);
   const prog = gl3.createProgram();
   gl3.attachShader(prog, vs);
   gl3.attachShader(prog, fs);
   gl3.linkProgram(prog);
-  if (!gl3.getProgramParameter(prog, gl3.LINK_STATUS))
-    return console.error(gl3.getProgramInfoLog(prog));
-
   gl3.useProgram(prog);
 
   const quad = gl3.createBuffer();
@@ -269,41 +266,24 @@ ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
 
   let start = performance.now();
-
-  // === Пауза при невидимости ===
-  let isPaused = false;
-  document.addEventListener('visibilitychange', () => {
-    isPaused = document.hidden;
-  });
-  const observer = new IntersectionObserver((entries) => {
-    isPaused = !entries[0].isIntersecting;
-  }, { threshold: 0.05 });
-  observer.observe(canvas3);
-
-  // === Фиксированный FPS = 15 ===
+  let lastRender = 0;
   const FPS = 15;
-  const FRAME_INTERVAL = 1000 / FPS;
-  let lastRenderTime = 0;
+  const FRAME_MS = 1000 / FPS;
+
+  let isPaused = false;
+  document.addEventListener("visibilitychange", () => (isPaused = document.hidden));
+  new IntersectionObserver(([e]) => (isPaused = !e.isIntersecting), { threshold: 0.05 }).observe(canvas3);
 
   function render(now) {
-    if (isPaused) {
-      requestAnimationFrame(render);
-      return;
-    }
-
-    if (now - lastRenderTime < FRAME_INTERVAL) {
-      requestAnimationFrame(render);
-      return;
-    }
-
-    lastRenderTime = now;
-    resize();
+    if (isPaused) return requestAnimationFrame(render);
+    if (now - lastRender < FRAME_MS) return requestAnimationFrame(render);
+    lastRender = now;
     const t = (now - start) * 0.001;
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0, 0.0);
+    gl3.uniform4f(iMouseLoc, 0, 0, 0, 0);
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
