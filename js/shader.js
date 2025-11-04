@@ -80,10 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
       float d = 0.0;
       O = vec4(0.0);
 
-      for (float i = 0.0; i < 16.0; i++)
+      for (float i = 0.0; i < 18.0; i++)
       {
           // движение ×2.5 медленнее
-          vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
+          vec3 dir = vec3(I + I, 0.0) - iResolution.xyx;
+          float invLen = inversesqrt(dot(dir, dir)); // быстрее чем normalize()
+          p = z * dir * invLen + 0.1;
+
           p = vec3(
               atan(p.y / 0.2, p.x) * 2.0,
               p.z / 3.0,
@@ -170,8 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { threshold: 0.05 });
   observer.observe(canvas);
 
-  // ✅ Фиксированный FPS = 45
-  const FPS = 45;
+  // ✅ Фиксированный FPS = 50
+  const FPS = 50;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
@@ -200,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
