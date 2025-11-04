@@ -221,7 +221,7 @@ ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     uv.x += 50.0 / iResolution.y; // ← сдвиг влево на 80px
-    float time = iTime * SPEED;
+    float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -307,6 +307,7 @@ ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
   }
   requestAnimationFrame(render);
 });
+
 
 
 
