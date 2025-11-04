@@ -30,14 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
     GLSL Shaders
   ──────────────────────────────*/
   const vertexSrc = `#version 300 es
-  precision mediump float;
+  precision highp float;
   layout(location = 0) in vec2 a_position;
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision mediump float;
+  precision highp float;
   out vec4 fragColor;
 
   uniform vec3 iResolution;
@@ -195,4 +195,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
