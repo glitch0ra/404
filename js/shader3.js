@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform float iTime;
   uniform vec4 iMouse;
 
-  const int ITERATIONS = 22;   // ↓ с 30 до 22
+  const int ITERATIONS = 24;   // ↓ с 30 до 22
   const float SPEED = .21;
   const float STRIP_CHARS_MIN = 7.0;
   const float STRIP_CHARS_MAX = 40.0;
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       float t2 = 0.;
       ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
 
-      time = mod(time, 12.0);
+      time = mod(time, 50.0);
 
       for (int i = 0; i < ITERATIONS; i++) {
           ivec2 cell = next_cell;
@@ -306,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
