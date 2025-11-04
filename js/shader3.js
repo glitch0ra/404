@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       float t2 = 0.;
       ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
 
-      time = mod(time, 50.0);
+      float localTime = mod(time, 500.0);
 
       for (int i = 0; i < ITERATIONS; i++) {
           ivec2 cell = next_cell;
@@ -277,8 +277,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }, { threshold: 0.05 });
   observer.observe(canvas3);
 
-  // === Фиксированный FPS = 50 ===
-  const FPS = 10;
+  // === Фиксированный FPS = 15 ===
+  const FPS = 15;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
@@ -306,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
