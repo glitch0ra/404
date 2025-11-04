@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = window.innerWidth * dpr;
   canvas.height = window.innerHeight * dpr;
-  gl2.viewport(0, 0, canvas2.width, canvas2.height);
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 }
   window.addEventListener('resize', resize);
   resize();
@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
