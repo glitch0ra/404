@@ -4,11 +4,13 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Явно отключаем всё ненужное, но оставляем alpha: true
   const gl3 = canvas3.getContext("webgl2", {
-    alpha: true,
+    powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
-    antialias: false,
+    alpha: true,
     depth: false,
-    stencil: false
+    stencil: false,
+    antialias: false,
+    desynchronized: false
   });
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
@@ -307,8 +309,3 @@ ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
   }
   requestAnimationFrame(render);
 });
-
-
-
-
-
