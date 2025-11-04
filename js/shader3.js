@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform float iTime;
   uniform vec4 iMouse;
 
-  const int ITERATIONS = 24;   // ↓ с 30 до 22
+  const int ITERATIONS = 25;   // ↓ с 30 до 22
   const float SPEED = .21;
   const float STRIP_CHARS_MIN = 7.0;
   const float STRIP_CHARS_MAX = 40.0;
@@ -219,7 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 70.0 / iResolution.y; // ← сдвиг влево на 80px
+    uv.x += 50.0 / iResolution.y; // ← сдвиг влево на 80px
     float time = iTime * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
@@ -278,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
   observer.observe(canvas3);
 
   // === Фиксированный FPS = 50 ===
-  const FPS = 20;
+  const FPS = 10;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
@@ -306,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
