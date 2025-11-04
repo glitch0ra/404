@@ -20,17 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  console.log('✅ WebGL2 активен');
-
-  // Подгон размера
+  // ✅ Подгон размера — один раз + при resize
   function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-}
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
+  }
   window.addEventListener('resize', resize);
-  resize();
 
   /*──────────────────────────────
     GLSL Shaders
@@ -112,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /*──────────────────────────────
     Компиляция и рендер
   ──────────────────────────────*/
-  function compileShader(type, src) {
+   function compileShader(type, src) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, src);
     gl.compileShader(shader);
@@ -139,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null); // ✅ освобождаем буфер
 
   const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
   const iTimeLoc = gl.getUniformLocation(program, 'iTime');
@@ -171,10 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { threshold: 0.05 });
   observer.observe(canvas);
 
-  // Фиксированный FPS = 50 (интервал = 20 мс)
+  // ✅ Фиксированный FPS = 45
   const FPS = 50;
-  const FRAME_INTERVAL = 1000 / FPS; // 20 мс
+  const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
+
+  resize(); // вызвать один раз после шейдера
 
   function render(now) {
     if (isPaused) {
@@ -186,11 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
       requestAnimationFrame(render);
       return;
     }
-
     lastRenderTime = now;
-    resize();
+
     const t = (now - start) * 0.001;
-    gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
     gl.uniform1i(iFrameLoc, frame++);
     gl.uniform4f(iMouseLoc, mouse[0], mouse[1], mouse[2], mouse[3]);
@@ -201,9 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
-
-
-
 
 
 
