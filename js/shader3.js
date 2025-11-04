@@ -217,10 +217,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 50.0 / iResolution.y; 
+    uv.x += -200.0 / iResolution.y; 
     float time = iTime * SPEED;
     
-    vec3 ro = vec3(0.5 + 200.0 / iResolution.y, 0.5, 0.0); // ← КЛЮЧЕВАЯ СТРОКА
+    vec3 ro = vec3(0.5 + 1000.0 / iResolution.y, 0.5, 0.0); // ← КЛЮЧЕВАЯ СТРОКА
     
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -306,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
