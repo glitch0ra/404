@@ -39,8 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform float iTime;
   uniform vec4 iMouse;
 
-  const int ITERATIONS = 22;   // ↓ с 30 до 22
-  const float SPEED = 1;
+  const int ITERATIONS = 22;
+  const float SPEED = .21;
   const float STRIP_CHARS_MIN = 7.0;
   const float STRIP_CHARS_MAX = 40.0;
   const float STRIP_CHAR_HEIGHT = 0.15;
@@ -49,8 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const float XYCELL_SIZE = 12.0 * STRIP_CHAR_WIDTH;
   const int BLOCK_SIZE = 10;
   const int BLOCK_GAP = 2;
-  const float WALK_SPEED = 1.0 * XYCELL_SIZE;
-  const float BLOCKS_BEFORE_TURN = 3.0;
   const float PI = 3.14159265359;
 
   vec3 oilMix(vec3 p, float t) {
@@ -117,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
             d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
     }
     return smoothstep(0.1, 0., d) + highlight * smoothstep(0.4, 0., d);
-}
+  }
 
   vec3 rain(vec3 ro3, vec3 rd3, float time) {
     vec4 result = vec4(0.);
@@ -130,8 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
     float t2 = 0.;
     ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
 
-    // 👇 КРИТИЧНО: ограничиваем время для предотвращения переполнения
-    time = mod(time, 1000.0); // Цикл каждые 1000 секунд
+    // ИСПРАВЛЕНО: используем локальную переменную вместо изменения параметра
+    float localTime = mod(time, 1000.0); // Цикл каждые 1000 секунд
 
     for (int i = 0; i < ITERATIONS; i++) {
         ivec2 cell = next_cell;
@@ -154,11 +152,11 @@ document.addEventListener("DOMContentLoaded", () => {
         float pos_z = ro3.z + rd3.z * t3s;
         float xycell_hash = hash(vec2(cell));
         
-        // 👇 ИСПРАВЛЕНО: стабильный сдвиг без переполнения
-        float time_factor = mod(time * 10.0, 100.0); // Цикл каждые 10 секунд
+        // Стабильный сдвиг без переполнения
+        float time_factor = mod(localTime * 10.0, 100.0);
         float z_shift = xycell_hash * 11.0 - time_factor * (0.5 + xycell_hash * xycell_hash * 2.0);
         
-        float char_z_shift = floor(mod(z_shift, 100.0) / STRIP_CHAR_HEIGHT); // 👈 ОГРАНИЧИВАЕМ СДВИГ
+        float char_z_shift = floor(mod(z_shift, 100.0) / STRIP_CHAR_HEIGHT);
         z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
         int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
 
@@ -186,17 +184,15 @@ document.addEventListener("DOMContentLoaded", () => {
                         float c = floor(v * chars_count);
                         float q = fract(v * chars_count);
                         
-                        // 👇 КРИТИЧНО: стабильная генерация символов
+                        // Стабильная генерация символов
                         vec2 char_seed = vec2(
-                            mod(c + char_z_shift, 256.0), // Ограничиваем диапазон
+                            mod(c + char_z_shift, 256.0),
                             cell_hash2.x
                         );
                         vec2 char_hash = hash2(char_seed);
                         
-                        // 👇 ИСПРАВЛЕНО: условие для отображения символов
                         if (char_hash.x >= 0.1 || c == 0.0) {
-                            // Используем ограниченный time_factor для анимации
-                            float anim_time = mod(time * 5.0 * (1.0 + cell_hash2.z), 20.0);
+                            float anim_time = mod(localTime * 5.0 * (1.0 + cell_hash2.z), 20.0);
                             float highlight = max(1.0, 3.0 - c / 2.0) * 0.2;
                             
                             float a = rune(vec2(u, q), vec2(char_hash.x, anim_time), highlight);
@@ -207,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 float attenuation = 1.0 + pow(0.06 * tmin / t3_to_t2, 2.0);
                                 float colorShift = xycell_hash * 6.2831;
                                 vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1),
-                                                        time * 0.6 + colorShift);
+                                                        localTime * 0.6 + colorShift);
                                 vec3 col = baseColor / attenuation;
 
                                 float a1 = result.a;
@@ -223,18 +219,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     return result.xyz * result.a;
-}
+  }
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-  
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 80.0 / iResolution.y; // ← сдвиг влево на 80px
+    uv.x += 80.0 / iResolution.y; // Сдвиг влево на 80px
+    
     float time = iTime * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
     fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
-}
+  }
 
   void main() {
       vec4 c;
@@ -315,6 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
