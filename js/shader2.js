@@ -5,8 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Явно отключаем ненужные флаги для производительности
   const gl2 = canvas2.getContext('webgl2', {
+    powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
-    alpha: true
+    alpha: true,
+    depth: false,
+    stencil: false,
+    antialias: false,
+    desynchronized: false
   });
   if (!gl2) return console.error('WebGL2 не поддерживается.');
 
@@ -173,3 +178,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
