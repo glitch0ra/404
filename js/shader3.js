@@ -220,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     uv.x += -200.0 / iResolution.y; 
     float time = iTime * SPEED;
     
-    vec3 ro = vec3(0.5 + 2000.0 / iResolution.y, 0.5, 0.0); // ← КЛЮЧЕВАЯ СТРОКА
+    vec3 ro = vec3(0.5 + 3000.0 / iResolution.y, 0.5, 0.0); // ← КЛЮЧЕВАЯ СТРОКА
     
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -306,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
