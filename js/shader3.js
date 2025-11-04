@@ -217,9 +217,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 80.0 / iResolution.y; // ← сдвиг влево на 80px
     float time = iTime * SPEED;
-    vec3 ro = vec3(0.5, 0.5, 0.0);
+    
+    // Сдвиг всей сцены влево на 80px → сдвигаем камеру вправо в мировых координатах
+    float worldShift = 80.0 / iResolution.y * 2.0; // ≈ 0.1–0.3 в зависимости от разрешения
+    vec3 ro = vec3(0.5 + worldShift, 0.5, 0.0);
+    
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
     fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
@@ -304,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
