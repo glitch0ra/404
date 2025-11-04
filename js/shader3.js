@@ -133,10 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ivec3 cell_side = ivec3(step(0., rd3));
       ivec3 cell_shift = ivec3(sign(rd3));
       float t2 = 0.;
-vec2 screenCenter = iResolution.xy * 0.5;
-vec2 worldMin = -screenCenter / iResolution.y; // так как uv масштабируется по высоте
-vec2 gridPos = ro2 - worldMin;
-ivec2 next_cell = ivec2(floor(gridPos / XYCELL_SIZE));
+vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5); // сдвиг на пол-ячейки
+ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
 
       float localTime = mod(time, 500.0);
 
@@ -309,6 +307,7 @@ ivec2 next_cell = ivec2(floor(gridPos / XYCELL_SIZE));
   }
   requestAnimationFrame(render);
 });
+
 
 
 
