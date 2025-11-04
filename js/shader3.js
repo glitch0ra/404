@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform vec4 iMouse;
 
   const int ITERATIONS = 22;   // ↓ с 30 до 22
-  const float SPEED = .21;
+  const float SPEED = 1;
   const float STRIP_CHARS_MIN = 7.0;
   const float STRIP_CHARS_MAX = 40.0;
   const float STRIP_CHAR_HEIGHT = 0.15;
@@ -315,5 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
