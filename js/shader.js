@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Явно отключаем ненужные флаги для максимальной производительности
   const gl = canvas.getContext('webgl2', {
     preserveDrawingBuffer: false
   });
@@ -15,30 +14,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  console.log('✅ WebGL2 активен (оптимизировано)');
+  console.log('✅ WebGL2 активен');
 
   // Подгон размера
   function resize() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-  }
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+}
   window.addEventListener('resize', resize);
   resize();
 
   /*──────────────────────────────
-    GLSL Shaders (визуально идентичны)
+    GLSL Shaders
   ──────────────────────────────*/
   const vertexSrc = `#version 300 es
-  precision mediump float;
+  precision highp float;
   layout(location = 0) in vec2 a_position;
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision mediump float;
+  precision highp float;
   out vec4 fragColor;
 
   uniform vec3 iResolution;
@@ -46,12 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
   uniform int iFrame;
   uniform vec4 iMouse;
 
-  // 💜💚💙💗 смесь "бензинового" типа (оптимизирована)
+  // 💜💚💙💗 смесь "бензинового" типа
   vec3 oilMix(vec3 p, float t) {
-      vec3 c1 = vec3(1.0, 0.0, 1.0);
-      vec3 c2 = vec3(0.0, 1.0, 0.58);
-      vec3 c3 = vec3(0.0, 1.0, 1.0);
-      vec3 c4 = vec3(1.0, 0.4, 0.8);
+      vec3 c1 = vec3(1.0, 0.0, 1.0);   // пурпурный
+      vec3 c2 = vec3(0.0, 1.0, 0.58);  // зелёный
+      vec3 c3 = vec3(0.0, 1.0, 1.0);   // голубой
+      vec3 c4 = vec3(1.0, 0.4, 0.8);   // розовый
 
       float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
       float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
@@ -63,7 +62,12 @@ document.addEventListener('DOMContentLoaded', () => {
       n3 = 0.5 + 0.5 * n3;
       n4 = 0.5 + 0.5 * n4;
 
-      return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
+      return normalize(
+          c1 * n1 +
+          c2 * n2 +
+          c3 * n3 +
+          c4 * n4
+      );
   }
 
   void mainImage(out vec4 O, vec2 I)
@@ -72,9 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
       float d = 0.0;
       O = vec4(0.0);
 
-      // Снижено с 20→14 и 7→5, но коэффициенты подобраны для визуального совпадения
-      for (float i = 0.0; i < 14.0; i++)
+      for (float i = 0.0; i < 20.0; i++)
       {
+          // движение ×2.5 медленнее
           vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
           p = vec3(
               atan(p.y / 0.2, p.x) * 2.0,
@@ -82,19 +86,15 @@ document.addEventListener('DOMContentLoaded', () => {
               length(p.xy) - 5.0 - z * 0.2
           );
 
-          for (float j = 1.0; j <= 5.0; j++)
-              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) * (1.4 / j);
+          for (float j = 1.0; j <= 7.0; j++)
+              p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
 
           z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
           O.rgb += (1.0 + cos(p.x + i * 0.4 + z)) / d * oilMix(p, iTime);
       }
 
-      // Быстрая замена tanh(O * O / 400.0)
-      vec3 temp = O.rgb * O.rgb / 400.0;
-      O.rgb = temp / (1.0 + temp);
-
-      // Быстрая замена pow(O.rgb, vec3(0.8))
-      O.rgb = sqrt(O.rgb * 0.8 + 0.2 * O.rgb * O.rgb);
+      O = tanh(O * O / 400.0);
+      O.rgb = pow(O.rgb, vec3(0.8));
   }
 
   void main() {
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   observer.observe(canvas);
 
   // Фиксированный FPS = 50 (интервал = 20 мс)
-  const FPS = 5;
+  const FPS = 50;
   const FRAME_INTERVAL = 1000 / FPS; // 20 мс
   let lastRenderTime = 0;
 
@@ -195,4 +195,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
-
