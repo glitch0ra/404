@@ -12,11 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
-   function resize() {
+  function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas3.width = window.innerWidth * dpr;
     canvas3.height = window.innerHeight * dpr;
-    gl3.viewport(0, 0, gl3.drawingBufferWidth, gl3.drawingBufferHeight);
+    gl3.viewport(0, 0, canvas3.width, canvas3.height);
   }
   window.addEventListener("resize", resize);
   resize();
@@ -219,9 +219,8 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     float time = iTime * SPEED;
     
-    // Сдвиг всей сцены влево на 80px → сдвигаем камеру вправо в мировых координатах
-    float worldShift = 400.0 / iResolution.y * 2.0; // ≈ 0.1–0.3 в зависимости от разрешения
-    vec3 ro = vec3(0.5 + worldShift, 0.5, 0.0);
+    // Сдвиг камеры вправо на 100px (сцена сдвинется влево)
+    vec3 ro = vec3(0.5 + 200.0 / iResolution.y, 0.5, 0.0); // ← КЛЮЧЕВАЯ СТРОКА
     
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -307,14 +306,3 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
-
