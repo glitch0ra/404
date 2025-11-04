@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
       float d = 0.0;
       O = vec4(0.0);
 
-      for (float i = 0.0; i < 20.0; i++)
+      for (float i = 0.0; i < 16.0; i++)
       {
           // движение ×2.5 медленнее
           vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyx) + 0.1;
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
               length(p.xy) - 5.0 - z * 0.2
           );
 
-          for (float j = 1.0; j <= 7.0; j++)
+          for (float j = 1.0; j <= 6.0; j++)
               p += sin(p.yzx * j + iTime * 0.4 + 0.3 * i) / j;
 
           z += d = length(vec4(0.4 * cos(p) - 0.4, p.z));
@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
