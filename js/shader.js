@@ -7,7 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const gl = canvas.getContext('webgl2', {
-    preserveDrawingBuffer: false
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: false,
+    alpha: true,
+    depth: false,
+    stencil: false,
+    antialias: false,
+    desynchronized: false
   });
   if (!gl) {
     alert('Ваш браузер не поддерживает WebGL2');
@@ -195,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
