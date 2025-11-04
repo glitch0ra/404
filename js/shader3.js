@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       float t2 = 0.;
       ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
 
-      time = mod(time, 5.0);
+      time = mod(time, 12.0);
 
       for (int i = 0; i < ITERATIONS; i++) {
           ivec2 cell = next_cell;
@@ -306,4 +306,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
