@@ -82,11 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (float i = 0.0; i < 18.0; i++)
       {
-          // движение ×2.5 медленнее
           vec3 dir = vec3(I + I, 0.0) - iResolution.xyx;
-          float invLen = inversesqrt(dot(dir, dir)); // быстрее чем normalize()
-          p = z * dir * invLen + 0.1;
-
+          float invLen = inversesqrt(dot(dir, dir) + 1e-6); // 🟢 защита от обнуления
+          vec3 p = z * dir * invLen + 0.1;
+          
           p = vec3(
               atan(p.y / 0.2, p.x) * 2.0,
               p.z / 3.0,
@@ -203,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
