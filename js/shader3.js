@@ -5,10 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Явно отключаем всё ненужное, но оставляем alpha: true
   const gl3 = canvas3.getContext("webgl2", {
     alpha: true,
-    preserveDrawingBuffer: false,
-    antialias: false,
-    depth: false,
-    stencil: false
+    preserveDrawingBuffer: false
   });
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
@@ -303,4 +300,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
