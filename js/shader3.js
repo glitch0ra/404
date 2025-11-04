@@ -227,10 +227,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   
-    if (iTime > 300.0) { // Сброс через 5 минут
-        iTime = mod(iTime, 300.0);
-    }
-  
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     uv.x += 80.0 / iResolution.y; // ← сдвиг влево на 80px
     float time = iTime * SPEED;
@@ -319,4 +315,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
