@@ -133,7 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ivec3 cell_side = ivec3(step(0., rd3));
       ivec3 cell_shift = ivec3(sign(rd3));
       float t2 = 0.;
-      ivec2 next_cell = ivec2(floor(ro2 / XYCELL_SIZE));
+      vec2 gridOffset = vec2(0.5); // или добавьте временную компоненту
+ivec2 next_cell = ivec2(floor((ro2 + gridOffset) / XYCELL_SIZE));
 
       float localTime = mod(time, 500.0);
 
@@ -306,3 +307,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
