@@ -2,14 +2,19 @@
 document.addEventListener('DOMContentLoaded', () => {
   const canvas2 = document.getElementById('shader-canvas2');
   if (!canvas2) return console.error('Canvas #shader-canvas2 не найден!');
-  const gl2 = canvas2.getContext('webgl2');
+  
+  // Явно отключаем ненужные флаги для производительности
+  const gl2 = canvas2.getContext('webgl2', {
+    preserveDrawingBuffer: false,
+    alpha: true
+  });
   if (!gl2) return console.error('WebGL2 не поддерживается.');
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas2.width = window.innerWidth * dpr;
     canvas2.height = window.innerHeight * dpr;
-    gl2.viewport(0, 0, gl2.drawingBufferWidth, gl2.drawingBufferHeight);
+    gl2.viewport(0, 0, canvas2.width, canvas2.height);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -18,12 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
   gl2.blendFunc(gl2.SRC_ALPHA, gl2.ONE_MINUS_SRC_ALPHA);
 
   const vertexSrc = `#version 300 es
-  precision highp float;
+  precision mediump float;
   layout(location = 0) in vec2 a_position;
   void main() { gl_Position = vec4(a_position, 0.0, 1.0); }`;
 
   const fragmentSrc = `#version 300 es
-  precision highp float;
+  precision mediump float;
   out vec4 fragColor;
 
   uniform vec3 iResolution;
@@ -49,6 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
   float fbm(vec2 uv, int count, float blockiness, float complexity) {
       float val = 0.0;
       float amp = 0.5;
+      // ↓ уменьшено с 2 до 2 — оставлено, так как и так минимально
+      // но цикл оставлен как есть, так как он очень лёгкий
       while(count != 0) {
           val += amp * noise(uv + (rand(ceil(uv * 3.) / 3.) * 2.0 + (float(floor(iTime * 6.6) / 30.0)/float(count)) - 1.0), blockiness);
           amp *= 0.5;
@@ -82,8 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
       vec3 color = randomColor(floor(uv * 12.0));
 
       // 🔥 повысим видимость (яркость и альфа)
-      float alpha = glitch * 1.2;   // было 0.8
-      color *= 1.5;                 // чуть ярче
+      float alpha = glitch * 1.2;
+      color *= 1.5;
 
       fragColor = vec4(color * alpha, clamp(alpha, 0.0, 1.0));
   }
@@ -129,9 +136,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const iTimeLoc = gl2.getUniformLocation(prog, 'iTime');
 
   let start = performance.now();
-  function render() {
+
+  // === Пауза при невидимости ===
+  let isPaused = false;
+  document.addEventListener('visibilitychange', () => {
+    isPaused = document.hidden;
+  });
+  const observer = new IntersectionObserver((entries) => {
+    isPaused = !entries[0].isIntersecting;
+  }, { threshold: 0.05 });
+  observer.observe(canvas2);
+
+  // === Фиксированный FPS = 50 ===
+  const FPS = 50;
+  const FRAME_INTERVAL = 1000 / FPS;
+  let lastRenderTime = 0;
+
+  function render(now) {
+    if (isPaused) {
+      requestAnimationFrame(render);
+      return;
+    }
+
+    if (now - lastRenderTime < FRAME_INTERVAL) {
+      requestAnimationFrame(render);
+      return;
+    }
+
+    lastRenderTime = now;
     resize();
-    const t = (performance.now() - start) * 0.001;
+    const t = (now - start) * 0.001;
     gl2.uniform3f(iResolutionLoc, canvas2.width, canvas2.height, 1.0);
     gl2.uniform1f(iTimeLoc, t);
     gl2.drawArrays(gl2.TRIANGLES, 0, 6);
