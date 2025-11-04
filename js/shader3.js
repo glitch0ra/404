@@ -220,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     float time = iTime * SPEED;
     
     // Сдвиг всей сцены влево на 80px → сдвигаем камеру вправо в мировых координатах
-    float worldShift = 80.0 / iResolution.y * 2.0; // ≈ 0.1–0.3 в зависимости от разрешения
+    float worldShift = 800.0 / iResolution.y * 2.0; // ≈ 0.1–0.3 в зависимости от разрешения
     vec3 ro = vec3(0.5 + worldShift, 0.5, 0.0);
     
     vec3 rd = vec3(uv.x, 2.0, uv.y);
@@ -307,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
