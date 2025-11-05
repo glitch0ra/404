@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const MIN_FPS = 45;
   const TARGET_FPS = 50;
-  const STABLE_TIME = 500; // 2.5с стабильного падения — считаем слабым железом
+  const STABLE_TIME = 2000; // 2с стабильного падения — считаем слабым железом
   const ADJUST_INTERVAL = 500;
   let lastAdjust = performance.now();
 
@@ -252,5 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
