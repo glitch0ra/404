@@ -272,6 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let scrollSpeed = 0;
   let scrollInfluence = 0;
   let lastScrollTime = performance.now();
+  let timeOffset = 0;
 
   window.addEventListener("scroll", () => {
     const now = performance.now();
@@ -300,28 +301,33 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastRenderTime = 0;
 
   function render(now) {
-    if (isPaused) return requestAnimationFrame(render);
-    if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
-    lastRenderTime = now;
+  if (isPaused) return requestAnimationFrame(render);
+  if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
+  const dt = (now - lastRenderTime) * 0.001; // разница времени между кадрами
+  lastRenderTime = now;
 
-    resize();
+  resize();
 
-    // Плавный реверс при скролле
-    scrollInfluence *= 0.9;
-    const t = (now - start) * 0.001 + scrollInfluence;
+  // Плавная инерция и накопление смещения времени
+  scrollInfluence *= 0.9; // плавность затухания
+  timeOffset += scrollInfluence * dt * 60.0; // сила эффекта (60 = скорость реакции)
 
-    gl3.clearColor(0, 0, 0, 0);
-    gl3.clear(gl3.COLOR_BUFFER_BIT);
-    gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
-    gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-    gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+  // Общее время с учётом накопленного сдвига
+  const t = (now - start) * 0.001 + timeOffset;
 
-    requestAnimationFrame(render);
-  }
+  gl3.clearColor(0, 0, 0, 0);
+  gl3.clear(gl3.COLOR_BUFFER_BIT);
+  gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
+  gl3.uniform1f(iTimeLoc, t);
+  gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
+  gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+
+  requestAnimationFrame(render);
+}
 
   requestAnimationFrame(render);
 });
+
 
 
 
