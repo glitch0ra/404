@@ -231,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ← добавлено для параллакса:
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;        // нормируем в диапазон [-1, 1]
-    uv += mouse * 0.1;                  // сила параллакса (0.05–0.15 мягко)
+    uv += mouse * 0.05;                  // сила параллакса (0.05–0.15 мягко)
 
     float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
@@ -307,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   observer.observe(canvas3);
 
-  const FPS = 25;
+  const FPS = 30;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
@@ -332,6 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
