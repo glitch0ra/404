@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mouse = (mouse - 0.5) * 2.0;        // нормируем в диапазон [-1, 1]
     uv += mouse * 0.1;                  // сила параллакса (0.05–0.15 мягко)
 
-    float time = mod(iTime, 240.0) * 0.21;
+    float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -332,3 +332,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
