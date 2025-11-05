@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (fps < 45) {
       resolutionScale = Math.max(0.55, resolutionScale - 0.05);
-      qualityLevel = Math.max(0.55, qualityLevel - 0.105);
+      qualityLevel = Math.max(0.55, qualityLevel - 0.05);
     } else if (fps > 45 && resolutionScale < 1.0) {
       resolutionScale = Math.min(1.0, resolutionScale + 0.05);
       qualityLevel = Math.min(1.0, qualityLevel + 0.05);
@@ -244,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
