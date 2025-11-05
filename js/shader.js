@@ -31,6 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastAdjustTime = performance.now();
   const ADJUST_INTERVAL = 1500;
 
+  
+let keepAlive = setInterval(() => {
+  if (gl && gl.isContextLost() === false) {
+    gl.flush();
+  }
+}, 1000);
+
+
   /*───────────────────── Визуальная диагностика ─────────────────────*/
   // ⛔ УДАЛИ ЭТОТ БЛОК ПОСЛЕ ТЕСТА
   const overlay = document.createElement('div');
@@ -244,3 +252,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   requestAnimationFrame(render);
 });
+
