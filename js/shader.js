@@ -29,15 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fpsSamples = [];
   let lastTime = performance.now();
   let lastAdjustTime = performance.now();
-  const ADJUST_INTERVAL = 1500;
-
-  
-let keepAlive = setInterval(() => {
-  if (gl && gl.isContextLost() === false) {
-    gl.flush();
-  }
-}, 1000);
-
+  const ADJUST_INTERVAL = 500;
 
   /*───────────────────── Визуальная диагностика ─────────────────────*/
   // ⛔ УДАЛИ ЭТОТ БЛОК ПОСЛЕ ТЕСТА
@@ -75,11 +67,11 @@ let keepAlive = setInterval(() => {
     lastAdjustTime = now;
 
     if (fps < 45) {
-      resolutionScale = Math.max(0.6, resolutionScale - 0.05);
-      qualityLevel = Math.max(0.5, qualityLevel - 0.05);
+      resolutionScale = Math.max(0.5, resolutionScale - 0.10);
+      qualityLevel = Math.max(0.5, qualityLevel - 0.10);
     } else if (fps > 45 && resolutionScale < 1.0) {
-      resolutionScale = Math.min(1.0, resolutionScale + 0.02);
-      qualityLevel = Math.min(1.0, qualityLevel + 0.02);
+      resolutionScale = Math.min(1.0, resolutionScale + 0.10);
+      qualityLevel = Math.min(1.0, qualityLevel + 0.10);
     }
   }
 
@@ -252,4 +244,5 @@ let keepAlive = setInterval(() => {
 
   requestAnimationFrame(render);
 });
+
 
