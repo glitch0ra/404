@@ -1,7 +1,10 @@
-// ======================== Shader Adaptive System ===========================
+// assets/js/shader.js
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('shader-canvas');
-  if (!canvas) return console.error('❌ Canvas #shader-canvas не найден!');
+  if (!canvas) {
+    console.error('❌ Canvas #shader-canvas не найден!');
+    return;
+  }
 
   const gl = canvas.getContext('webgl2', {
     powerPreference: 'high-performance',
@@ -12,101 +15,73 @@ document.addEventListener('DOMContentLoaded', () => {
     antialias: false,
     desynchronized: false,
   });
-  if (!gl) return alert('Ваш браузер не поддерживает WebGL2');
+
+  if (!gl) {
+    alert('Ваш браузер не поддерживает WebGL2');
+    return;
+  }
   console.log('✅ WebGL2 активен');
 
-  /*───────────────────── Переменные ─────────────────────*/
-  let resolutionScale = 1.0;
-  let qualityLevel = 1.0;
-  const fpsSamples = [];
+  /*───────────────────── Динамические параметры ─────────────────────*/
+  let resolutionScale = 1.0;   // Масштаб разрешения (0.6–1.0)
+  let qualityLevel = 1.0;      // Качество итераций (0.5–1.0)
   let fps = 50;
-  let lastFrameTime = performance.now();
-  let lastStableTime = performance.now();
-  let lowFpsDuration = 0;
-  let throttled = false;
-  let userActive = true;
-
-  const MIN_FPS = 45;
-  const TARGET_FPS = 50;
-  const STABLE_TIME = 2000; // 2с стабильного падения — считаем слабым железом
+  const fpsSamples = [];
+  let lastTime = performance.now();
+  let lastAdjustTime = performance.now();
   const ADJUST_INTERVAL = 500;
-  let lastAdjust = performance.now();
 
-  /*───────────────────── Диагностика ─────────────────────*/
+  /*───────────────────── Визуальная диагностика ─────────────────────*/
+  // ⛔️ УДАЛИ ЭТОТ БЛОК ПОСЛЕ ТЕСТА
   const overlay = document.createElement('div');
-  Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '10px',
-    left: '10px',
-    zIndex: '9999',
-    fontFamily: 'monospace',
-    fontSize: '13px',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    background: 'rgba(0,0,0,0.6)',
-    color: '#00FFAA',
-    pointerEvents: 'none',
-    userSelect: 'none',
-    backdropFilter: 'blur(4px)',
-    whiteSpace: 'pre',
-  });
+  overlay.style.position = 'fixed';
+  overlay.style.top = '10px';
+  overlay.style.left = '10px';
+  overlay.style.zIndex = '9999';
+  overlay.style.fontFamily = 'monospace';
+  overlay.style.fontSize = '13px';
+  overlay.style.padding = '6px 10px';
+  overlay.style.borderRadius = '8px';
+  overlay.style.background = 'rgba(0,0,0,0.6)';
+  overlay.style.color = '#00FFAA';
+  overlay.style.pointerEvents = 'none';
+  overlay.style.userSelect = 'none';
+  overlay.style.backdropFilter = 'blur(4px)';
+  overlay.style.whiteSpace = 'pre';
   document.body.appendChild(overlay);
+  // ⛔️ конец блока диагностики
 
-  /*───────────────────── Активность пользователя ─────────────────────*/
-  const updateActivity = () => {
-    userActive = true;
-    throttled = false;
-    lastStableTime = performance.now();
-  };
-  ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'focus']
-    .forEach(e => window.addEventListener(e, updateActivity));
-
-  // Отслеживаем, ушёл ли пользователь
-  document.addEventListener('visibilitychange', () => {
-    throttled = document.hidden;
-  });
-
-  /*───────────────────── FPS монитор ─────────────────────*/
-  function updateFps(now) {
-    const delta = now - lastFrameTime;
-    lastFrameTime = now;
+  /*───────────────────── Измерение FPS ─────────────────────*/
+  function updatePerformance(now) {
+    const delta = now - lastTime;
+    lastTime = now;
     const currentFps = 1000 / delta;
     fpsSamples.push(currentFps);
     if (fpsSamples.length > 30) fpsSamples.shift();
     fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
   }
 
-  /*───────────────────── Логика адаптации ─────────────────────*/
+  /*───────────────────── Адаптация с инерцией ─────────────────────*/
   function adjustQuality(now) {
-    if (now - lastAdjust < ADJUST_INTERVAL) return;
-    lastAdjust = now;
+    if (now - lastAdjustTime < ADJUST_INTERVAL) return;
+    lastAdjustTime = now;
 
-    // если вкладка неактивна — ничего не трогаем
-    if (throttled || !userActive) return;
-
-    // если FPS стабильно ниже 45 более 2с — слабое железо
-    if (fps < MIN_FPS) {
-      lowFpsDuration += ADJUST_INTERVAL;
-      if (lowFpsDuration > STABLE_TIME) {
-        resolutionScale = Math.max(0.55, resolutionScale - 0.05);
-        qualityLevel = Math.max(0.55, qualityLevel - 0.05);
-        lowFpsDuration = 0;
-      }
-    } else {
-      // FPS нормализовался → возвращаем качество
-      lowFpsDuration = 0;
-      if (resolutionScale < 1.0) {
-        resolutionScale = Math.min(1.0, resolutionScale + 0.05);
-        qualityLevel = Math.min(1.0, qualityLevel + 0.05);
-      }
+    if (fps < 29) {
+      resolutionScale = Math.max(0.55, resolutionScale - 0.05);
+      qualityLevel = Math.max(0.55, qualityLevel - 0.05);
+    } else if (fps > 45 && resolutionScale < 1.0) {
+      resolutionScale = Math.min(1.0, resolutionScale + 0.05);
+      qualityLevel = Math.min(1.0, qualityLevel + 0.05);
     }
   }
 
-  /*───────────────────── GLSL Шейдер ─────────────────────*/
+  /*────────────────────────────── GLSL ──────────────────────────────*/
   const vertexSrc = `#version 300 es
   precision mediump float;
   layout(location = 0) in vec2 a_position;
-  void main() { gl_Position = vec4(a_position, 0.0, 1.0); }`;
+  void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }`;
 
   const fragmentSrc = `#version 300 es
   precision mediump float;
@@ -132,9 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
     n4 = 0.5 + 0.5 * n4;
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
   }
-
   void mainImage(out vec4 O, vec2 I) {
-    float z = 0.0, d = 0.0;
+    float z = 0.0;
+    float d = 0.0;
     O = vec4(0.0);
     float iter = mix(10.0, 20.0, uQuality);
     for (float i = 0.0; i < iter; i++) {
@@ -154,12 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   void main() {
-    vec4 color;
+    vec4 color = vec4(0.0);
     mainImage(color, gl_FragCoord.xy);
     fragColor = color;
   }`;
 
-  /*───────────────────── Компиляция ─────────────────────*/
+  /*──────────────────── Компиляция ────────────────────*/
   function compileShader(type, src) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, src);
@@ -179,15 +154,17 @@ document.addEventListener('DOMContentLoaded', () => {
   gl.linkProgram(program);
   gl.useProgram(program);
 
+  /*──────────────────── Геометрия ────────────────────*/
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1, -1, 1, -1, -1, 1,
-    -1, 1, 1, -1, 1, 1,
+    -1, -1,  1, -1, -1,  1,
+    -1,  1,  1, -1,  1,  1,
   ]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
+  /*──────────────────── Uniforms ────────────────────*/
   const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
   const iTimeLoc = gl.getUniformLocation(program, 'iTime');
   const iFrameLoc = gl.getUniformLocation(program, 'iFrame');
@@ -208,6 +185,15 @@ document.addEventListener('DOMContentLoaded', () => {
     mouse[3] = mouse[1];
   });
 
+  let isPaused = false;
+  document.addEventListener('visibilitychange', () => {
+    isPaused = document.hidden;
+  });
+  const observer = new IntersectionObserver(entries => {
+    isPaused = !entries[0].isIntersecting;
+  }, { threshold: 0.05 });
+  observer.observe(canvas);
+
   function resize() {
     const dpr = window.devicePixelRatio * resolutionScale;
     canvas.width = window.innerWidth * dpr;
@@ -217,13 +203,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', resize);
   resize();
 
+  const TARGET_FPS = 50;
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
   let lastRenderTime = 0;
 
   function render(now) {
-    if (throttled) { requestAnimationFrame(render); return; }
+    if (isPaused) {
+      requestAnimationFrame(render);
+      return;
+    }
 
-    updateFps(now);
+    updatePerformance(now);
     adjustQuality(now);
 
     if (now - lastRenderTime < FRAME_INTERVAL) {
@@ -231,27 +221,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     lastRenderTime = now;
-
     resize();
+
     const t = (now - start) * 0.001;
     gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
     gl.uniform1i(iFrameLoc, frame++);
     gl.uniform4f(iMouseLoc, mouse[0], mouse[1], mouse[2], mouse[3]);
     gl.uniform1f(uQualityLoc, qualityLevel);
+
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+    // обновляем overlay (⛔️ удалить при финальной версии)
     overlay.textContent =
-      `FPS: ${fps.toFixed(1)}\n` +
-      `RES: ${(resolutionScale * 100).toFixed(0)}%\n` +
-      `QUAL: ${(qualityLevel * 100).toFixed(0)}%\n` +
-      `STATE: ${throttled ? '🟡 THROTTLED' : '🟢 ACTIVE'}`;
+      FPS: ${fps.toFixed(1)}\n +
+      RES: ${(resolutionScale * 100).toFixed(0)}%\n +
+      QUAL: ${(qualityLevel * 100).toFixed(0)}%;
 
     requestAnimationFrame(render);
   }
-
   requestAnimationFrame(render);
 });
-
-
-
