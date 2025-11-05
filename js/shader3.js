@@ -282,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const deltaY = newScrollY - lastScrollY;
     lastScrollY = newScrollY;
     scrollSpeed = deltaY / deltaT;
-    scrollInfluence = scrollSpeed * 0.25; // чувствительность (0.1–0.3)
+    scrollInfluence = scrollSpeed * 0.2; // чувствительность (0.1–0.3)
   });
 
   let isPaused = false;
@@ -327,5 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
