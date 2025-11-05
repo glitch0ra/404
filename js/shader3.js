@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!canvas3) return console.error("Canvas #shader-canvas3 не найден!");
 
   const gl3 = canvas3.getContext("webgl2", {
-    powerPreference: 'high-performance',
+    powerPreference: "high-performance",
     preserveDrawingBuffer: false,
     alpha: true,
     depth: false,
@@ -61,17 +61,14 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 c2 = vec3(0.0, 1.0, 0.58);
     vec3 c3 = vec3(0.0, 1.0, 1.0);
     vec3 c4 = vec3(1.0, 0.4, 0.8);
-
     float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
     float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
     float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
     float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
-
     n1 = 0.5 + 0.5 * n1;
     n2 = 0.5 + 0.5 * n2;
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
-
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
   }
 
@@ -81,14 +78,6 @@ document.addEventListener("DOMContentLoaded", () => {
   vec2 hash2(vec2 v) {
     v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3));
     return fract(sin(v) * 43758.5453123);
-  }
-
-  vec4 hash4(vec2 v) {
-    vec4 p = vec4(v * mat4x2(
-      127.1, 311.7, 269.5, 183.3,
-      113.5, 271.9, 246.1, 124.6
-    ));
-    return fract(sin(p) * 43758.5453123);
   }
 
   vec4 hash4(vec3 v) {
@@ -111,8 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
   float rune(vec2 U, vec2 seed, float highlight) {
     float d = 1e5;
     for (int i = 0; i < 4; i++) {
-      vec4 pos = hash4(seed);
-      seed += 1.;
+      vec4 pos = hash4(vec3(seed, float(i)));
       if (i == 0) pos.y = 0.0;
       if (i == 1) pos.x = 0.999;
       if (i == 2) pos.x = 0.0;
@@ -140,14 +128,12 @@ document.addEventListener("DOMContentLoaded", () => {
     float t2 = 0.;
     vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
     ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
-    float localTime = mod(time, 500.0);
 
     for (int i = 0; i < ITERATIONS; i++) {
       ivec2 cell = next_cell;
       float t2s = t2;
       vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
       vec2 t2_side = (side - ro2) / rd2;
-
       if (t2_side.x < t2_side.y) {
         t2 = t2_side.x;
         next_cell.x += cell_shift.x;
@@ -155,83 +141,39 @@ document.addEventListener("DOMContentLoaded", () => {
         t2 = t2_side.y;
         next_cell.y += cell_shift.y;
       }
-
-      vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
-      float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
-      if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
-
-      float t3s = t2s / t3_to_t2;
-      float pos_z = ro3.z + rd3.z * t3s;
       float xycell_hash = hash(vec2(cell));
       float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 +
                       xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
-      float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
-      z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
-      int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
-
+      int zcell = int(floor((ro3.z - z_shift) / ZCELL_SIZE));
       for (int j = 0; j < 2; j++) {
-        vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
-        vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
+        vec4 cell_hash = hash4(vec3(cell, zcell));
         float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
         float target_length = chars_count * STRIP_CHAR_HEIGHT;
-        float target_rad = STRIP_CHAR_WIDTH / 2.;
-        float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-        vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
-        vec2 s = target - ro2;
-        float tmin = dot(s, rd2);
-        float dist = tmin / t3_to_t2;
-        if (dist < 4.0) continue;
-
+        vec2 target = vec2(cell) * XYCELL_SIZE + cell_hash.xy * XYCELL_SIZE;
+        float tmin = dot(target - ro2, rd2);
         if (tmin >= t2s && tmin <= t2) {
-          float u = s.x * rd2.y - s.y * rd2.x;
-          if (abs(u) < target_rad) {
-            u = (u / target_rad + 1.) / 2.;
+          float u = (target.x - ro2.x) * rd2.y - (target.y - ro2.y) * rd2.x;
+          if (abs(u) < STRIP_CHAR_WIDTH) {
             float z = ro3.z + rd3.z * tmin / t3_to_t2;
-            float v = (z - target_z) / target_length;
-            if (v >= 0.0 && v < 1.0) {
-              float c = floor(v * chars_count);
-              float q = fract(v * chars_count);
-              vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-              if (char_hash.x >= 0.1 || c == 0.) {
-                float time_factor = floor(c == 0. ? time * 14.0 : time * 5.0 *
-                  (1.2 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
-                float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q),
-                  max(1., 3. - c / 2.) * 0.2);
-                a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-                a *= smoothstep(4.0, 6.0, dist);
-
-                if (a > 0.) {
-                  float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                  float colorShift = hash(vec2(cell)) * 6.2831;
-                  vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1),
-                    iTime * 0.6 + colorShift);
-                  float colorSpeed = 0.8 + hash(vec2(cell) + 7.7) * 0.4;
-                  baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1),
-                    iTime * 0.6 * colorSpeed + colorShift);
-                  vec3 col = baseColor / attenuation;
-                  float a1 = result.a;
-                  result.a = a1 + (1. - a1) * a;
-                  result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                  if (result.a > 0.98) return result.xyz;
-                }
-              }
-            }
+            float v = fract((z - z_shift) / target_length);
+            float c = floor(v * chars_count);
+            float q = fract(v * chars_count);
+            vec2 char_hash = hash2(vec2(c, cell_hash.z));
+            float a = random_char(vec2(char_hash.x, time * 2.0), vec2(u, q), 0.3);
+            result.rgb += oilMix(vec3(u, q, z), time * 0.6) * a;
           }
         }
         zcell += cell_shift.z;
       }
     }
-    return result.xyz * result.a;
+    return result.rgb;
   }
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 50.0 / iResolution.y;
-
-    // ← добавлено для параллакса:
     vec2 mouse = iMouse.xy / iResolution.xy;
-    mouse = (mouse - 0.5) * 2.0;        // нормируем в диапазон [-1, 1]
-    uv += mouse * 0.05;                  // сила параллакса (0.05–0.15 мягко)
+    mouse = (mouse - 0.5) * 2.0;
+    uv += mouse * 0.05;
 
     float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
@@ -274,10 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
   gl3.bindBuffer(gl3.ARRAY_BUFFER, quad);
   gl3.bufferData(
     gl3.ARRAY_BUFFER,
-    new Float32Array([
-      -1, -1,  1, -1, -1, 1,
-      -1,  1,  1, -1,  1, 1,
-    ]),
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
     gl3.STATIC_DRAW
   );
 
@@ -290,49 +229,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let start = performance.now();
   let mouseX = 0, mouseY = 0;
+  let scrollSpeed = 0;
+  let scrollPos = window.scrollY;
+  let timeScale = 1;
 
-  // ← добавлено: отслеживание мыши
   window.addEventListener("mousemove", (e) => {
     const rect = canvas3.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
-    mouseY = rect.height - (e.clientY - rect.top); // переворот по Y
+    mouseY = rect.height - (e.clientY - rect.top);
   });
 
+  // Скролл управляет направлением и скоростью времени
+  window.addEventListener("scroll", () => {
+    const newPos = window.scrollY;
+    const delta = newPos - scrollPos;
+    scrollSpeed = delta * -0.002; // чем больше delta, тем быстрее реверс
+    scrollPos = newPos;
+  });
+
+  // Плавное затухание эффекта скролла
+  setInterval(() => {
+    scrollSpeed *= 0.9;
+  }, 30);
+
   let isPaused = false;
-  document.addEventListener('visibilitychange', () => { isPaused = document.hidden; });
+  document.addEventListener("visibilitychange", () => { isPaused = document.hidden; });
 
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
   }, { threshold: 0.05 });
-
   observer.observe(canvas3);
 
-  const FPS = 30;
-  const FRAME_INTERVAL = 1000 / FPS;
-  let lastRenderTime = 0;
-
   function render(now) {
-    if (isPaused) return requestAnimationFrame(render);
-    if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
+    requestAnimationFrame(render);
+    if (isPaused) return;
 
-    lastRenderTime = now;
     resize();
+    const elapsed = (now - start) * 0.001;
 
-    const t = (now - start) * 0.001;
+    // Скролл добавляет отрицательное ускорение ко времени
+    timeScale += scrollSpeed;
+    timeScale = Math.max(-2, Math.min(2, timeScale)); // ограничим диапазон
+    const time = elapsed * timeScale;
+
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
 
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
-    gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0); // ← добавлено
+    gl3.uniform1f(iTimeLoc, time);
+    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
 
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
-    requestAnimationFrame(render);
   }
 
   requestAnimationFrame(render);
 });
-
-
-
-
