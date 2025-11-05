@@ -203,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 50.0 / iResolution.y;
+    uv.x += 60.0 / iResolution.y;
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
     uv += mouse * 0.04;
@@ -327,3 +327,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
