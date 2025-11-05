@@ -229,8 +229,8 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     uv.x += 50.0 / iResolution.y; // ← сдвиг влево
     
-    const float CYCLE = 15.0;
-    const float FADE_DURATION = 15.0;
+    const float CYCLE = 60.0;
+    const float FADE_DURATION = 1.5;
     float t = mod(iTime, CYCLE);
     float alpha = smoothstep(CYCLE - FADE_DURATION, CYCLE, t);
     float time = (t - CYCLE * alpha) * SPEED;
@@ -339,5 +339,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
