@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const canvas3 = document.getElementById("shader-canvas3");
   if (!canvas3) return console.error("Canvas #shader-canvas3 не найден!");
 
-  // Явно отключаем всё ненужное, но оставляем alpha: true
   const gl3 = canvas3.getContext("webgl2", {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
@@ -28,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   gl3.enable(gl3.BLEND);
   gl3.blendFunc(gl3.SRC_ALPHA, gl3.ONE_MINUS_SRC_ALPHA);
 
-  /*────────────────────────────── GLSL ──────────────────────────────*/
+  /*────────────────────── GLSL ──────────────────────*/
   const vertexSrc = `#version 300 es
   precision mediump float;
   layout(location = 0) in vec2 a_position;
@@ -227,10 +226,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 50.0 / iResolution.y; // ← сдвиг влево
-    
-    float time = mod(iTime, 240.0) * SPEED;
-    
+    uv.x += 50.0 / iResolution.y;
+
+    // ← добавлено для параллакса:
+    vec2 mouse = iMouse.xy / iResolution.xy;
+    mouse = (mouse - 0.5) * 2.0;        // нормируем в диапазон [-1, 1]
+    uv += mouse * 0.1;                  // сила параллакса (0.05–0.15 мягко)
+
+    float time = mod(iTime, 240.0) * 0.21;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -243,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fragColor = c;
   }`;
 
-  /*────────────────────────────── Компиляция ──────────────────────────────*/
+  /*──────────────────── Компиляция ────────────────────*/
   function compileShader(gl, type, src) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, src);
@@ -272,12 +275,8 @@ document.addEventListener("DOMContentLoaded", () => {
   gl3.bufferData(
     gl3.ARRAY_BUFFER,
     new Float32Array([
-      -1, -1,
-       1, -1,
-      -1,  1,
-      -1,  1,
-       1, -1,
-       1,  1,
+      -1, -1,  1, -1, -1, 1,
+      -1,  1,  1, -1,  1, 1,
     ]),
     gl3.STATIC_DRAW
   );
@@ -290,12 +289,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
 
   let start = performance.now();
+  let mouseX = 0, mouseY = 0;
 
-  // === Пауза при невидимости ===
-  let isPaused = false;
-  document.addEventListener('visibilitychange', () => {
-    isPaused = document.hidden;
+  // ← добавлено: отслеживание мыши
+  window.addEventListener("mousemove", (e) => {
+    const rect = canvas3.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = rect.height - (e.clientY - rect.top); // переворот по Y
   });
+
+  let isPaused = false;
+  document.addEventListener('visibilitychange', () => { isPaused = document.hidden; });
 
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
@@ -303,20 +307,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   observer.observe(canvas3);
 
-  // === Фиксированный FPS = 15 ===
   const FPS = 15;
   const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
   function render(now) {
-    if (isPaused) {
-      requestAnimationFrame(render);
-      return;
-    }
-    if (now - lastRenderTime < FRAME_INTERVAL) {
-      requestAnimationFrame(render);
-      return;
-    }
+    if (isPaused) return requestAnimationFrame(render);
+    if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
 
     lastRenderTime = now;
     resize();
@@ -327,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, 0.0, 0.0, 0.0, 0.0);
+    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0); // ← добавлено
 
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
@@ -335,7 +332,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
-
-
-
-
