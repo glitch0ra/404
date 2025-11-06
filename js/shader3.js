@@ -16,24 +16,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
   /*───────────────────── Динамические параметры ─────────────────────*/
-  let resolutionScale = 1.0;
-  let qualityLevel = 1.0;
+  let resolutionScale = 1.0; // Масштаб разрешения (0.6–1.0)
+  let qualityLevel = 1.0;   // Качество итераций (0.5–1.0)
   let fps = 50;
   const fpsSamples = [];
   let lastTime = performance.now();
   let lastAdjustTime = performance.now();
   const ADJUST_INTERVAL = 500;
-  let targetResolutionScale = 1.0;
-  let targetQualityLevel = 1.0;
-
-  /*───────────────────── Детекция мобильных устройств ─────────────────────*/
-  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
-  if (isMobile) {
-    resolutionScale = 0.6;
-    qualityLevel = 0.6;
-    targetResolutionScale = 0.6;
-    targetQualityLevel = 0.6;
-  }
 
   /*───────────────────── Визуальная диагностика ─────────────────────*/
   const overlay = document.createElement('div');
@@ -46,17 +35,12 @@ document.addEventListener("DOMContentLoaded", () => {
   overlay.style.padding = '6px 10px';
   overlay.style.borderRadius = '8px';
   overlay.style.background = 'rgba(0,0,0,0.6)';
-  overlay.style.color = '#FFFF00';
+  overlay.style.color = '#FFFF00'; // Жёлтый цвет
   overlay.style.pointerEvents = 'none';
   overlay.style.userSelect = 'none';
   overlay.style.backdropFilter = 'blur(4px)';
   overlay.style.whiteSpace = 'pre';
   document.body.appendChild(overlay);
-
-  // Обновляем оверлей раз в 500мс для снижения нагрузки
-  setInterval(() => {
-    overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
-  }, 500);
 
   /*───────────────────── Измерение FPS ─────────────────────*/
   function updatePerformance(now) {
@@ -68,51 +52,27 @@ document.addEventListener("DOMContentLoaded", () => {
     fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
   }
 
-  /*───────────────────── Плавная интерполяция ─────────────────────*/
-  function lerp(start, end, factor) {
-    return start * (1 - factor) + end * factor;
-  }
-
   /*───────────────────── Адаптация с инерцией ─────────────────────*/
   function adjustQuality(now) {
     if (now - lastAdjustTime < ADJUST_INTERVAL) return;
     lastAdjustTime = now;
-    
-    const TARGET_FPS = isMobile ? 25 : 40;
-    const MIN_SCALE = isMobile ? 0.45 : 0.55;
-    const QUALITY_STEP = 0.08;
-    const RESOLUTION_STEP = 0.08;
-
-    if (fps < TARGET_FPS * 0.9) {
-      targetResolutionScale = Math.max(MIN_SCALE, targetResolutionScale - RESOLUTION_STEP);
-      targetQualityLevel = Math.max(0.5, targetQualityLevel - QUALITY_STEP);
-    } else if (fps > TARGET_FPS * 1.15 && targetResolutionScale < 1.0) {
-      targetResolutionScale = Math.min(1.0, targetResolutionScale + RESOLUTION_STEP);
-      targetQualityLevel = Math.min(1.0, targetQualityLevel + QUALITY_STEP);
-    }
-
-    // Плавное изменение параметров
-    resolutionScale = lerp(resolutionScale, targetResolutionScale, 0.2);
-    qualityLevel = lerp(qualityLevel, targetQualityLevel, 0.2);
-    
-    // Принудительный ресайз при значительном изменении
-    if (Math.abs(resolutionScale - targetResolutionScale) > 0.01) {
-      resize();
+    if (fps < 29) {
+      resolutionScale = Math.max(0.55, resolutionScale - 0.05);
+      qualityLevel = Math.max(0.55, qualityLevel - 0.05);
+    } else if (fps > 45 && resolutionScale < 1.0) {
+      resolutionScale = Math.min(1.0, resolutionScale + 0.05);
+      qualityLevel = Math.min(1.0, qualityLevel + 0.05);
     }
   }
 
   function resize() {
     const dpr = window.devicePixelRatio * resolutionScale;
-    canvas3.width = Math.round(window.innerWidth * dpr); // Округление размеров
-    canvas3.height = Math.round(window.innerHeight * dpr);
+    canvas3.width = window.innerWidth * dpr;
+    canvas3.height = window.innerHeight * dpr;
     gl3.viewport(0, 0, canvas3.width, canvas3.height);
   }
 
-  window.addEventListener("resize", () => {
-    targetResolutionScale = isMobile ? 0.6 : 1.0;
-    targetQualityLevel = isMobile ? 0.6 : 1.0;
-    resize();
-  });
+  window.addEventListener("resize", resize);
   resize();
 
   gl3.enable(gl3.BLEND);
@@ -349,26 +309,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const iResolutionLoc = gl3.getUniformLocation(prog, "iResolution");
   const iTimeLoc = gl3.getUniformLocation(prog, "iTime");
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
-  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality");
+  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality"); // Новый uniform
 
   let start = performance.now();
   let mouseX = 0, mouseY = 0;
-  let lastMouseX = 0, lastMouseY = 0;
 
-  // Отслеживание мыши с кэшированием
+  // Отслеживание мыши
   window.addEventListener("mousemove", (e) => {
     const rect = canvas3.getBoundingClientRect();
-    lastMouseX = mouseX = e.clientX - rect.left;
-    lastMouseY = mouseY = rect.height - (e.clientY - rect.top);
+    mouseX = e.clientX - rect.left;
+    mouseY = rect.height - (e.clientY - rect.top);
   });
 
-  // Логика скролла
+  // === ИСПРАВЛЕННАЯ ЛОГИКА СКРОЛЛА ===
   let lastScrollY = window.scrollY;
   let scrollSpeed = 0;
   let scrollInfluence = 0;
   let lastScrollTime = performance.now();
   let timeOffset = 0;
-  const SCROLL_SENSITIVITY = 20.0; // Настроенный коэффициент
 
   window.addEventListener("scroll", () => {
     const now = performance.now();
@@ -379,43 +337,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const deltaY = currentScroll - lastScrollY;
     lastScrollY = currentScroll;
     
+    // Расчёт скорости скролла (пиксели/мс)
     scrollSpeed = deltaY / deltaTime;
+    // Применяем чувствительность (коэффициент 0.2)
     scrollInfluence = scrollSpeed * 0.2;
   });
 
   let isPaused = false;
-  let elapsedTime = 0;
-  let lastElapsedTimeUpdate = performance.now();
-
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      lastElapsedTimeUpdate = performance.now();
-      lastRenderTime = performance.now();
-    }
     isPaused = document.hidden;
   });
 
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
-    if (!isPaused) lastRenderTime = performance.now();
   }, { threshold: 0.05 });
 
   observer.observe(canvas3);
 
-  // Кэширование uniform-переменных
-  let lastResolution = [0, 0];
-  let lastMouse = [0, 0];
-  let lastQuality = -1;
-
-  const TARGET_FPS = isMobile ? 25 : 50;
+  const TARGET_FPS = 25;
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
   let lastRenderTime = 0;
 
   function render(now) {
-    if (isPaused) {
-      requestAnimationFrame(render);
-      return;
-    }
+    if (isPaused) return requestAnimationFrame(render);
     
     updatePerformance(now);
     adjustQuality(now);
@@ -425,48 +369,31 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     
-    const dt = (now - lastRenderTime) * 0.001;
+    // 🔑 КРИТИЧНОЕ ИСПРАВЛЕНИЕ: ПРАВИЛЬНЫЙ РАСЧЁТ ВРЕМЕНИ МЕЖДУ КАДРАМИ
+    const dt = (now - lastRenderTime) * 0.001; // Время в секундах
     lastRenderTime = now;
 
-    // Обновление времени с учетом паузы
-    if (!isPaused) {
-      const timeSinceLastUpdate = (now - lastElapsedTimeUpdate) * 0.001;
-      elapsedTime += timeSinceLastUpdate;
-      lastElapsedTimeUpdate = now;
-    }
+    resize();
 
-    // Затухание влияния скролла
-    scrollInfluence *= 0.9;
-    timeOffset += scrollInfluence * dt * SCROLL_SENSITIVITY;
+    // Обновление смещения времени с правильным deltaTime
+    scrollInfluence *= 0.9; // Затухание влияния скролла
+    timeOffset += scrollInfluence * dt * 50.0; // 50.0 = скорость реакции
 
-    // Обновление uniform-переменных с кэшированием
-    if (canvas3.width !== lastResolution[0] || canvas3.height !== lastResolution[1]) {
-      gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
-      lastResolution = [canvas3.width, canvas3.height];
-    }
-    
-    if (Math.abs(mouseX - lastMouse[0]) > 1 || Math.abs(mouseY - lastMouse[1]) > 1) {
-      gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-      lastMouse = [mouseX, mouseY];
-    }
-    
-    if (Math.abs(qualityLevel - lastQuality) > 0.01) {
-      gl3.uniform1f(uQualityLoc, qualityLevel);
-      lastQuality = qualityLevel;
-    }
-
-    // Общее время с накопленным сдвигом
-    const t = elapsedTime + timeOffset;
+    // Общее время с учётом накопленного сдвига
+    const t = (now - start) * 0.001 + timeOffset;
 
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
+    gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
+    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
+    gl3.uniform1f(uQualityLoc, qualityLevel);
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+
+    overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
 
     requestAnimationFrame(render);
   }
 
   requestAnimationFrame(render);
 });
-
-
