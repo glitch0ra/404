@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const gl = canvas4.getContext("webgl2", {
     powerPreference: "high-performance",
-    alpha: true,
+    alpha: false,
     preserveDrawingBuffer: false,
     antialias: false
   });
@@ -245,4 +245,5 @@ void main(){
   }
   requestAnimationFrame(render);
 });
+
 
