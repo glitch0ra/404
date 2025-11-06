@@ -94,14 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Экспоненциальная адаптация с гистерезисом
         if (fps < CRITICAL_THRESHOLD) {
             resolutionScale = Math.max(0.4, resolutionScale * 0.7);
-            qualityLevel = Math.max(0.4, qualityLevel * 0.6);
+            qualityLevel = Math.max(0.4, qualityLevel * 0.7);
         } 
         else if (fps < WARNING_THRESHOLD) {
             resolutionScale = Math.max(0.55, resolutionScale * 0.9);
             qualityLevel = Math.max(0.55, qualityLevel * 0.85);
         }
         else if (fps > RECOVERY_THRESHOLD && resolutionScale < 1.0) {
-            resolutionScale = Math.min(1.0, resolutionScale * 1.08);
+            resolutionScale = Math.min(1.0, resolutionScale * 1.05);
             qualityLevel = Math.min(1.0, qualityLevel * 1.05);
         }
 
@@ -375,5 +375,6 @@ Scale: ${isMobile ? 'MOBILE' : 'DESKTOP'}
     canvas.style.opacity = '1';
     canvas.style.transition = 'opacity 0.5s';
 });
+
 
 
