@@ -35,26 +35,29 @@ document.addEventListener("DOMContentLoaded", () => {
   #define PI 3.141592654
   #define TAU (2.0*PI)
 
+  // ---------------- HSV / Hash / Noise ----------------
   const vec4 hsv2rgb_K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
   vec3 hsv2rgb(vec3 c){
     vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz)*6.0 - hsv2rgb_K.www);
     return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
   }
 
-  float hash(float n){return fract(sin(n)*43758.5453123);}
-  float hash(vec2 p){return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123);}
+  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123); }
+
   float vnoise(vec2 p){
     vec2 i=floor(p), f=fract(p);
     vec2 u=f*f*(3.0-2.0*f);
-    float a=hash(i);
-    float b=hash(i+vec2(1,0));
-    float c=hash(i+vec2(0,1));
-    float d=hash(i+vec2(1,1));
+    float a=hash(i+vec2(0.0,0.0));
+    float b=hash(i+vec2(1.0,0.0));
+    float c=hash(i+vec2(0.0,1.0));
+    float d=hash(i+vec2(1.0,1.0));
     return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
   }
-  float hifbm(vec2 p){float s=0.,a=1.;for(int i=0;i<5;i++){s+=a*vnoise(p);a*=.5;p*=2.;}return s;}
-  float hiheight(vec2 p){return hifbm(p)-1.8;}
 
+  float hifbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
+  float hiheight(vec2 p){ return hifbm(p)-1.8; }
+
+  // ---------------- Plane ----------------
   vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, float n){
     vec2 p=pp.xy;
     const vec2 stp=vec2(0.5,0.33);
@@ -67,11 +70,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec4(acol,t);
   }
 
+  // ---------------- Stars + Sky ----------------
   vec3 stars(vec2 sp){
     const vec3 scol0=hsv2rgb(vec3(0.85,0.8,1.0));
     const vec3 scol1=hsv2rgb(vec3(0.65,0.5,1.0));
     vec3 col=vec3(0.0);
-    for(float i=0.;i<6.;i++){
+    for(float i=0.0;i<6.0;i++){
       vec2 np=mod(sp+0.5*i,PI*vec2(0.05))-0.5*PI*vec2(0.05);
       float l=length(np);
       float w=exp(-3000.0*max(l-0.001,0.0));
@@ -91,11 +95,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return col;
   }
 
+  // ---------------- Color / Effect ----------------
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p){
-    vec3 rd=normalize(p.x*uu+p.y*vv+2.0*ww);
+    vec3 rd=normalize(p.x*uu + p.y*vv + 2.0*ww);
     float nz=floor(ro.z);
     vec3 skyCol=skyColor(rd);
-    vec4 acol=vec4(0.);
+    vec4 acol=vec4(0.0);
     for(int i=1;i<=10;i++){
       float pd=float(i);
       vec3 pp=ro+rd*pd;
@@ -118,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return color(ww,uu,vv,ro,p);
   }
 
+  // ---------------- Sun + Sphere ----------------
   vec3 renderSun(vec2 q,out float sunMask){
     vec2 c=vec2(0.5,0.5);
     float d=distance(q,c);
@@ -144,6 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return col*sphereMask;
   }
 
+  // ---------------- Tonemap + Output ----------------
   vec3 aces(vec3 v){v=max(v,0.0);v*=0.6;return clamp((v*(2.51*v+0.03))/(v*(2.43*v+0.59)+0.14),0.0,1.0);}
   float srgb(float t){return mix(1.055*pow(t,1./2.4)-0.055,12.92*t,step(t,0.0031308));}
   vec3 srgb(vec3 c){return vec3(srgb(c.x),srgb(c.y),srgb(c.z));}
@@ -153,10 +160,10 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 p=-1.0+2.0*q;
     p.x*=RESOLUTION.x/RESOLUTION.y;
 
-    vec3 col=effect(p,q);
+    vec3 col = effect(p, q); // <-- теперь точно vec3, ошибки нет
 
-    float sunMask=0.;vec3 sunCol=renderSun(q,sunMask);
-    float sphereMask=0.;vec3 sphereCol=renderSphere(q,sphereMask);
+    float sunMask=0.0; vec3 sunCol=renderSun(q,sunMask);
+    float sphereMask=0.0; vec3 sphereCol=renderSphere(q,sphereMask);
     col+=sunCol+sphereCol;
 
     col=aces(col);
@@ -168,45 +175,50 @@ document.addEventListener("DOMContentLoaded", () => {
     fragColor=vec4(col,alpha);
   }`;
 
-  function compileShader(type, src){
-    const sh=gl4.createShader(type);
+  function compileShader(type, src) {
+    const sh = gl4.createShader(type);
     gl4.shaderSource(sh, src);
     gl4.compileShader(sh);
-    if(!gl4.getShaderParameter(sh, gl4.COMPILE_STATUS)){
+    if (!gl4.getShaderParameter(sh, gl4.COMPILE_STATUS)) {
       console.error(gl4.getShaderInfoLog(sh));
       throw new Error("Shader compile failed");
     }
     return sh;
   }
 
-  const vs=compileShader(gl4.VERTEX_SHADER,vertexSrc);
-  const fs=compileShader(gl4.FRAGMENT_SHADER,fragmentSrc);
-  const prog=gl4.createProgram();
-  gl4.attachShader(prog,vs);
-  gl4.attachShader(prog,fs);
+  const vs = compileShader(gl4.VERTEX_SHADER, vertexSrc);
+  const fs = compileShader(gl4.FRAGMENT_SHADER, fragmentSrc);
+
+  const prog = gl4.createProgram();
+  gl4.attachShader(prog, vs);
+  gl4.attachShader(prog, fs);
   gl4.linkProgram(prog);
-  if(!gl4.getProgramParameter(prog,gl4.LINK_STATUS))
+  if (!gl4.getProgramParameter(prog, gl4.LINK_STATUS)) {
     console.error(gl4.getProgramInfoLog(prog));
+  }
   gl4.useProgram(prog);
 
-  const quad=gl4.createBuffer();
-  gl4.bindBuffer(gl4.ARRAY_BUFFER,quad);
-  gl4.bufferData(gl4.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl4.STATIC_DRAW);
+  const quad = gl4.createBuffer();
+  gl4.bindBuffer(gl4.ARRAY_BUFFER, quad);
+  gl4.bufferData(gl4.ARRAY_BUFFER, new Float32Array([
+    -1,-1, 1,-1, -1,1,
+    -1,1, 1,-1, 1,1
+  ]), gl4.STATIC_DRAW);
   gl4.enableVertexAttribArray(0);
-  gl4.vertexAttribPointer(0,2,gl4.FLOAT,false,0,0);
+  gl4.vertexAttribPointer(0, 2, gl4.FLOAT, false, 0, 0);
 
-  const resLoc=gl4.getUniformLocation(prog,"iResolution");
-  const timeLoc=gl4.getUniformLocation(prog,"iTime");
+  const resLoc = gl4.getUniformLocation(prog, "iResolution");
+  const timeLoc = gl4.getUniformLocation(prog, "iTime");
 
-  let start=performance.now();
-  function render(){
+  let start = performance.now();
+  function render() {
     resize();
-    const t=(performance.now()-start)*0.001;
-    gl4.uniform3f(resLoc,canvas4.width,canvas4.height,1.0);
-    gl4.uniform1f(timeLoc,t);
-    gl4.clearColor(0,0,0,0);
+    const t = (performance.now() - start) * 0.001;
+    gl4.uniform3f(resLoc, canvas4.width, canvas4.height, 1.0);
+    gl4.uniform1f(timeLoc, t);
+    gl4.clearColor(0, 0, 0, 0);
     gl4.clear(gl4.COLOR_BUFFER_BIT);
-    gl4.drawArrays(gl4.TRIANGLES,0,6);
+    gl4.drawArrays(gl4.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);
