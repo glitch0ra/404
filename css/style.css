@@ -459,13 +459,12 @@ h2 {
 }
 
 .page-header {
-  width: 1400px;
+  max-width: 1400px;
   height: 430px;
   position: relative; 
   z-index: 5; 
   margin: 0 auto;
-  overflow: hidden; 
-  pointer-events: none;
+  overflow: hidden;
 }
 
 /* Стили для видео в шапке */
@@ -495,6 +494,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
