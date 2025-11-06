@@ -43,11 +43,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const ADJUST_INTERVAL = isMobile ? 800 : 500;
     let needsResize = true;
     let lastOverlayUpdate = 0;
+    let frameCount = 0;
 
     // Гистерезисные пороги
     const CRITICAL_THRESHOLD = TARGET_FPS * 0.55;
     const WARNING_THRESHOLD = TARGET_FPS * 0.75;
     const RECOVERY_THRESHOLD = TARGET_FPS * 1.15;
+
+    /*───────────────────── Защита от троттлинга ─────────────────────*/
+    let lastUserInteraction = performance.now();
+    const INTERACTION_TIMEOUT = 5000; // 5 секунд неактивности
+    let isThrottled = false;
+    const THROTTLE_DETECTION_FRAMES = 10;
+    const THROTTLE_THRESHOLD = 80; // ms между кадрами
+    const frameIntervals = [];
+
+    // Обновление времени последнего взаимодействия
+    function updateUserActivity() {
+        lastUserInteraction = performance.now();
+    }
+
+    // Детектор троттлинга
+    function detectThrottling(delta) {
+        frameIntervals.push(delta);
+        if (frameIntervals.length > THROTTLE_DETECTION_FRAMES) {
+            frameIntervals.shift();
+        }
+
+        // Проверяем, не является ли низкий FPS результатом троттлинга
+        const avgInterval = frameIntervals.reduce((a, b) => a + b, 0) / frameIntervals.length;
+        isThrottled = avgInterval > THROTTLE_THRESHOLD && 
+                      (performance.now() - lastUserInteraction) > INTERACTION_TIMEOUT;
+        
+        return isThrottled;
+    }
 
     /*───────────────────── Визуальная диагностика ─────────────────────*/
     // ⛔ УДАЛИТЬ ПЕРЕД ПРОДАКШЕНОМ ⛔
@@ -77,10 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePerformance(now) {
         const delta = now - lastTime;
         lastTime = now;
+        
+        // Пропускаем кадры при троттлинге для корректного расчета FPS
+        if (delta > THROTTLE_THRESHOLD * 2) return;
+        
         const currentFps = 1000 / delta;
         fpsSamples.push(currentFps);
         if (fpsSamples.length > 30) fpsSamples.shift();
         fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
+        
+        frameCount++;
     }
 
     /*───────────────────── Адаптация с гистерезисом ─────────────────────*/
@@ -91,13 +126,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const oldScale = resolutionScale;
         const oldQuality = qualityLevel;
 
+        // Пропускаем адаптацию при троттлинге или отсутствии активности
+        if (isThrottled) {
+            console.log('⏸️ Адаптация приостановлена: обнаружен троттлинг');
+            return;
+        }
+
         // Экспоненциальная адаптация с гистерезисом
         if (fps < CRITICAL_THRESHOLD) {
-            resolutionScale = Math.max(0.4, resolutionScale * 0.7);
-            qualityLevel = Math.max(0.4, qualityLevel * 0.7);
+            resolutionScale = Math.max(0.4, resolutionScale * 0.6);
+            qualityLevel = Math.max(0.4, qualityLevel * 0.6);
         } 
         else if (fps < WARNING_THRESHOLD) {
-            resolutionScale = Math.max(0.55, resolutionScale * 0.9);
+            resolutionScale = Math.max(0.55, resolutionScale * 0.85);
             qualityLevel = Math.max(0.55, qualityLevel * 0.85);
         }
         else if (fps > RECOVERY_THRESHOLD && resolutionScale < 1.0) {
@@ -235,18 +276,47 @@ void main() {
     let isPaused = false;
 
     /*──────────────────── Обработчики событий ────────────────────*/
+    // Отслеживание активности пользователя
+    const userActivityEvents = [
+        'mousemove', 'mousedown', 'touchstart', 'touchmove', 
+        'keydown', 'wheel', 'pointermove', 'pointerdown'
+    ];
+    
+    userActivityEvents.forEach(event => {
+        window.addEventListener(event, updateUserActivity, { passive: true });
+    });
+
     if (!isMobile) {
         canvas.addEventListener('mousemove', e => {
             const rect = canvas.getBoundingClientRect();
             mouse[0] = e.clientX - rect.left;
             mouse[1] = rect.height - (e.clientY - rect.top);
+            updateUserActivity();
         });
 
         canvas.addEventListener('mousedown', e => {
             const rect = canvas.getBoundingClientRect();
             mouse[2] = e.clientX - rect.left;
             mouse[3] = rect.height - (e.clientY - rect.top);
+            updateUserActivity();
         });
+    } else {
+        // Для мобильных устройств используем тач-события
+        canvas.addEventListener('touchmove', e => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            mouse[0] = touch.clientX - rect.left;
+            mouse[1] = rect.height - (touch.clientY - rect.top);
+            updateUserActivity();
+        }, { passive: false });
+
+        canvas.addEventListener('touchstart', e => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            mouse[2] = touch.clientX - rect.left;
+            mouse[3] = rect.height - (touch.clientY - rect.top);
+            updateUserActivity();
+        }, { passive: true });
     }
 
     function pauseRendering() {
@@ -267,11 +337,21 @@ void main() {
     }
 
     document.addEventListener('visibilitychange', () => {
-        document.hidden ? pauseRendering() : resumeRendering();
+        if (document.hidden) {
+            pauseRendering();
+        } else {
+            updateUserActivity(); // Сброс при возврате на вкладку
+            resumeRendering();
+        }
     });
 
     const observer = new IntersectionObserver(entries => {
-        entries[0].isIntersecting ? resumeRendering() : pauseRendering();
+        if (entries[0].isIntersecting) {
+            updateUserActivity(); // Сброс при появлении на экране
+            resumeRendering();
+        } else {
+            pauseRendering();
+        }
     }, { threshold: 0.05 });
     observer.observe(canvas);
 
@@ -293,12 +373,18 @@ void main() {
 
     window.addEventListener('resize', () => {
         needsResize = true;
+        updateUserActivity(); // Сброс при изменении размера окна
     });
 
     /*──────────────────── Очистка ресурсов ────────────────────*/
     function cleanup() {
         if (animationFrame) cancelAnimationFrame(animationFrame);
         observer.disconnect();
+        
+        // Удаляем обработчики активности
+        userActivityEvents.forEach(event => {
+            window.removeEventListener(event, updateUserActivity);
+        });
         
         if (gl) {
             gl.deleteBuffer(quad);
@@ -322,7 +408,17 @@ void main() {
     function render(now) {
         if (isPaused) return;
         
-        // Адаптация качества
+        // Сбрасываем троттлинг при активности пользователя
+        if (now - lastUserInteraction < INTERACTION_TIMEOUT) {
+            frameIntervals.length = 0;
+            isThrottled = false;
+        }
+        
+        // Измеряем реальный интервал кадров
+        const delta = now - lastRenderTime;
+        const isThrottledNow = detectThrottling(delta);
+        
+        // Адаптация качества (только если нет троттлинга)
         updatePerformance(now);
         adjustQuality(now);
         
@@ -330,14 +426,6 @@ void main() {
         if (needsResize) resize();
         
         // Расчет времени
-        const elapsed = now - lastRenderTime;
-        const minFrameTime = 1000 / (TARGET_FPS + 5); // Небольшой запас
-        
-        if (elapsed < minFrameTime) {
-            animationFrame = requestAnimationFrame(render);
-            return;
-        }
-        
         lastRenderTime = now;
         
         // Установка uniforms
@@ -358,8 +446,9 @@ void main() {
 FPS: ${fps.toFixed(1)} / ${TARGET_FPS}
 RES: ${Math.round(resolutionScale * 100)}%
 QUAL: ${Math.round(qualityLevel * 100)}%
-Scale: ${isMobile ? 'MOBILE' : 'DESKTOP'}
-Версия: 2.1 (оптимизировано)
+Троттлинг: ${isThrottledNow ? 'ДА' : 'НЕТ'}
+Активность: ${((now - lastUserInteraction) / 1000).toFixed(1)}с назад
+Версия: 3.0 (защита от троттлинга)
             `.trim();
             lastOverlayUpdate = now;
         }
@@ -374,7 +463,14 @@ Scale: ${isMobile ? 'MOBILE' : 'DESKTOP'}
     // Показать canvas после инициализации
     canvas.style.opacity = '1';
     canvas.style.transition = 'opacity 0.5s';
+    
+    // Периодический сброс адаптации для защиты от ложных срабатываний
+    setInterval(() => {
+        if (!isThrottled && (performance.now() - lastUserInteraction) < INTERACTION_TIMEOUT) {
+            console.log('🔄 Периодический сброс адаптации');
+            resolutionScale = Math.min(1.0, resolutionScale * 1.02);
+            qualityLevel = Math.min(1.0, qualityLevel * 1.02);
+            needsResize = true;
+        }
+    }, 15000);
 });
-
-
-
