@@ -1,11 +1,12 @@
-// s/shader4.js — Neonwave Sunrise (адаптирован под сайт без аудио)
+// s/shader4.js — Neonwave Sunrise (адаптирован под сайт с прозрачностью)
 document.addEventListener("DOMContentLoaded", () => {
   const canvas4 = document.getElementById("shader-canvas4");
   if (!canvas4) return console.error("Canvas #shader-canvas4 не найден!");
 
+  // Важно: включаем поддержку альфа-канала
   const gl = canvas4.getContext("webgl2", {
     powerPreference: "high-performance",
-    alpha: true,
+    alpha: true,  // Ключевое изменение для прозрачности
     preserveDrawingBuffer: false,
     antialias: false
   });
@@ -34,243 +35,230 @@ document.addEventListener("DOMContentLoaded", () => {
   }`;
 
   const fs = `#version 300 es
-precision highp float;
-out vec4 fragColor;
-uniform vec3  iResolution;
-uniform float iTime;
+  precision highp float;
+  out vec4 fragColor;
+  uniform vec3  iResolution;
+  uniform float iTime;
 
-#define RESOLUTION iResolution
-#define TIME iTime
-#define PI 3.141592654
-#define TAU (2.0*PI)
+  #define RESOLUTION iResolution
+  #define TIME iTime
+  #define PI 3.141592654
+  #define TAU (2.0*PI)
 
-const vec4 hsv2rgb_K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-vec3 hsv2rgb(vec3 c){
-  vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www);
-  return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
-}
-#define HSV2RGB(c) (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
+  const vec4 hsv2rgb_K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+  vec3 hsv2rgb(vec3 c){
+    vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www);
+    return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
+  }
+  #define HSV2RGB(c) (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
 
-// --- utils / noise ---
-float hash(float co){return fract(sin(co*12.9898)*13758.5453);}
-float hash(vec2 p){float a=dot(p,vec2(127.1,311.7));return fract(sin(a)*43758.5453123);}
-float vnoise(vec2 p){
-  vec2 i=floor(p); vec2 f=fract(p);
-  vec2 u=f*f*(3.0-2.0*f);
-  float a=hash(i+vec2(0.0)); float b=hash(i+vec2(1.0,0.0));
-  float c=hash(i+vec2(0.0,1.0)); float d=hash(i+vec2(1.0,1.0));
-  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-}
-float tanh_approx(float x){ float x2=x*x; return clamp(x*(27.0+x2)/(27.0+9.0*x2), -1.0, 1.0); }
+  float hash(float co){ return fract(sin(co*12.9898)*13758.5453); }
+  float hash(vec2 p){ float a=dot(p,vec2(127.1,311.7)); return fract(sin(a)*43758.5453123); }
+  vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453123); }
 
-float hifbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
-float lofbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<2;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
-float hiheight(vec2 p){ return hifbm(p)-1.8; }
-float loheight(vec2 p){ return lofbm(p)-2.15; }
+  float vnoise(vec2 p){
+    vec2 i=floor(p); vec2 f=fract(p);
+    vec2 u=f*f*(3.0-2.0*f);
+    float a=hash(i+vec2(0.0)); float b=hash(i+vec2(1.0,0.0));
+    float c=hash(i+vec2(0.0,1.0)); float d=hash(i+vec2(1.0,1.0));
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+  }
 
-vec4 alphaBlend(vec4 back, vec4 front){
-  float w = front.w + back.w*(1.0-front.w);
-  vec3 xyz = (front.xyz*front.w + back.xyz*back.w*(1.0-front.w))/w;
-  return w>0.0?vec4(xyz,w):vec4(0.0);
-}
-vec3 alphaBlend(vec3 back, vec4 front){ return mix(back, front.xyz, front.w); }
+  float tanh_approx(float x){ float x2=x*x; return clamp(x*(27.0+x2)/(27.0+9.0*x2), -1.0,1.0); }
 
-vec2 mod2(inout vec2 p, vec2 size){
-  vec2 c = floor((p + size*0.5)/size);
-  p = mod(p + size*0.5, size) - size*0.5;
-  return c;
-}
-float mod1(inout float p, float size){ float halfsize = size*0.5; float c = floor((p + halfsize)/size); p = mod(p + halfsize, size) - halfsize; return c; }
+  float hifbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
+  float lofbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<2;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
+  float hiheight(vec2 p){ return hifbm(p)-1.8; }
+  float loheight(vec2 p){ return lofbm(p)-2.15; }
 
-vec2 raySphere(vec3 ro, vec3 rd, vec4 sph){
-  vec3 oc = ro - sph.xyz;
-  float b = dot(oc, rd);
-  float c = dot(oc, oc) - sph.w*sph.w;
-  float h = b*b - c;
-  if(h < 0.0) return vec2(-1.0);
-  h = sqrt(h);
-  return vec2(-b - h, -b + h);
-}
-vec3 toSpherical(vec3 p){ float r = length(p); float t = acos(p.z/r); float ph = atan(p.y, p.x); return vec3(r,t,ph); }
+  vec4 alphaBlend(vec4 back, vec4 front){
+    float w = front.w + back.w*(1.0-front.w);
+    vec3 xyz = (front.xyz*front.w + back.xyz*back.w*(1.0-front.w))/w;
+    return w>0.0?vec4(xyz,w):vec4(0.0);
+  }
+  vec3 alphaBlend(vec3 back, vec4 front){ return mix(back, front.xyz, front.w); }
 
-const vec3 lpos = 1E6*vec3(0., -0.15, 1.0);
-const vec3 ldir = normalize(lpos);
+  vec2 mod2(inout vec2 p, vec2 size){
+    vec2 c=floor((p+size*0.5)/size);
+    p=mod(p+size*0.5,size)-size*0.5;
+    return c;
+  }
+  float mod1(inout float p,float size){float halfsize=size*0.5;float c=floor((p+halfsize)/size);p=mod(p+halfsize,size)-halfsize;return c;}
 
-// ---------------- plane (нижние слои) ----------------
-vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
-  float h = hash(n);
-  vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
-  const vec2 stp = vec2(0.5, 0.33);
-  float he = hiheight(vec2(p.x, pp.z)*stp);
-  float lohe = loheight(vec2(p.x, pp.z)*stp);
-  float d = p.y - he;
-  float lod = p.y - lohe;
-  float aa = distance(pp, npp)*sqrt(1.0/3.0);
-  float t = smoothstep(aa, -aa, d);
-  float df = exp(-0.1*(distance(ro, pp)-2.));
-  vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
-  vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0,8.0,df)*lod))));
-  vec3 col = acol + 0.5*gcol;
-  return vec4(col, t);
-}
+  vec2 raySphere(vec3 ro, vec3 rd, vec4 sph){
+    vec3 oc=ro-sph.xyz;
+    float b=dot(oc,rd);
+    float c=dot(oc,oc)-sph.w*sph.w;
+    float h=b*b-c;
+    if(h<0.0)return vec2(-1.0);
+    h=sqrt(h);
+    return vec2(-b-h,-b+h);
+  }
 
-// ---------------- moon (плотная внутренняя заливка) ----------------
-vec4 moon(vec3 ro, vec3 rd){
-  const vec4 mdim = vec4(1E5*vec3(0.0, 0.4, 1.0), 20000.0);
-  const vec3 mcol0 = HSV2RGB(vec3(0.75, 0.7, 1.0));
-  const vec3 mcol1 = HSV2RGB(vec3(0.75, 0.55, 1.0));
-  vec2 md = raySphere(ro, rd, mdim);
-  if(md.x < 0.0) return vec4(0.0); // вне сферы
+  vec3 toSpherical(vec3 p){float r=length(p);float t=acos(p.z/r);float ph=atan(p.y,p.x);return vec3(r,t,ph);}
 
-  vec3 mpos = ro + rd * md.x;
-  vec3 mnor = normalize(mpos - mdim.xyz);
-  float mdif = max(dot(ldir, mnor), 0.0);
+  const vec3 lpos=1E6*vec3(0.,-0.15,1.0);
+  const vec3 ldir=normalize(lpos);
 
-  // плотная внутренняя заливка + мягкий rim (без шума)
-  vec3 base = mix(mcol0, mcol1, 0.3);
-  vec3 col = base * (0.6 + 0.5*mdif);      // базовая яркость внутри
-  col += 0.08 * pow(mdif, 6.0) * vec3(1.0); // тонкий яркий рим
-  float mf = 1.0; // делаем луну полностью непрозрачной по-alpha внутри диска
-  return vec4(col, mf);
-}
+  // --- plane() с размытием горизонта ---
+  vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
+    float h=hash(n);
+    vec2 p=(pp-off*2.0*vec3(1.0,1.0,0.0)).xy;
+    const vec2 stp=vec2(0.5,0.33);
+    float he=hiheight(vec2(p.x,pp.z)*stp);
+    float lohe=loheight(vec2(p.x,pp.z)*stp);
+    float d=p.y-he;
+    float lod=p.y-lohe;
+    
+    // Динамическое размытие для distant terrain
+    float dist = length(pp - ro);
+    float blurFactor = smoothstep(50.0, 200.0, dist) * 0.5;
+    float aa = (1.0 + blurFactor) * distance(pp, npp) * sqrt(1.0/3.0);
+    
+    float t=smoothstep(aa,-aa,d);
+    float df=exp(-0.1*(distance(ro,pp)-2.));
+    vec3 acol=hsv2rgb(vec3(mix(0.9,0.6,df),0.9,mix(1.0,0.0,df)));
+    vec3 gcol=hsv2rgb(vec3(0.6,0.5,tanh_approx(exp(-mix(2.0,8.0,df)*lod))));
+    vec3 col=acol+0.5*gcol;
+    return vec4(col,t);
+  }
 
-// ---------------- skyColor: УБИРАЕМ верхний фон и звезды ----------------
-vec3 skyColor(vec3 ro, vec3 rd, vec2 q){
-  // НИЧЕГО сверху: верх будет прозрачным. Для нижних областей ниже горизонта
-  // создаём только лёгкий подсвечивающий градиент для горизонта.
-  const vec3 horizonBase = vec3(1.0, 0.9, 0.95); // слегка розово-белый тон (слабый)
-  const vec3 ambient = HSV2RGB(vec3(0.6, 0.6, 0.25));
-
-  // position relative to horizon (rd.y): rd.y ~ -1 (под горизонт) -> more ground; rd.y ~ 0 -> horizon; rd.y >0 -> sky above
-  float horizonY = -0.05; // параметр контролирует вертикальную позицию горизонта в пространстве камеры
-  float horizonFactor = smoothstep(horizonY - 0.08, horizonY + 0.06, rd.y); // 0 = низ, 1 = чуть выше горизонта
-
-  // слабый градиент низ->хоризонт
-  vec3 sky = mix(vec3(0.02), ambient * 0.25, horizonFactor);
-
-  // добавляем тонкую светящуюся линию горизонта (розово-белая) и центральную точку (закат)
-  // для центрального солнца используем координаты экрана q (0..1)
-  float horizonLineY = 0.52; // экранная Y (в main мы передаём q туда)
-  // расстояние до горизонтальной линии (экранное)
-  float dy = abs(q.y - horizonLineY);
-  float lineWidth = 0.003; // тонкая линия
-  float lineSoft = 0.02; // мягкость
-  float lineMask = smoothstep(lineWidth + lineSoft, lineWidth, dy);
-
-  // центральная точка заката
-  vec2 center = vec2(0.5, horizonLineY);
-  // компенсируем соотношение сторон чтобы круг не растянуть
-  float aspect = RESOLUTION.x / RESOLUTION.y;
-  vec2 cpos = vec2((q.x - center.x) * aspect, q.y - center.y);
-  float sunR = 0.02;
-  float sunSoft = 0.05;
-  float sunMask = 1.0 - smoothstep(sunR, sunR + sunSoft, length(cpos));
-
-  // комбинируем: очень тонкая линия + маленькая точка по центру
-  vec3 lineColor = vec3(1.0, 0.95, 0.98); // розово-белый
-  sky += lineColor * (0.35 * lineMask + 1.2 * sunMask * smoothstep(0.0, 1.0, 1.0 - dy));
-
-  return sky;
-}
-
-// ---------------- соберём сцену (нижние слои сохраняются) ----------------
-vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, vec2 q){
-  float rdd = 2.0;
-  vec3 rd = normalize(p.x*uu + p.y*vv + rdd*ww);
-  vec3 nrd = rd; // не используем искажений
-
-  // сначала skyColor (нижняя подсветка горизонта)
-  vec3 skyCol = skyColor(ro, rd, q);
-
-  // аккумулируем пластины, как раньше
-  const float planeDist = 1.0;
-  const int furthest = 12;
-  const int fadeFrom = max(furthest-2, 0);
-  const float fadeDist = planeDist * float(fadeFrom);
-  const float maxDist = planeDist * float(furthest);
-  float nz = floor(ro.z / planeDist);
-  vec4 acol = vec4(0.0);
-  const float cutOff = 0.95;
-
-  for(int i=1;i<=furthest;i++){
-    float pz = planeDist*nz + planeDist*float(i);
-    float pd = (pz - ro.z) / rd.z;
-    vec3 pp = ro + rd * pd;
-    if(pp.y < 0. && pd > 0.0 && acol.w < cutOff){
-      vec3 npp = ro + nrd * pd;
-      vec4 pcol = plane(ro, rd, pp, npp, vec3(0.0), nz + float(i));
-      float fadeIn = smoothstep(maxDist, fadeDist, pd);
-      pcol.xyz = mix(skyCol, pcol.xyz, fadeIn);
-      pcol = clamp(pcol, 0.0, 1.0);
-      acol = alphaBlend(pcol, acol);
-    } else {
-      break;
+  // --- stars() с прозрачностью ---
+  vec3 stars(vec2 sp,float hh){
+    const vec3 scol0=HSV2RGB(vec3(0.85,0.8,1.0));
+    const vec3 scol1=HSV2RGB(vec3(0.65,0.5,1.0));
+    vec3 col=vec3(0.0);
+    const float m=6.0;
+    for(float i=0.0;i<m;i++){
+      vec2 pp=sp+0.5*i;
+      float s=i/(m-1.0);
+      vec2 dim=vec2(mix(0.05,0.003,s)*PI);
+      vec2 np=mod2(pp,dim);
+      vec2 h=hash2(np+127.0+i);
+      vec2 o=-1.0+2.0*h;
+      float y=sin(sp.x);
+      pp+=o*dim*0.5;
+      pp.y*=y;
+      float l=length(pp);
+      float h1=fract(h.x*1667.0);
+      float h2=fract(h.x*1887.0);
+      float h3=fract(h.x*2997.0);
+      vec3 scol=mix(8.0*h2,0.25*h2*h2,s)*mix(scol0,scol1,h1*h1);
+      vec3 ccol=col+exp(-(mix(6000.0,2000.0,hh)/mix(2.0,0.25,s))*max(l-0.001,0.0))*scol;
+      ccol*=mix(0.125,1.0,smoothstep(1.0,0.99,sin(0.25*TIME+TAU*h.y)));
+      col=h3<y?ccol:col;
     }
+    return col;
   }
 
-  // финальный цвет — комбинируем sky и накопленный acol
-  vec3 scene = alphaBlend(skyCol, acol);
-  return scene;
-}
-
-vec3 effect(vec2 p, vec2 q){
-  float tm = TIME * 0.25;
-  vec3 ro = vec3(0.0, 0.0, tm);
-  vec3 dro = normalize(vec3(0.0, 0.09, 1.0));
-  vec3 ww = normalize(dro);
-  vec3 uu = normalize(cross(normalize(vec3(0.0,1.0,0.0)), ww));
-  vec3 vv = normalize(cross(ww, uu));
-
-  return color(ww, uu, vv, ro, p, q);
-}
-
-// --- tone / sRGB / aces ---
-float sRGBf(float t){ return mix(1.055*pow(t,1.0/2.4)-0.055, 12.92*t, step(t, 0.0031308)); }
-vec3 sRGB(vec3 c){ return vec3(sRGBf(c.x), sRGBf(c.y), sRGBf(c.z)); }
-vec3 aces_approx(vec3 v){ v = max(v, 0.0); v *= 0.6; float a=2.51, b=0.03, c=2.43, d=0.59, e=0.14; return clamp((v*(a*v+b))/(v*(c*v+d)+e), 0.0, 1.0); }
-
-void main(){
-  vec2 q = gl_FragCoord.xy / RESOLUTION.xy;        // экранные 0..1
-  vec2 p = -1.0 + 2.0 * q;
-  p.x *= RESOLUTION.x / RESOLUTION.y;
-
-  // сцена (низ + подсветка горизонта)
-  vec3 sceneCol = effect(p, q);
-
-  // проверим — находится ли текущий пиксель внутри диска луны. Если да — рисуем её поверх и делаем непрозрачным.
-  // для этого используем ту же луну из moon()
-  vec3 ro = vec3(0.0, 0.0, TIME*0.25);
-  vec3 dro = normalize(vec3(0.0, 0.09, 1.0));
-  vec3 ww = normalize(dro);
-  vec3 uu = normalize(cross(normalize(vec3(0.0,1.0,0.0)), ww));
-  vec3 vv = normalize(cross(ww, uu));
-  // проследим луч, как в color()
-  float rdd = 2.0;
-  vec3 rd = normalize(p.x*uu + p.y*vv + rdd*ww);
-
-  vec4 moonCol = moon(ro, rd);
-
-  // alpha control: делаем верхнюю область прозрачной (кроме лунных пикселей)
-  float horizonScreenY = 0.52; // экранная линия горизонта
-  float topFadeStart = horizonScreenY + 0.02; // чуть над линией начинаем прозрачность
-  float topFadeEnd = 0.95; // вверху полностью прозрачный
-  float skyAlpha = 1.0 - smoothstep(topFadeStart, topFadeEnd, q.y);
-
-  // Если пиксель — часть луны (moonCol.a > 0) — принудительно делаем alpha = 1 (лuna не прозрачная).
-  float finalAlpha = moonCol.a > 0.0 ? 1.0 : skyAlpha;
-
-  // собираем финальный цвет: если луна есть — рисуем её + оставляем нижний подсвет
-  vec3 outCol = sceneCol;
-  if(moonCol.a > 0.0){
-    // простая альфа-композиция луны поверх сцены (однако луна непрозрачна)
-    outCol = mix(sceneCol, moonCol.rgb, 1.0); // полный оверрай — луна поверх
+  // --- Чистая луна без аудио-эффектов ---
+  vec4 moon(vec3 ro, vec3 rd){
+    const vec4 mdim=vec4(1E5*vec3(0.,0.4,1.0),20000.0);
+    const vec3 mcol0=HSV2RGB(vec3(0.75,0.7,1.0));
+    const vec3 mcol3=HSV2RGB(vec3(0.75,0.55,1.0));
+    vec2 md=raySphere(ro,rd,mdim);
+    vec3 mpos=ro+rd*md.x;
+    vec3 mnor=normalize(mpos-mdim.xyz);
+    float mdif=max(dot(ldir,mnor),0.0);
+    float mf=smoothstep(0.0,10000.0,md.y-md.x);
+    float mfre=1.0+dot(rd,mnor);
+    float imfre=1.0-mfre;
+    
+    // Упрощенная визуализация без шума
+    vec3 col=mdif*mcol0*4.0;
+    col += mcol3 * 0.15 * imfre; // Мягкое свечение по краю
+    return vec4(col,mf);
   }
 
-  outCol = aces_approx(outCol);
-  outCol = sRGB(outCol);
+  // --- Небо с прозрачностью ---
+  vec4 skyColor(vec3 ro, vec3 rd){
+    const vec3 acol=HSV2RGB(vec3(0.6,0.9,0.075));
+    const vec3 lcol=HSV2RGB(vec3(0.75,0.8,1.0));
+    vec2 sp=toSpherical(rd.xzy).yz;
+    float lf=pow(max(dot(ldir,rd),0.0),80.0);
+    float li=0.02*mix(1.0,10.0,lf)/(abs((rd.y+0.055))+0.025);
+    float lz=step(-0.055,rd.y);
+    vec4 mcol=moon(ro,rd);
+    
+    // Базовый цвет неба
+    vec3 col=vec3(0.0);
+    col+=stars(sp,0.25)*smoothstep(0.5,0.0,li)*lz;
+    col=mix(col,mcol.xyz,mcol.w);
+    col+=smoothstep(-0.4,0.0,(sp.x-PI*0.5))*acol;
+    col+=tanh(lcol*li);
+    
+    // Прозрачность: 0 для звездного неба, 1 для луны
+    float alpha = mcol.w;
+    return vec4(col, alpha);
+  }
 
-  fragColor = vec4(outCol, finalAlpha);
-}`;
+  vec4 color(vec3 ww,vec3 uu,vec3 vv,vec3 ro,vec2 p){
+    float rdd=2.0;
+    vec3 rd=normalize(p.x*uu+p.y*vv+rdd*ww);
+    vec3 nrd=normalize(p.x*uu+p.y*vv+rdd*ww);
+    const float planeDist=1.0;
+    const int furthest=12;
+    const int fadeFrom=max(furthest-2,0);
+    const float fadeDist=planeDist*float(fadeFrom);
+    const float maxDist=planeDist*float(furthest);
+    float nz=floor(ro.z/planeDist);
+    vec4 skyCol=skyColor(ro,rd); // Теперь с альфа-каналом
+    vec4 acol=vec4(0.0);
+    const float cutOff=0.95;
+    
+    for(int i=1;i<=furthest;i++){
+      float pz=planeDist*nz+planeDist*float(i);
+      float pd=(pz-ro.z)/rd.z;
+      vec3 pp=ro+rd*pd;
+      if(pp.y<0.&&pd>0.0&&acol.w<cutOff){
+        vec3 npp=ro+nrd*pd;
+        vec4 pcol=plane(ro,rd,pp,npp,vec3(0.0),nz+float(i));
+        float fadeIn=smoothstep(maxDist,fadeDist,pd);
+        pcol.xyz=mix(skyCol.xyz,pcol.xyz,fadeIn);
+        pcol=clamp(pcol,0.0,1.0);
+        acol=alphaBlend(pcol,acol);
+      }else{ break; }
+    }
+    
+    // Финальное смешивание с учетом прозрачности неба
+    vec3 finalColor = mix(skyCol.xyz, alphaBlend(skyCol.xyz, acol), acol.w + skyCol.w);
+    float finalAlpha = max(acol.w, skyCol.w); // Сохраняем луну и террейн
+    
+    return vec4(finalColor, finalAlpha);
+  }
+
+  vec4 effect(vec2 p){
+    float tm=TIME*0.25;
+    vec3 ro=vec3(0.0,0.0,tm);
+    vec3 dro=normalize(vec3(0.0,0.09,1.0));
+    vec3 ww=normalize(dro);
+    vec3 uu=normalize(cross(normalize(vec3(0.0,1.0,0.0)),ww));
+    vec3 vv=normalize(cross(ww,uu));
+    return color(ww,uu,vv,ro,p);
+  }
+
+  float sRGB(float t){return mix(1.055*pow(t,1./2.4)-0.055,12.92*t,step(t,0.0031308));}
+  vec3 sRGB(vec3 c){return vec3(sRGB(c.x),sRGB(c.y),sRGB(c.z));}
+  vec3 aces_approx(vec3 v){v=max(v,0.0);v*=0.6;float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;return clamp((v*(a*v+b))/(v*(c*v+d)+e),0.0,1.0);}
+
+  void main(){
+    vec2 q=gl_FragCoord.xy/RESOLUTION.xy;
+    vec2 p=-1.0+2.0*q;
+    p.x*=RESOLUTION.x/RESOLUTION.y;
+    
+    vec4 col = effect(p);
+    
+    // Горизонтальная маска прозрачности (только верхняя часть)
+    float horizonMask = smoothstep(0.45, 0.55, q.y);
+    col.a *= horizonMask;
+    
+    // Финальные пост-эффекты только для RGB
+    col.rgb *= smoothstep(0.0,8.0,TIME-abs(q.y));
+    col.rgb = aces_approx(col.rgb);
+    col.rgb = sRGB(col.rgb);
+    
+    fragColor = col;
+  }`;
 
   // ──────────────────────── Compile ────────────────────────
   function compile(type, src){
@@ -307,11 +295,10 @@ void main(){
   function render(t){
     gl.uniform3f(uRes,gl.drawingBufferWidth,gl.drawingBufferHeight,1.0);
     gl.uniform1f(uTime,t*0.001);
+    gl.clearColor(0,0,0,0); // Прозрачный очистка
+    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES,0,6);
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);
 });
-
-
-
