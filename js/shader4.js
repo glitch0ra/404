@@ -1,12 +1,11 @@
-// s/shader4.js — Neonwave Sunrise (корректная прозрачность верха + чистая луна)
+// s/shader4.js — Neonwave Sunrise (адаптирован под сайт без аудио)
 document.addEventListener("DOMContentLoaded", () => {
   const canvas4 = document.getElementById("shader-canvas4");
   if (!canvas4) return console.error("Canvas #shader-canvas4 не найден!");
 
-  // Важно: включаем альфа-канал
   const gl = canvas4.getContext("webgl2", {
     powerPreference: "high-performance",
-    alpha: true,
+    alpha: false,
     preserveDrawingBuffer: false,
     antialias: false
   });
@@ -50,7 +49,9 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www);
     return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
   }
+  #define HSV2RGB(c) (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
 
+  float hash(float co){ return fract(sin(co*12.9898)*13758.5453); }
   float hash(vec2 p){ float a=dot(p,vec2(127.1,311.7)); return fract(sin(a)*43758.5453123); }
   vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453123); }
 
@@ -69,6 +70,20 @@ document.addEventListener("DOMContentLoaded", () => {
   float hiheight(vec2 p){ return hifbm(p)-1.8; }
   float loheight(vec2 p){ return lofbm(p)-2.15; }
 
+  vec4 alphaBlend(vec4 back, vec4 front){
+    float w = front.w + back.w*(1.0-front.w);
+    vec3 xyz = (front.xyz*front.w + back.xyz*back.w*(1.0-front.w))/w;
+    return w>0.0?vec4(xyz,w):vec4(0.0);
+  }
+  vec3 alphaBlend(vec3 back, vec4 front){ return mix(back, front.xyz, front.w); }
+
+  vec2 mod2(inout vec2 p, vec2 size){
+    vec2 c=floor((p+size*0.5)/size);
+    p=mod(p+size*0.5,size)-size*0.5;
+    return c;
+  }
+  float mod1(inout float p,float size){float halfsize=size*0.5;float c=floor((p+halfsize)/size);p=mod(p+halfsize,size)-halfsize;return c;}
+
   vec2 raySphere(vec3 ro, vec3 rd, vec4 sph){
     vec3 oc=ro-sph.xyz;
     float b=dot(oc,rd);
@@ -84,140 +99,161 @@ document.addEventListener("DOMContentLoaded", () => {
   const vec3 lpos=1E6*vec3(0.,-0.15,1.0);
   const vec3 ldir=normalize(lpos);
 
-  // --- ЧИСТАЯ ЛУНА БЕЗ ШУМА ---
+  // --- plane() ---
+  vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
+    float h=hash(n);
+    vec2 p=(pp-off*2.0*vec3(1.0,1.0,0.0)).xy;
+    const vec2 stp=vec2(0.5,0.33);
+    float he=hiheight(vec2(p.x,pp.z)*stp);
+    float lohe=loheight(vec2(p.x,pp.z)*stp);
+    float d=p.y-he;
+    float lod=p.y-lohe;
+    float aa=distance(pp,npp)*sqrt(1.0/3.0);
+    float t=smoothstep(aa,-aa,d);
+    float df=exp(-0.1*(distance(ro,pp)-2.));
+    vec3 acol=hsv2rgb(vec3(mix(0.9,0.6,df),0.9,mix(1.0,0.0,df)));
+    vec3 gcol=hsv2rgb(vec3(0.6,0.5,tanh_approx(exp(-mix(2.0,8.0,df)*lod))));
+    vec3 col=acol+0.5*gcol;
+    return vec4(col,t);
+  }
+
+  // --- stars() ---
+  vec3 stars(vec2 sp,float hh){
+    const vec3 scol0=HSV2RGB(vec3(0.85,0.8,1.0));
+    const vec3 scol1=HSV2RGB(vec3(0.65,0.5,1.0));
+    vec3 col=vec3(0.0);
+    const float m=6.0;
+    for(float i=0.0;i<m;i++){
+      vec2 pp=sp+0.5*i;
+      float s=i/(m-1.0);
+      vec2 dim=vec2(mix(0.05,0.003,s)*PI);
+      vec2 np=mod2(pp,dim);
+      vec2 h=hash2(np+127.0+i);
+      vec2 o=-1.0+2.0*h;
+      float y=sin(sp.x);
+      pp+=o*dim*0.5;
+      pp.y*=y;
+      float l=length(pp);
+      float h1=fract(h.x*1667.0);
+      float h2=fract(h.x*1887.0);
+      float h3=fract(h.x*2997.0);
+      vec3 scol=mix(8.0*h2,0.25*h2*h2,s)*mix(scol0,scol1,h1*h1);
+      vec3 ccol=col+exp(-(mix(6000.0,2000.0,hh)/mix(2.0,0.25,s))*max(l-0.001,0.0))*scol;
+      ccol*=mix(0.125,1.0,smoothstep(1.0,0.99,sin(0.25*TIME+TAU*h.y)));
+      col=h3<y?ccol:col;
+    }
+    return col;
+  }
+
+  // --- moon() без аудио (fft заменено на шум) ---
   vec4 moon(vec3 ro, vec3 rd){
     const vec4 mdim=vec4(1E5*vec3(0.,0.4,1.0),20000.0);
-    const vec3 mcol0=vec3(0.95, 0.98, 1.0); // Холодный белый для луны
-    const vec3 mcolEdge=vec3(1.0, 0.9, 0.95); // Розоватый край
-    
+    const vec3 mcol0=HSV2RGB(vec3(0.75,0.7,1.0));
+    const vec3 mcol3=HSV2RGB(vec3(0.75,0.55,1.0));
     vec2 md=raySphere(ro,rd,mdim);
-    if(md.x < 0.0) return vec4(0.0, 0.0); // Луны нет в кадре
-    
     vec3 mpos=ro+rd*md.x;
     vec3 mnor=normalize(mpos-mdim.xyz);
     float mdif=max(dot(ldir,mnor),0.0);
+    float mf=smoothstep(0.0,10000.0,md.y-md.x);
     float mfre=1.0+dot(rd,mnor);
     float imfre=1.0-mfre;
-    
-    // Базовый цвет луны
-    vec3 col = mcol0 * (0.3 + 0.7 * mdif);
-    
-    // Мягкое свечение по краю
-    col += mcolEdge * 0.4 * imfre * smoothstep(0.0, 0.3, mdif);
-    
-    // Важно: луна ВСЕГДА непрозрачна
-    return vec4(col, 1.0);
+    vec3 col=mdif*mcol0*4.0;
+
+    // Заменяем аудио FFT на процедурный шум
+    vec3 fcol=vec3(0.0);
+    vec2 msp=toSpherical(-mnor.zxy).yz;
+    vec2 omsp=msp;
+    float msf=sin(msp.x);
+    msp.x-=PI*0.5;
+    const float mszy=(TAU/(4.0))*0.125;
+    float msny=mod1(msp.y,mszy);
+    msp.y*=msf;
+    const int limit=1;
+    for(int i=-limit;i<=limit;i++){
+      vec2 pp=msp+vec2(0.0,mszy*float(i));
+      float d0=abs(pp.y);
+      float fake=0.3+0.7*vnoise(pp*50.0+TIME*0.5);
+      float h=mix(0.66,0.99,fake);
+      vec3 mcol1=hsv2rgb(vec3(h,0.55,1.0));
+      vec3 mcol2=hsv2rgb(vec3(h,0.85,1.0));
+      fcol+=mcol1*0.5*tanh_approx(0.0025/max(d0,0.0))*imfre*pow(msf,mix(100.0,10.0,fake));
+      fcol+=mcol2*5.0*tanh_approx(0.00025/(max(length(pp)-0.05*fake,0.0)*max(length(pp)-0.05*fake,0.0)))*imfre*msf;
+    }
+    fcol+=mcol3*0.5*tanh_approx(0.0025/max(abs(msp.x),0.0))*imfre;
+    const float start=18.0;
+    col+=fcol*smoothstep(start,start+6.0+2.0*abs(omsp.y),TIME);
+    return vec4(col,mf);
   }
 
-  // --- ТЕРРЕЙН С РАЗМЫТИЕМ ГОРИЗОНТА ---
-  vec4 terrain(vec3 ro, vec3 rd){
+  vec3 skyColor(vec3 ro, vec3 rd){
+    const vec3 acol=HSV2RGB(vec3(0.6,0.9,0.075));
+    const vec3 lcol=HSV2RGB(vec3(0.75,0.8,1.0));
+    vec2 sp=toSpherical(rd.xzy).yz;
+    float lf=pow(max(dot(ldir,rd),0.0),80.0);
+    float li=0.02*mix(1.0,10.0,lf)/(abs((rd.y+0.055))+0.025);
+    float lz=step(-0.055,rd.y);
+    vec4 mcol=moon(ro,rd);
+    vec3 col=vec3(0.0);
+    col+=stars(sp,0.25)*smoothstep(0.5,0.0,li)*lz;
+    col=mix(col,mcol.xyz,mcol.w);
+    col+=smoothstep(-0.4,0.0,(sp.x-PI*0.5))*acol;
+    col+=tanh(lcol*li);
+    return col;
+  }
+
+  vec3 color(vec3 ww,vec3 uu,vec3 vv,vec3 ro,vec2 p){
+    float rdd=2.0;
+    vec3 rd=normalize(p.x*uu+p.y*vv+rdd*ww);
+    vec3 nrd=normalize(p.x*uu+p.y*vv+rdd*ww);
     const float planeDist=1.0;
     const int furthest=12;
+    const int fadeFrom=max(furthest-2,0);
+    const float fadeDist=planeDist*float(fadeFrom);
+    const float maxDist=planeDist*float(furthest);
     float nz=floor(ro.z/planeDist);
+    vec3 skyCol=skyColor(ro,rd);
     vec4 acol=vec4(0.0);
-    
-    for(int i=1; i<=furthest; i++){
+    const float cutOff=0.95;
+    for(int i=1;i<=furthest;i++){
       float pz=planeDist*nz+planeDist*float(i);
       float pd=(pz-ro.z)/rd.z;
-      if(pd <= 0.0) continue;
-      
       vec3 pp=ro+rd*pd;
-      if(pp.y >= 0.0) continue; // Рисуем только ниже горизонта
-      
-      // Высота ландшафта
-      vec2 stp=vec2(0.5,0.33);
-      float he=hifbm(vec2(pp.x,pp.z)*stp)-1.8;
-      float d=pp.y-he;
-      
-      // Динамическое размытие для distant terrain
-      float dist=length(pp-ro);
-      float blur=smoothstep(30.0, 120.0, dist) * 0.7;
-      float aa=(0.01 + 0.03*blur) * RESOLUTION.y;
-      
-      float alpha=smoothstep(aa, -aa, d);
-      if(alpha < 0.01) continue;
-      
-      // Цвета заката
-      float df=exp(-0.1*(dist-2.0));
-      vec3 warmColor=hsv2rgb(vec3(0.05, 0.8, mix(1.0, 0.3, df))); // Оранжевый закат
-      vec3 coolColor=hsv2rgb(vec3(0.6, 0.5, mix(0.8, 0.2, df))); // Фиолетовый
-      
-      vec3 col=mix(warmColor, coolColor, smoothstep(0.1, 0.4, pp.z/100.0));
-      
-      // Свечение на горизонте
-      if(dist > 80.0) {
-        float horizonGlow=smoothstep(100.0, 50.0, dist) * (1.0 - smoothstep(0.1, 0.9, pp.y+0.1));
-        col += vec3(1.0, 0.8, 0.5) * horizonGlow * 1.5;
-        alpha = max(alpha, horizonGlow * 0.5); // Усиливаем видимость свечения
-      }
-      
-      // Добавляем к общему результату
-      vec4 layer=vec4(col, alpha);
-      acol=acol + layer * (1.0 - acol.a); // Простое наложение с альфой
+      if(pp.y<0.&&pd>0.0&&acol.w<cutOff){
+        vec3 npp=ro+nrd*pd;
+        vec4 pcol=plane(ro,rd,pp,npp,vec3(0.0),nz+float(i));
+        float fadeIn=smoothstep(maxDist,fadeDist,pd);
+        pcol.xyz=mix(skyCol,pcol.xyz,fadeIn);
+        pcol=clamp(pcol,0.0,1.0);
+        acol=alphaBlend(pcol,acol);
+      }else{ break; }
     }
-    
-    // Гарантируем непрозрачность для ближних слоев
-    if(acol.a < 0.9) acol.a = 1.0;
-    return acol;
+    vec3 col=alphaBlend(skyCol,acol);
+    return col;
   }
 
-  // --- ФИНАЛЬНАЯ КОМПОЗИЦИЯ ---
-  vec4 renderScene(vec2 p){
+  vec3 effect(vec2 p){
     float tm=TIME*0.25;
-    vec3 ro=vec3(0.0, 0.05, tm); // Немного поднимаем камеру
-    vec3 rd=normalize(vec3(p.x, p.y, 2.0));
-    
-    // Поворот камеры для движения
-    float yaw=0.05*tm;
-    mat3 cam=mat3(
-      cos(yaw), 0, sin(yaw),
-      0, 1, 0,
-      -sin(yaw), 0, cos(yaw)
-    );
-    rd=cam*rd;
-    
-    // Рисуем луну
-    vec4 moonCol=moon(ro, rd);
-    
-    // Рисуем террейн (только нижняя часть)
-    vec4 terrainCol=terrain(ro, rd);
-    
-    // Композиция:
-    // 1. Всегда рисуем террейн (он закрывает нижнюю часть)
-    // 2. Луну рисуем ТОЛЬКО в верхней части экрана
-    vec4 finalCol=terrainCol;
-    
-    // Горизонтальная граница (0.45 = 45% высоты экрана)
-    float horizonY=0.45;
-    if(p.y > horizonY) {
-      // В верхней части: оставляем только луну, фон прозрачный
-      finalCol=moonCol;
-      
-      // Плавный переход на линии горизонта
-      float blend=smoothstep(horizonY, horizonY+0.03, p.y);
-      finalCol.rgb=mix(terrainCol.rgb, moonCol.rgb, blend);
-      finalCol.a=mix(terrainCol.a, moonCol.a, blend);
-    }
-    
-    return finalCol;
+    vec3 ro=vec3(0.0,0.0,tm);
+    vec3 dro=normalize(vec3(0.0,0.09,1.0));
+    vec3 ww=normalize(dro);
+    vec3 uu=normalize(cross(normalize(vec3(0.0,1.0,0.0)),ww));
+    vec3 vv=normalize(cross(ww,uu));
+    return color(ww,uu,vv,ro,p);
   }
+
+  float sRGB(float t){return mix(1.055*pow(t,1./2.4)-0.055,12.92*t,step(t,0.0031308));}
+  vec3 sRGB(vec3 c){return vec3(sRGB(c.x),sRGB(c.y),sRGB(c.z));}
+  vec3 aces_approx(vec3 v){v=max(v,0.0);v*=0.6;float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;return clamp((v*(a*v+b))/(v*(c*v+d)+e),0.0,1.0);}
 
   void main(){
-    vec2 uv=gl_FragCoord.xy/RESOLUTION.xy;
-    vec2 p=-1.0+2.0*uv;
+    vec2 q=gl_FragCoord.xy/RESOLUTION.xy;
+    vec2 p=-1.0+2.0*q;
     p.x*=RESOLUTION.x/RESOLUTION.y;
-    
-    vec4 col=renderScene(p);
-    
-    // Пост-эффекты только для цвета (не затрагивая альфу)
-    col.rgb=pow(col.rgb, vec3(0.85)); // Легкое затемнение
-    
-    // Финальная альфа: прозрачность ТОЛЬКО в верхней части вне луны
-    if(uv.y > 0.45 && col.a < 0.1) {
-      col.a=0.0; // Полная прозрачность для фона
-    }
-    
-    fragColor=vec4(col.rgb, col.a);
+    vec3 col=effect(p);
+    col*=smoothstep(0.0,8.0,TIME-abs(q.y));
+    col=aces_approx(col);
+    col=sRGB(col);
+    fragColor=vec4(col,1.0);
   }`;
 
   // ──────────────────────── Compile ────────────────────────
@@ -255,8 +291,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function render(t){
     gl.uniform3f(uRes,gl.drawingBufferWidth,gl.drawingBufferHeight,1.0);
     gl.uniform1f(uTime,t*0.001);
-    gl.clearColor(0,0,0,0); // Прозрачный бэкграунд
-    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES,0,6);
     requestAnimationFrame(render);
   }
