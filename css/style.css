@@ -474,6 +474,8 @@ h2 {
   height: 430px; 
   display: block; 
   object-fit: contain;
+  transform: translateZ(0); /* Активирует GPU */
+  will-change: transform;  /* Подсказка для браузера */
   pointer-events: none;
 }
 
@@ -493,6 +495,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
