@@ -476,6 +476,11 @@ h2 {
   transform: translateZ(0); /* Активирует GPU */
   will-change: transform;  /* Подсказка для браузера */
   pointer-events: none;
+  animation: fake-interaction 1s infinite;
+}
+
+@keyframes fake-interaction {
+  0%, 100% { opacity: 0.99; } /* Минимальное изменение */
 }
 
 @media (max-width: 900px) {
@@ -494,11 +499,3 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
-
-
-
-
-
-
-
-
