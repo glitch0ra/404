@@ -195,7 +195,7 @@ void main(){
   vec3 col=effect(p);
 
   // Размытие горизонта
-  float horizon = smoothstep(0.15, 0.35, q.y);
+  float horizon = smoothstep(0.05, 0.05, q.y);
   col = mix(col, vec3(col * 0.8), horizon);
 
   // Верх экрана — прозрачный альфа
@@ -248,4 +248,5 @@ void main(){
   }
   requestAnimationFrame(render);
 });
+
 
