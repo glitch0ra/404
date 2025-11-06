@@ -459,19 +459,23 @@ h2 {
 }
 
 .page-header {
-  max-width: 1400px;
+  width: 1400px;
   height: 430px;
+  position: relative; 
+  z-index: 5; 
   margin: 0 auto;
-  position: relative;
-  overflow: hidden;
+  overflow: hidden; 
+  pointer-events: none;
 }
 
+/* Стили для видео в шапке */
 .page-header-video {
-  width: 100%;
+  display: block; 
+  object-fit: cover; /* Заполнит контейнер без пропорций */
+  width: 100%;       /* Адаптируйтесь к контейнеру */
   height: 100%;
-  object-fit: cover; /* или contain, если критично */
-  transform: translateZ(0);
-  will-change: transform;
+  transform: translateZ(0); /* Активирует GPU */
+  will-change: transform;  /* Подсказка для браузера */
   pointer-events: none;
 }
 
@@ -491,6 +495,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
