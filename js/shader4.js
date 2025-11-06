@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 p=-1.0+2.0*q;
     p.x*=RESOLUTION.x/RESOLUTION.y;
 
-    vec3 col = effect(p, q); // <-- теперь точно vec3, ошибки нет
+    vec3 col = effect(p, q);
 
     float sunMask=0.0; vec3 sunCol=renderSun(q,sunMask);
     float sphereMask=0.0; vec3 sphereCol=renderSphere(q,sphereMask);
