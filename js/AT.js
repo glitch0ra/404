@@ -2,8 +2,8 @@
 <script>
 (function AntiThrottlingModule() {
   // Конфигурация — можно подправить интервалы
-  const FAKE_MOVE_INTERVAL_MS = 2000;   // имитация мыши
-  const PLAYKEEP_INTERVAL_MS = 1000;    // запасной таймер для видео (fallback)
+  const FAKE_MOVE_INTERVAL_MS = 200;   // имитация мыши
+  const PLAYKEEP_INTERVAL_MS = 100;    // запасной таймер для видео (fallback)
   const GL_CANVAS_SIZE = 1;             // 1x1 невидимый canvas
 
   // 1) Имитация активности пользователя (mousemove)
@@ -162,3 +162,4 @@
   // Мы не сохраняем stop в window по умолчанию, чтобы не мусорить, но если нужно — раскомментируй.
 })();
 </script>
+
