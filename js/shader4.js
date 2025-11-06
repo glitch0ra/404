@@ -12,12 +12,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!gl) return console.error("WebGL2 не поддерживается.");
 
   function resize() {
-    const dpr = window.devicePixelRatio * resolutionScale;
-    canvas3.width = window.innerWidth * dpr;
-    canvas3.height = window.innerHeight * dpr;
-    gl3.viewport(0, 0, canvas3.width, canvas3.height);
+    const dpr = window.devicePixelRatio || 1;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas4.width = w * dpr;
+    canvas4.height = h * dpr;
+    canvas4.style.width = w + "px";
+    canvas4.style.height = h + "px";
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   }
-
   window.addEventListener("resize", resize);
   resize();
 
@@ -245,6 +248,7 @@ void main() {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
