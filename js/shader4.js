@@ -198,7 +198,7 @@ void main() {
   // Сохраняем размытость горизонта (чуть ниже центра)
   float horizon = smoothstep(0.001, 0.001, q.y);
   float horizonMask = smoothstep(0.565, 0.315, q.y); // та же логика, что у alpha (где небо НЕ прозрачное)
-  col = mix(col, vec3(col * 1.5), horizon * horizonMask);
+  col = mix(col, vec3(col * 1.2), horizon * horizonMask);
 
   // ✅ Тот же принцип разделения, что в оригинальном shader4.js
   float alpha = smoothstep(0.565, 0.315, q.y);
@@ -248,6 +248,7 @@ void main() {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
