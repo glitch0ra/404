@@ -476,7 +476,7 @@ h2 {
   transform: translateZ(0); /* Активирует GPU */
   will-change: transform;  /* Подсказка для браузера */
   pointer-events: none;
-  animation: fake-interaction 0.1s infinite;
+  animation: fake-interaction 20s infinite;
 }
 
 @keyframes fake-interaction {
@@ -499,4 +499,5 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
