@@ -1,5 +1,3 @@
-<!-- Вставь прямо перед </body> -->
-<script>
 (function AntiThrottlingModule() {
   // Конфигурация — можно подправить интервалы
   const FAKE_MOVE_INTERVAL_MS = 200;   // имитация мыши
@@ -10,7 +8,6 @@
   function startFakeUserActivity() {
     let lastX = 1, lastY = 1;
     const makeMove = () => {
-      // немного дергаем координаты, чтобы событие не было идентичным
       lastX = (lastX + 13) % 100;
       lastY = (lastY + 7) % 100;
       const ev = new MouseEvent('mousemove', {
@@ -31,7 +28,6 @@
       const canvas = document.createElement('canvas');
       canvas.width = GL_CANVAS_SIZE;
       canvas.height = GL_CANVAS_SIZE;
-      // минимально видно на странице, но не мешает
       canvas.style.position = 'fixed';
       canvas.style.left = '0';
       canvas.style.top = '0';
@@ -70,15 +66,12 @@
     let rafActive = true;
     let fallbackId = null;
 
-    // если доступен requestVideoFrameCallback — используем его рекурсивно
     if (typeof video.requestVideoFrameCallback === 'function') {
       const cb = (now, metadata) => {
         if (!rafActive) return;
         try {
-          // просто перезапрашиваем кадр — не меняем playback
           video.requestVideoFrameCallback(cb);
         } catch (e) {
-          // если что-то пошло не так — включаем fallback
           rafActive = false;
           startFallback();
         }
@@ -94,14 +87,10 @@
     }
 
     function startFallback() {
-      // fallback: периодически вызывать video.play() и обновлять playbackRate на микроскопические интервалы
-      // чтобы не ломать синхронизацию заметно, мы вызываем play() и иногда коротко слегка трогаем playbackRate
       fallbackId = setInterval(() => {
         if (video.paused) {
-          video.play().catch(()=>{ /* ignore autoplay rejection */ });
+          video.play().catch(()=>{});
         } else {
-          // небольшой "импульс" - увеличиваем playbackRate на очень маленькую величину на 40ms
-          // не всегда нужно; это попытка "разбудить" декодер на некоторых движках
           try {
             const orig = video.playbackRate || 1;
             video.playbackRate = orig * 1.0001;
@@ -113,37 +102,26 @@
       }, PLAYKEEP_INTERVAL_MS);
     }
 
-    // вернуть функцию остановки
     return () => {
       rafActive = false;
       if (fallbackId) clearInterval(fallbackId);
     };
   }
 
-  // Управление модулем: находим все целевые видео и запускаем "содержатели"
+  // Инициализация
   function init() {
     const stopFake = startFakeUserActivity();
     const stopGL = startWebGLLoop();
 
-    // Поддерживаем все видео на странице (или можно выбрать по селекторам)
     const videos = Array.from(document.querySelectorAll('video'));
     const stopFns = videos.map(v => keepVideoAwake(v));
 
-    // Управляем видимостью страницы: при скрытии мы можем остановить часть активности
-    // (по желанию — оставляем или выключаем, здесь мы выключаем fake activity, но GL loop можно оставить)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        // при скрытии вкладки: попытаться минимизировать нагрев — остановим fake mouse
-        // но GL loop мы оставим, чтобы сохранить максимум шансов на устойчивый FPS в некоторых браузерах.
-        // Если хочешь экономить — раскомментируй следующую строку:
-        // stopFake();
-      } else {
-        // при возврате — снова включаем fake activity (если она была остановлена)
-        // простая реализация: ничего не делаем (fake работает постоянно)
+        // stopFake(); // при желании можно включить экономию
       }
     });
 
-    // Возвращаем stop-функцию на случай, если захочешь выключить
     return function stopAll() {
       try { stopFake(); } catch(e){}
       try { stopGL(); } catch(e){}
@@ -151,15 +129,9 @@
     };
   }
 
-  // Запуск после DOMReady (или сразу, если DOM уже готов)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-
-  // expose for debugging: window.__antiThrottleStop = stopFunction (не обязателен)
-  // Мы не сохраняем stop в window по умолчанию, чтобы не мусорить, но если нужно — раскомментируй.
 })();
-</script>
-
