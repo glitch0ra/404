@@ -6,13 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Определение мобильного устройства
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-    const TARGET_DESKTOP_FPS = 50;
-    const TARGET_MOBILE_FPS = isMobile ? 30 : TARGET_DESKTOP_FPS;
-    const TARGET_FPS = isMobile ? TARGET_MOBILE_FPS : TARGET_DESKTOP_FPS;
-
-    // WebGL контекст с оптимизациями
     const gl = canvas.getContext('webgl2', {
         powerPreference: 'high-performance',
         preserveDrawingBuffer: false,
@@ -20,136 +13,65 @@ document.addEventListener('DOMContentLoaded', () => {
         depth: false,
         stencil: false,
         antialias: false,
-        failIfMajorPerformanceCaveat: true
+        desynchronized: false,
     });
 
     if (!gl) {
-        console.error('❌ WebGL2 не поддерживается');
-        canvas.style.display = 'none';
+        alert('Ваш браузер не поддерживает WebGL2');
         return;
     }
 
     console.log('✅ WebGL2 активен');
-    console.log(`📱 Мобильное устройство: ${isMobile ? 'Да' : 'Нет'}`);
-    console.log(`🎯 Целевой FPS: ${TARGET_FPS}`);
 
-    /*───────────────────── Адаптивные параметры ─────────────────────*/
-    let resolutionScale = isMobile ? 0.65 : 1.0;
-    let qualityLevel = isMobile ? 0.6 : 1.0;
-    let fps = TARGET_FPS;
+    /*───────────────────── Динамические параметры ─────────────────────*/
+    let resolutionScale = 1.0; // Масштаб разрешения (0.6–1.0)
+    let qualityLevel = 1.0;   // Качество итераций (0.5–1.0)
+    let fps = 50;
     const fpsSamples = [];
     let lastTime = performance.now();
     let lastAdjustTime = performance.now();
-    const ADJUST_INTERVAL = isMobile ? 800 : 500;
-    let needsResize = true;
-    let lastOverlayUpdate = 0;
-    let frameCount = 0;
-
-    // Гистерезисные пороги
-    const CRITICAL_THRESHOLD = TARGET_FPS * 0.55;
-    const WARNING_THRESHOLD = TARGET_FPS * 0.75;
-    const RECOVERY_THRESHOLD = TARGET_FPS * 1.15;
-
-    /*───────────────────── Защита от троттлинга ─────────────────────*/
-    let lastUserInteraction = performance.now();
-    const INTERACTION_TIMEOUT = 5000; // 5 секунд неактивности
-    let isThrottled = false;
-    const THROTTLE_DETECTION_FRAMES = 10;
-    const THROTTLE_THRESHOLD = 80; // ms между кадрами
-    const frameIntervals = [];
-
-    // Обновление времени последнего взаимодействия
-    function updateUserActivity() {
-        lastUserInteraction = performance.now();
-    }
-
-    // Детектор троттлинга
-    function detectThrottling(delta) {
-        frameIntervals.push(delta);
-        if (frameIntervals.length > THROTTLE_DETECTION_FRAMES) {
-            frameIntervals.shift();
-        }
-
-        // Проверяем, не является ли низкий FPS результатом троттлинга
-        const avgInterval = frameIntervals.reduce((a, b) => a + b, 0) / frameIntervals.length;
-        isThrottled = avgInterval > THROTTLE_THRESHOLD && 
-                      (performance.now() - lastUserInteraction) > INTERACTION_TIMEOUT;
-        
-        return isThrottled;
-    }
+    const ADJUST_INTERVAL = 500;
 
     /*───────────────────── Визуальная диагностика ─────────────────────*/
-    // ⛔ УДАЛИТЬ ПЕРЕД ПРОДАКШЕНОМ ⛔
+    // ⛔ УДАЛИ ЭТОТ БЛОК ПОСЛЕ ТЕСТА
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        z-index: 9999;
-        font-family: 'Courier New', monospace;
-        font-size: 13px;
-        padding: 6px 10px;
-        border-radius: 8px;
-        background: rgba(0,0,0,0.7);
-        color: #00FFAA;
-        pointer-events: none;
-        user-select: none;
-        backdrop-filter: blur(4px);
-        white-space: pre;
-        transition: opacity 0.3s;
-    `;
+    overlay.style.position = 'fixed';
+    overlay.style.top = '10px';
+    overlay.style.left = '10px';
+    overlay.style.zIndex = '9999';
+    overlay.style.fontFamily = 'monospace';
+    overlay.style.fontSize = '13px';
+    overlay.style.padding = '6px 10px';
+    overlay.style.borderRadius = '8px';
+    overlay.style.background = 'rgba(0,0,0,0.6)';
+    overlay.style.color = '#00FFAA';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.userSelect = 'none';
+    overlay.style.backdropFilter = 'blur(4px)';
+    overlay.style.whiteSpace = 'pre';
     document.body.appendChild(overlay);
-    setTimeout(() => { overlay.style.opacity = '1'; }, 300);
-    // ⛔ КОНЕЦ БЛОКА ДИАГНОСТИКИ ⛔
+    // ⛔ конец блока диагностики
 
     /*───────────────────── Измерение FPS ─────────────────────*/
     function updatePerformance(now) {
         const delta = now - lastTime;
         lastTime = now;
-        
-        // Пропускаем кадры при троттлинге для корректного расчета FPS
-        if (delta > THROTTLE_THRESHOLD * 2) return;
-        
         const currentFps = 1000 / delta;
         fpsSamples.push(currentFps);
         if (fpsSamples.length > 30) fpsSamples.shift();
         fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
-        
-        frameCount++;
     }
 
-    /*───────────────────── Адаптация с гистерезисом ─────────────────────*/
+    /*───────────────────── Адаптация с инерцией ─────────────────────*/
     function adjustQuality(now) {
         if (now - lastAdjustTime < ADJUST_INTERVAL) return;
-        
         lastAdjustTime = now;
-        const oldScale = resolutionScale;
-        const oldQuality = qualityLevel;
-
-        // Пропускаем адаптацию при троттлинге или отсутствии активности
-        if (isThrottled) {
-            console.log('⏸️ Адаптация приостановлена: обнаружен троттлинг');
-            return;
-        }
-
-        // Экспоненциальная адаптация с гистерезисом
-        if (fps < CRITICAL_THRESHOLD) {
-            resolutionScale = Math.max(0.4, resolutionScale * 0.6);
-            qualityLevel = Math.max(0.4, qualityLevel * 0.6);
-        } 
-        else if (fps < WARNING_THRESHOLD) {
-            resolutionScale = Math.max(0.55, resolutionScale * 0.85);
-            qualityLevel = Math.max(0.55, qualityLevel * 0.85);
-        }
-        else if (fps > RECOVERY_THRESHOLD && resolutionScale < 1.0) {
-            resolutionScale = Math.min(1.0, resolutionScale * 1.05);
-            qualityLevel = Math.min(1.0, qualityLevel * 1.05);
-        }
-
-        // Активировать ресайз при значительных изменениях
-        if (Math.abs(oldScale - resolutionScale) > 0.07 || 
-            Math.abs(oldQuality - qualityLevel) > 0.07) {
-            needsResize = true;
+        if (fps < 29) {
+            resolutionScale = Math.max(0.55, resolutionScale - 0.05);
+            qualityLevel = Math.max(0.55, qualityLevel - 0.05);
+        } else if (fps > 45 && resolutionScale < 1.0) {
+            resolutionScale = Math.min(1.0, resolutionScale + 0.05);
+            qualityLevel = Math.min(1.0, qualityLevel + 0.05);
         }
     }
 
@@ -209,15 +131,13 @@ void main() {
     fragColor = color;
 }`;
 
-    /*──────────────────── Компиляция шейдеров ────────────────────*/
+    /*──────────────────── Компиляция ────────────────────*/
     function compileShader(type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
         gl.compileShader(shader);
-        
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error('_SHADER_ERROR_', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
+            console.error(gl.getShaderInfoLog(shader));
             return null;
         }
         return shader;
@@ -225,25 +145,11 @@ void main() {
 
     const vs = compileShader(gl.VERTEX_SHADER, vertexSrc);
     const fs = compileShader(gl.FRAGMENT_SHADER, fragmentSrc);
-    
-    if (!vs || !fs) {
-        canvas.style.display = 'none';
-        overlay.textContent = '❌ Ошибка компиляции шейдеров';
-        return;
-    }
-
     const program = gl.createProgram();
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
     gl.linkProgram(program);
-    
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error('_PROGRAM_LINK_ERROR_', gl.getProgramInfoLog(program));
-        return;
-    }
-    
     gl.useProgram(program);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     /*──────────────────── Геометрия ────────────────────*/
     const quad = gl.createBuffer();
@@ -256,10 +162,8 @@ void main() {
          1, -1,
          1,  1,
     ]), gl.STATIC_DRAW);
-    
-    const positionLoc = gl.getAttribLocation(program, 'a_position');
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     /*──────────────────── Uniforms ────────────────────*/
     const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
@@ -268,209 +172,74 @@ void main() {
     const iMouseLoc = gl.getUniformLocation(program, 'iMouse');
     const uQualityLoc = gl.getUniformLocation(program, 'uQuality');
 
-    /*──────────────────── Состояние ────────────────────*/
     let start = performance.now();
     let frame = 0;
     const mouse = [0, 0, 0, 0];
-    let animationFrame = null;
-    let isPaused = false;
 
-    /*──────────────────── Обработчики событий ────────────────────*/
-    // Отслеживание активности пользователя
-    const userActivityEvents = [
-        'mousemove', 'mousedown', 'touchstart', 'touchmove', 
-        'keydown', 'wheel', 'pointermove', 'pointerdown'
-    ];
-    
-    userActivityEvents.forEach(event => {
-        window.addEventListener(event, updateUserActivity, { passive: true });
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        mouse[0] = e.clientX - rect.left;
+        mouse[1] = rect.height - (e.clientY - rect.top);
     });
 
-    if (!isMobile) {
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            mouse[0] = e.clientX - rect.left;
-            mouse[1] = rect.height - (e.clientY - rect.top);
-            updateUserActivity();
-        });
+    canvas.addEventListener('mousedown', e => {
+        mouse[2] = mouse[0];
+        mouse[3] = mouse[1];
+    });
 
-        canvas.addEventListener('mousedown', e => {
-            const rect = canvas.getBoundingClientRect();
-            mouse[2] = e.clientX - rect.left;
-            mouse[3] = rect.height - (e.clientY - rect.top);
-            updateUserActivity();
-        });
-    } else {
-        // Для мобильных устройств используем тач-события
-        canvas.addEventListener('touchmove', e => {
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            mouse[0] = touch.clientX - rect.left;
-            mouse[1] = rect.height - (touch.clientY - rect.top);
-            updateUserActivity();
-        }, { passive: false });
-
-        canvas.addEventListener('touchstart', e => {
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            mouse[2] = touch.clientX - rect.left;
-            mouse[3] = rect.height - (touch.clientY - rect.top);
-            updateUserActivity();
-        }, { passive: true });
-    }
-
-    function pauseRendering() {
-        if (animationFrame) {
-            cancelAnimationFrame(animationFrame);
-            animationFrame = null;
-        }
-        isPaused = true;
-    }
-
-    function resumeRendering() {
-        isPaused = false;
-        if (!animationFrame) {
-            lastTime = performance.now();
-            lastRenderTime = performance.now();
-            animationFrame = requestAnimationFrame(render);
-        }
-    }
-
+    let isPaused = false;
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            pauseRendering();
-        } else {
-            updateUserActivity(); // Сброс при возврате на вкладку
-            resumeRendering();
-        }
+        isPaused = document.hidden;
     });
 
     const observer = new IntersectionObserver(entries => {
-        if (entries[0].isIntersecting) {
-            updateUserActivity(); // Сброс при появлении на экране
-            resumeRendering();
-        } else {
-            pauseRendering();
-        }
+        isPaused = !entries[0].isIntersecting;
     }, { threshold: 0.05 });
     observer.observe(canvas);
 
-    /*──────────────────── Ресайз ────────────────────*/
     function resize() {
-        if (!needsResize) return;
-        
-        const dpr = window.devicePixelRatio;
-        const effectiveScale = Math.min(resolutionScale, 1.0);
-        
-        canvas.width = window.innerWidth * dpr * effectiveScale;
-        canvas.height = window.innerHeight * dpr * effectiveScale;
-        
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        needsResize = false;
-        
-        console.log(`📏 Новое разрешение: ${canvas.width}x${canvas.height} (scale: ${effectiveScale.toFixed(2)})`);
+        const dpr = window.devicePixelRatio * resolutionScale;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
 
-    window.addEventListener('resize', () => {
-        needsResize = true;
-        updateUserActivity(); // Сброс при изменении размера окна
-    });
+    window.addEventListener('resize', resize);
+    resize();
 
-    /*──────────────────── Очистка ресурсов ────────────────────*/
-    function cleanup() {
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-        observer.disconnect();
-        
-        // Удаляем обработчики активности
-        userActivityEvents.forEach(event => {
-            window.removeEventListener(event, updateUserActivity);
-        });
-        
-        if (gl) {
-            gl.deleteBuffer(quad);
-            gl.deleteProgram(program);
-            gl.deleteShader(vs);
-            gl.deleteShader(fs);
-        }
-        
-        if (overlay.parentNode) {
-            overlay.parentNode.removeChild(overlay);
-        }
-        
-        console.log('♻️ WebGL ресурсы очищены');
-    }
-
-    window.addEventListener('beforeunload', cleanup);
-
-    /*──────────────────── Цикл рендеринга ────────────────────*/
+    const TARGET_FPS = 50;
+    const FRAME_INTERVAL = 1000 / TARGET_FPS;
     let lastRenderTime = 0;
 
     function render(now) {
-        if (isPaused) return;
-        
-        // Сбрасываем троттлинг при активности пользователя
-        if (now - lastUserInteraction < INTERACTION_TIMEOUT) {
-            frameIntervals.length = 0;
-            isThrottled = false;
+        if (isPaused) {
+            requestAnimationFrame(render);
+            return;
         }
-        
-        // Измеряем реальный интервал кадров
-        const delta = now - lastRenderTime;
-        const isThrottledNow = detectThrottling(delta);
-        
-        // Адаптация качества (только если нет троттлинга)
+
         updatePerformance(now);
         adjustQuality(now);
-        
-        // Обработка ресайза
-        if (needsResize) resize();
-        
-        // Расчет времени
+
+        if (now - lastRenderTime < FRAME_INTERVAL) {
+            requestAnimationFrame(render);
+            return;
+        }
+
         lastRenderTime = now;
-        
-        // Установка uniforms
+        resize();
+
         const t = (now - start) * 0.001;
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
         gl.uniform1f(iTimeLoc, t);
         gl.uniform1i(iFrameLoc, frame++);
         gl.uniform4f(iMouseLoc, mouse[0], mouse[1], mouse[2], mouse[3]);
         gl.uniform1f(uQualityLoc, qualityLevel);
-        
-        // Очистка и отрисовка
-        gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        // Обновление оверлея (не каждый кадр)
-        if (now - lastOverlayUpdate > 300) {
-            overlay.textContent = `
-FPS: ${fps.toFixed(1)} / ${TARGET_FPS}
-RES: ${Math.round(resolutionScale * 100)}%
-QUAL: ${Math.round(qualityLevel * 100)}%
-Троттлинг: ${isThrottledNow ? 'ДА' : 'НЕТ'}
-Активность: ${((now - lastUserInteraction) / 1000).toFixed(1)}с назад
-Версия: 3.0 (защита от троттлинга)
-            `.trim();
-            lastOverlayUpdate = now;
-        }
-        
-        animationFrame = requestAnimationFrame(render);
+
+        // обновляем overlay (⛔ удалить при финальной версии)
+        overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
+        requestAnimationFrame(render);
     }
 
-    // Инициализация
-    resize();
-    resumeRendering();
-    
-    // Показать canvas после инициализации
-    canvas.style.opacity = '1';
-    canvas.style.transition = 'opacity 0.5s';
-    
-    // Периодический сброс адаптации для защиты от ложных срабатываний
-    setInterval(() => {
-        if (!isThrottled && (performance.now() - lastUserInteraction) < INTERACTION_TIMEOUT) {
-            console.log('🔄 Периодический сброс адаптации');
-            resolutionScale = Math.min(1.0, resolutionScale * 1.02);
-            qualityLevel = Math.min(1.0, qualityLevel * 1.02);
-            needsResize = true;
-        }
-    }, 15000);
+    requestAnimationFrame(render);
 });
