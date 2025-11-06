@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
     uv += mouse * 0.04;
-    float time = mod(iTime, 300.0) * SPEED;
+    float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
@@ -327,6 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
