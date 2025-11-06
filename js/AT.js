@@ -1,196 +1,128 @@
+// Anti-Throttling Full Protection Script
+// Автор: GPT-5, 2025
 (function() {
-  const state = {
-    wakeLockSentinel: null,
-    audioCtx: null,
-    oscillator: null,
-    gain: null,
-    active: false,
-    triedWakeLock: false,
-    triedAudio: false
+  console.log('%c[AntiThrottling] Запущен', 'color:lime');
+
+  /*────────────────────
+   * 1. Защита таймеров
+   *────────────────────*/
+  const _setTimeout = window.setTimeout;
+  const _setInterval = window.setInterval;
+  const _raf = window.requestAnimationFrame;
+
+  const MIN_INTERVAL = 16; // ~60 FPS
+  const timers = new Set();
+
+  window.setTimeout = function(fn, delay, ...args) {
+    return _setTimeout(fn, Math.max(delay, MIN_INTERVAL), ...args);
   };
 
-  // Логирование (можешь убрать)
-  function log(...args) { console.info('[anti-throttle]', ...args); }
-
-  // ---------- 1) Wake Lock API ----------
-  async function tryWakeLock() {
-    if (!('wakeLock' in navigator)) {
-      log('Wake Lock API не поддерживается');
-      return false;
-    }
-    try {
-      state.triedWakeLock = true;
-      // request may fail if document.hidden or user settings
-      const sentinel = await navigator.wakeLock.request('screen');
-      state.wakeLockSentinel = sentinel;
-      state.active = true;
-      log('WakeLock получен');
-      // Перезапрашивать при visibilitychange (специально по рекомендациям)
-      document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible' && !state.wakeLockSentinel) {
-          try {
-            state.wakeLockSentinel = await navigator.wakeLock.request('screen');
-            log('WakeLock восстановлен после visibilitychange');
-          } catch (e) {
-            log('Не удалось восстановить WakeLock:', e && e.message);
-          }
-        }
-      });
-      // освобождение при релизе
-      sentinel.addEventListener('release', () => {
-        log('WakeLock released');
-        state.wakeLockSentinel = null;
-        state.active = false;
-      });
-      return true;
-    } catch (err) {
-      log('WakeLock request rejected:', err && err.message);
-      return false;
-    }
-  }
-
-  // ---------- 2) WebAudio fallback (тихий сигнал) ----------
-  // Примечание: WebAudio может требовать пользовательский жест (resume())
-  function tryAudioKeepAlive() {
-    try {
-      state.triedAudio = true;
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) {
-        log('Web Audio API не поддерживается');
-        return false;
-      }
-      const ctx = new AudioCtx({ latencyHint: 'playback' });
-      // some browsers suspend audio context until user gesture; we'll try to resume if suspended
-      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        // Не вызываем resume автоматически в некоторых політиках — делаем попытку и если отклонено, пользователю нужен клик.
-        ctx.resume().catch(()=>{/*ignore*/});
-      }
-
-      // Создаём тихий осциллятор - сигнал почти не слышен
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      gain.gain.value = 0.0001; // почти 0 — минимальная нагрузка на звук (избегаем audible)
-      osc.type = 'sine';
-      osc.frequency.value = 20; // низкая частота
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(0);
-
-      state.audioCtx = ctx;
-      state.oscillator = osc;
-      state.gain = gain;
-      state.active = true;
-      log('Audio keep-alive started (может требовать пользовательский жест)');
-      return true;
-    } catch (e) {
-      log('Ошибка при старте Audio keep-alive:', e && e.message);
-      return false;
-    }
-  }
-
-  // Отключить аудио
-  function stopAudioKeepAlive() {
-    try {
-      if (state.oscillator) {
-        state.oscillator.stop();
-        state.oscillator.disconnect();
-      }
-      if (state.gain) state.gain.disconnect();
-      if (state.audioCtx) {
-        // don't close immediately to avoid errors, but close to free resources
-        if (typeof state.audioCtx.close === 'function') state.audioCtx.close().catch(()=>{});
-      }
-    } catch(e){}
-    state.audioCtx = state.oscillator = state.gain = null;
-    state.active = false;
-  }
-
-  // ---------- 3) Лёгкая имитация активности (последнее средство) ----------
-  let activityInterval = null;
-  function startFakeActivity(interval = 200) {
-    if (activityInterval) return;
-    const fakeEvt = new MouseEvent('mousemove', { bubbles: true });
-    activityInterval = setInterval(() => {
-      window.dispatchEvent(fakeEvt);
-      // небольшая DOM-мелочь без reflow
-      document.documentElement.style.setProperty('--anti-throttle', Date.now());
-    }, interval);
-    log('Fake activity started');
-  }
-  function stopFakeActivity() {
-    if (!activityInterval) return;
-    clearInterval(activityInterval);
-    activityInterval = null;
-    log('Fake activity stopped');
-  }
-
-  // ---------- 4) Главное включение: пробуем wakeLock, иначе audio, иначе fake activity ----------
-  async function enableAntiThrottle() {
-    if (state.active) {
-      log('Anti-throttle уже включён');
-      return true;
-    }
-
-    // 1) Попробуем wake lock
-    const wakeOk = await tryWakeLock().catch(()=>false);
-    if (wakeOk) {
-      startFakeActivity(300); // поддержка слоем имитации (малый overhead)
-      return true;
-    }
-
-    // 2) Попробуем аудио-фоллбек
-    const audioOk = tryAudioKeepAlive();
-    if (audioOk) {
-      startFakeActivity(300);
-      return true;
-    }
-
-    // 3) Если ничего не прошло — включаем только лёгкую имитацию активности
-    startFakeActivity(150);
-    log('Включен только fake activity (лучшее из доступного)');
-    return false;
-  }
-
-  // Автоматическая попытка включиться — но если autoplay ограничения мешают, мы оставляем публичный API
-  (async function auto() {
-    // Ждём, пока DOM готов (но не ждём пользовательского клика)
-    if (document.readyState === 'loading') {
-      await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
-    }
-
-    // если документ видим — пробуем сразу; иначе включится при видимости
-    if (document.visibilityState === 'visible') {
-      const ok = await enableAntiThrottle();
-      // Если не получилось (например, audio заблокирован), добавим слушатель клика для попытки вручную
-      if (!ok) {
-        log('Anti-throttle: требуется пользовательское взаимодействие для полного включения. Вызови enableAntiThrottle() после клика или нажми на страницу.');
-      }
-    } else {
-      document.addEventListener('visibilitychange', async function onVisible() {
-        if (document.visibilityState === 'visible') {
-          document.removeEventListener('visibilitychange', onVisible);
-          await enableAntiThrottle();
-        }
-      });
-    }
-  })();
-
-  // Публичная машина управления (если захочешь вызвать вручную)
-  window.AntiThrottle = {
-    enable: enableAntiThrottle,
-    disable: async function() {
-      try {
-        if (state.wakeLockSentinel && typeof state.wakeLockSentinel.release === 'function') {
-          await state.wakeLockSentinel.release();
-        }
-      } catch(e){}
-      stopAudioKeepAlive();
-      stopFakeActivity();
-      state.wakeLockSentinel = null;
-      state.active = false;
-      log('Anti-throttle выключен');
-    },
-    status: () => ({ active: state.active, triedWakeLock: state.triedWakeLock, triedAudio: state.triedAudio })
+  window.setInterval = function(fn, delay, ...args) {
+    const realDelay = Math.max(delay, MIN_INTERVAL);
+    const id = _setInterval(fn, realDelay, ...args);
+    timers.add(id);
+    return id;
   };
 
+  window.requestAnimationFrame = function(cb) {
+    return _raf(function step(ts) {
+      cb(ts);
+      _raf(step);
+    });
+  };
+
+  /*────────────────────
+   * 2. Защита видимости страницы
+   *────────────────────*/
+  const forceVisible = () => {
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  };
+  forceVisible();
+
+  document.addEventListener('visibilitychange', e => {
+    forceVisible();
+    e.stopImmediatePropagation();
+    console.log('[AntiThrottling] visibilitychange блокирован');
+  }, true);
+
+  window.addEventListener('blur', e => {
+    window.focus();
+    e.stopImmediatePropagation();
+    console.log('[AntiThrottling] blur блокирован');
+  }, true);
+
+  window.addEventListener('pagehide', e => {
+    e.preventDefault();
+    console.log('[AntiThrottling] pagehide отменён');
+  });
+
+  /*────────────────────
+   * 3. Активность страницы (имитация)
+   *────────────────────*/
+  setInterval(() => {
+    window.dispatchEvent(new Event('mousemove'));
+    window.dispatchEvent(new Event('keydown'));
+    navigator?.sendBeacon?.('', new Blob()); // держим процесс живым
+  }, 5000);
+
+  /*────────────────────
+   * 4. Механизмы поддержки активности
+   *────────────────────*/
+  // MessageChannel ping
+  const msgChannel = new MessageChannel();
+  setInterval(() => msgChannel.port1.postMessage('ping'), 100);
+
+  // BroadcastChannel keep-alive
+  try {
+    const bc = new BroadcastChannel('keep_alive');
+    setInterval(() => bc.postMessage('still_alive'), 200);
+  } catch(e) {}
+
+  // AudioContext hack (заставляет браузер считать вкладку активной)
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    osc.frequency.value = 0.001; // неслышимый тон
+    osc.connect(audioCtx.destination);
+    osc.start();
+  } catch(e) {
+    console.warn('[AntiThrottling] AudioContext недоступен');
+  }
+
+  // WebSocket ping (если есть сеть)
+  try {
+    const ws = new WebSocket('wss://echo.websocket.org');
+    ws.onopen = () => {
+      setInterval(() => {
+        if (ws.readyState === 1) ws.send('ping');
+      }, 400);
+    };
+  } catch(e) {}
+
+  /*────────────────────
+   * 5. Защита от "background tab throttling"
+   *────────────────────*/
+  const noop = () => {};
+  ['onfreeze', 'onresume', 'onvisibilitychange', 'onsuspend'].forEach(ev => {
+    if (ev in document) document[ev] = noop;
+    if (ev in window) window[ev] = noop;
+  });
+
+  if ('scheduler' in window && 'yield' in window.scheduler) {
+    window.scheduler.yield = async () => Promise.resolve(); // нейтрализуем yield замедление
+  }
+
+  /*────────────────────
+   * 6. Periodic Performance check
+   *────────────────────*/
+  let lastTS = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    const diff = now - lastTS;
+    if (diff > 40) console.warn(`[AntiThrottling] Обнаружено замедление: ${diff.toFixed(1)}ms`);
+    lastTS = now;
+  }, 100);
+
+  console.log('%c[AntiThrottling] Все защиты активированы', 'color:lime');
 })();
