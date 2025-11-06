@@ -1,137 +1,73 @@
-(function AntiThrottlingModule() {
-  // Конфигурация — можно подправить интервалы
-  const FAKE_MOVE_INTERVAL_MS = 200;   // имитация мыши
-  const PLAYKEEP_INTERVAL_MS = 100;    // запасной таймер для видео (fallback)
-  const GL_CANVAS_SIZE = 1;             // 1x1 невидимый canvas
+(function AntiBrowserThrottling() {
+  console.log('%c[Anti-Throttling] Active', 'color:#0f0;font-weight:bold;');
 
-  // 1) Имитация активности пользователя (mousemove)
-  function startFakeUserActivity() {
-    let lastX = 1, lastY = 1;
-    const makeMove = () => {
-      lastX = (lastX + 13) % 100;
-      lastY = (lastY + 7) % 100;
-      const ev = new MouseEvent('mousemove', {
-        bubbles: true,
-        cancelable: true,
-        clientX: lastX,
-        clientY: lastY
-      });
-      document.dispatchEvent(ev);
-    };
-    const id = setInterval(makeMove, FAKE_MOVE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }
+  // 1️⃣ Поддержка "активности" страницы
+  //    Имитация микро-действий, чтобы браузер не считал вкладку "пассивной"
+  const fakeEvt = new MouseEvent('mousemove', { bubbles: true });
+  setInterval(() => {
+    window.dispatchEvent(fakeEvt);
+    document.body.style.opacity = '0.9999';
+    document.body.offsetHeight; // форсирует reflow
+    document.body.style.opacity = '1';
+  }, 150);
 
-  // 2) WebGL loop — держит compositor/GPU в активности
-  function startWebGLLoop() {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = GL_CANVAS_SIZE;
-      canvas.height = GL_CANVAS_SIZE;
-      canvas.style.position = 'fixed';
-      canvas.style.left = '0';
-      canvas.style.top = '0';
-      canvas.style.width = '1px';
-      canvas.style.height = '1px';
-      canvas.style.opacity = '0';
-      canvas.style.pointerEvents = 'none';
-      canvas.style.zIndex = '-9999';
-      document.body.appendChild(canvas);
+  // 2️⃣ Независимая GPU-петля (без использования твоих canvas)
+  //    Создаёт 1×1 canvas в offscreen для постоянного compositor activity
+  const hiddenCanvas = document.createElement('canvas');
+  hiddenCanvas.width = hiddenCanvas.height = 1;
+  hiddenCanvas.style.cssText =
+    'position:fixed;top:0;left:0;opacity:0;pointer-events:none;z-index:-9999;';
+  document.body.appendChild(hiddenCanvas);
 
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) return () => { canvas.remove(); };
+  let gl =
+    hiddenCanvas.getContext('webgl2', { powerPreference: 'low-power' }) ||
+    hiddenCanvas.getContext('webgl', { powerPreference: 'low-power' });
 
-      gl.clearColor(0,0,0,0);
+  if (gl) {
+    const v = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(v, 'void main(){gl_Position=vec4(0.0);}');
+    gl.compileShader(v);
 
-      let running = true;
-      function frame() {
-        if (!running) return;
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
+    const f = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(
+      f,
+      'precision mediump float;void main(){gl_FragColor=vec4(0.0,0.0,0.0,1.0);}'
+    );
+    gl.compileShader(f);
 
-      return () => {
-        running = false;
-        try { canvas.remove(); } catch (e) {}
-      };
-    } catch (e) {
-      return () => {};
-    }
-  }
+    const p = gl.createProgram();
+    gl.attachShader(p, v);
+    gl.attachShader(p, f);
+    gl.linkProgram(p);
+    gl.useProgram(p);
 
-  // 3) Поддержка видео (requestVideoFrameCallback, fallback)
-  function keepVideoAwake(video) {
-    if (!video) return () => {};
-    let rafActive = true;
-    let fallbackId = null;
-
-    if (typeof video.requestVideoFrameCallback === 'function') {
-      const cb = (now, metadata) => {
-        if (!rafActive) return;
-        try {
-          video.requestVideoFrameCallback(cb);
-        } catch (e) {
-          rafActive = false;
-          startFallback();
-        }
-      };
-      try {
-        video.requestVideoFrameCallback(cb);
-      } catch (e) {
-        rafActive = false;
-        startFallback();
-      }
-    } else {
-      startFallback();
-    }
-
-    function startFallback() {
-      fallbackId = setInterval(() => {
-        if (video.paused) {
-          video.play().catch(()=>{});
-        } else {
-          try {
-            const orig = video.playbackRate || 1;
-            video.playbackRate = orig * 1.0001;
-            setTimeout(() => {
-              try { video.playbackRate = orig; } catch(e){}
-            }, 40);
-          } catch(e){}
-        }
-      }, PLAYKEEP_INTERVAL_MS);
-    }
-
-    return () => {
-      rafActive = false;
-      if (fallbackId) clearInterval(fallbackId);
-    };
-  }
-
-  // Инициализация
-  function init() {
-    const stopFake = startFakeUserActivity();
-    const stopGL = startWebGLLoop();
-
-    const videos = Array.from(document.querySelectorAll('video'));
-    const stopFns = videos.map(v => keepVideoAwake(v));
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // stopFake(); // при желании можно включить экономию
-      }
-    });
-
-    return function stopAll() {
-      try { stopFake(); } catch(e){}
-      try { stopGL(); } catch(e){}
-      stopFns.forEach(fn => { try { fn(); } catch(e){} });
-    };
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    // GPU tick loop — минимальный, но держит compositor активным
+    (function render() {
+      gl.drawArrays(gl.POINTS, 0, 1);
+      requestAnimationFrame(render);
+    })();
   } else {
-    init();
+    console.warn('[Anti-Throttling] WebGL unavailable, using fake activity only');
   }
+
+  // 3️⃣ Контроль стабильности FPS — необязательный, но полезный
+  //    Если браузер снова режет FPS, скрипт сам “пошевелит” DOM сильнее
+  let lastTime = performance.now();
+  let frames = 0;
+  function monitor() {
+    frames++;
+    const now = performance.now();
+    if (now - lastTime >= 200) {
+      const fps = (frames * 100) / (now - lastTime);
+      if (fps < 50) {
+        document.body.style.transform = 'translateZ(0)';
+        document.body.style.willChange = 'transform';
+        console.warn('[Anti-Throttling] FPS drop detected, refreshing compositor');
+      }
+      frames = 0;
+      lastTime = now;
+    }
+    requestAnimationFrame(monitor);
+  }
+  monitor();
 })();
