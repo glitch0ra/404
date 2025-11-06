@@ -15,11 +15,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
+  /*───────────────────── Динамические параметры ─────────────────────*/
+  let resolutionScale = 1.0;
+  let qualityLevel = 1.0;
+  let fps = 50;
+  const fpsSamples = [];
+  let lastTime = performance.now();
+  let lastAdjustTime = performance.now();
+  const ADJUST_INTERVAL = 500;
+
+  /*───────────────────── Диагностический overlay ─────────────────────*/
+  const overlay3 = document.createElement('div');
+  overlay3.style.position = 'fixed';
+  overlay3.style.top = '80px'; // ниже overlay из shader.js
+  overlay3.style.left = '10px';
+  overlay3.style.zIndex = '9999';
+  overlay3.style.fontFamily = 'monospace';
+  overlay3.style.fontSize = '13px';
+  overlay3.style.padding = '6px 10px';
+  overlay3.style.borderRadius = '8px';
+  overlay3.style.background = 'rgba(0,0,0,0.6)';
+  overlay3.style.color = '#FFD800';
+  overlay3.style.pointerEvents = 'none';
+  overlay3.style.userSelect = 'none';
+  overlay3.style.backdropFilter = 'blur(4px)';
+  overlay3.style.whiteSpace = 'pre';
+  document.body.appendChild(overlay3);
+
+  /*───────────────────── FPS ─────────────────────*/
+  function updatePerformance(now) {
+    const delta = now - lastTime;
+    lastTime = now;
+    const currentFps = 1000 / delta;
+    fpsSamples.push(currentFps);
+    if (fpsSamples.length > 30) fpsSamples.shift();
+    fps = fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
+  }
+
+  /*───────────────────── Адаптация ─────────────────────*/
+  function adjustQuality(now) {
+    if (now - lastAdjustTime < ADJUST_INTERVAL) return;
+    lastAdjustTime = now;
+    if (fps < 29) {
+      resolutionScale = Math.max(0.55, resolutionScale - 0.05);
+      qualityLevel = Math.max(0.55, qualityLevel - 0.05);
+    } else if (fps > 45 && resolutionScale < 1.0) {
+      resolutionScale = Math.min(1.0, resolutionScale + 0.05);
+      qualityLevel = Math.min(1.0, qualityLevel + 0.05);
+    }
+  }
+
   function resize() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = window.devicePixelRatio * resolutionScale;
     canvas3.width = window.innerWidth * dpr;
     canvas3.height = window.innerHeight * dpr;
-    gl3.viewport(0, 0, canvas3.width, canvas3.height);
+    gl3.viewport(0, 0, gl3.drawingBufferWidth, gl3.drawingBufferHeight);
   }
 
   window.addEventListener("resize", resize);
@@ -42,6 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
   uniform vec3 iResolution;
   uniform float iTime;
   uniform vec4 iMouse;
+  uniform float uQuality;
 
   const int ITERATIONS = 25;
   const float SPEED = .21;
@@ -126,7 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
     vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
     ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
     float localTime = mod(time, 500.0);
-
     for (int i = 0; i < ITERATIONS; i++) {
       ivec2 cell = next_cell;
       float t2s = t2;
@@ -142,7 +192,6 @@ document.addEventListener("DOMContentLoaded", () => {
       vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
       float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
       if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
-
       float t3s = t2s / t3_to_t2;
       float pos_z = ro3.z + rd3.z * t3s;
       float xycell_hash = hash(vec2(cell));
@@ -150,7 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
       float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
       z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
       int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
-
       for (int j = 0; j < 2; j++) {
         vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
         vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
@@ -163,7 +211,6 @@ document.addEventListener("DOMContentLoaded", () => {
         float tmin = dot(s, rd2);
         float dist = tmin / t3_to_t2;
         if (dist < 4.0) continue;
-
         if (tmin >= t2s && tmin <= t2) {
           float u = s.x * rd2.y - s.y * rd2.x;
           if (abs(u) < target_rad) {
@@ -208,9 +255,10 @@ document.addEventListener("DOMContentLoaded", () => {
     mouse = (mouse - 0.5) * 2.0;
     uv += mouse * 0.04;
     float time = mod(iTime, 240.0) * SPEED;
+    float iterFactor = mix(0.6, 1.0, uQuality);
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
-    vec3 col = rain(ro, rd, time);
+    vec3 col = rain(ro, rd, time * iterFactor);
     fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
   }
 
@@ -244,90 +292,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const quad = gl3.createBuffer();
   gl3.bindBuffer(gl3.ARRAY_BUFFER, quad);
-  gl3.bufferData(
-    gl3.ARRAY_BUFFER,
-    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-    gl3.STATIC_DRAW
-  );
+  gl3.bufferData(gl3.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl3.STATIC_DRAW);
   gl3.enableVertexAttribArray(0);
   gl3.vertexAttribPointer(0, 2, gl3.FLOAT, false, 0, 0);
 
   const iResolutionLoc = gl3.getUniformLocation(prog, "iResolution");
   const iTimeLoc = gl3.getUniformLocation(prog, "iTime");
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
+  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality");
 
   let start = performance.now();
   let mouseX = 0, mouseY = 0;
 
-  // Отслеживание мыши
-  window.addEventListener("mousemove", (e) => {
+  canvas3.addEventListener("mousemove", (e) => {
     const rect = canvas3.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = rect.height - (e.clientY - rect.top);
   });
 
-  // === Управление временем анимации через скролл ===
-  let scrollY = window.scrollY;
-  let lastScrollY = scrollY;
-  let scrollSpeed = 0;
-  let scrollInfluence = 0;
-  let lastScrollTime = performance.now();
-  let timeOffset = 0;
-
-  window.addEventListener("scroll", () => {
-    const now = performance.now();
-    const deltaT = Math.max(1, now - lastScrollTime);
-    lastScrollTime = now;
-    const newScrollY = window.scrollY;
-    const deltaY = newScrollY - lastScrollY;
-    lastScrollY = newScrollY;
-    scrollSpeed = deltaY / deltaT;
-    scrollInfluence = scrollSpeed * 0.2; // чувствительность (0.1–0.3)
-  });
-
-  let isPaused = false;
-  document.addEventListener('visibilitychange', () => {
-    isPaused = document.hidden;
-  });
-
-  const observer = new IntersectionObserver((entries) => {
-    isPaused = !entries[0].isIntersecting;
-  }, { threshold: 0.05 });
-
-  observer.observe(canvas3);
-
-  const FPS = 30;
-  const FRAME_INTERVAL = 1000 / FPS;
   let lastRenderTime = 0;
 
   function render(now) {
-  if (isPaused) return requestAnimationFrame(render);
-  if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
-  const dt = (now - lastRenderTime) * 0.001; // разница времени между кадрами
-  lastRenderTime = now;
+    updatePerformance(now);
+    adjustQuality(now);
 
-  resize();
+    if (now - lastRenderTime < 1000 / 60) {
+      requestAnimationFrame(render);
+      return;
+    }
+    lastRenderTime = now;
 
-  // Плавная инерция и накопление смещения времени
-  scrollInfluence *= 0.9; // плавность затухания
-  timeOffset += scrollInfluence * dt * 60.0; // сила эффекта (60 = скорость реакции)
+    // обновляем размеры под текущее разрешение
+    const dpr = window.devicePixelRatio * resolutionScale;
+    if (
+      canvas3.width !== Math.floor(window.innerWidth * dpr) ||
+      canvas3.height !== Math.floor(window.innerHeight * dpr)
+    ) {
+      canvas3.width = Math.floor(window.innerWidth * dpr);
+      canvas3.height = Math.floor(window.innerHeight * dpr);
+      gl3.viewport(0, 0, gl3.drawingBufferWidth, gl3.drawingBufferHeight);
+    }
 
-  // Общее время с учётом накопленного сдвига
-  const t = (now - start) * 0.001 + timeOffset;
+    const t = (now - start) * 0.001;
+    gl3.clearColor(0, 0, 0, 0);
+    gl3.clear(gl3.COLOR_BUFFER_BIT);
 
-  gl3.clearColor(0, 0, 0, 0);
-  gl3.clear(gl3.COLOR_BUFFER_BIT);
-  gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
-  gl3.uniform1f(iTimeLoc, t);
-  gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-  gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+    gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
+    gl3.uniform1f(iTimeLoc, t);
+    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
+    gl3.uniform1f(uQualityLoc, qualityLevel);
 
-  requestAnimationFrame(render);
-}
+    gl3.drawArrays(gl3.TRIANGLES, 0, 6);
+
+    overlay3.textContent =
+      `FPS: ${fps.toFixed(1)}\n` +
+      `RES: ${(resolutionScale * 100).toFixed(0)}%\n` +
+      `QUAL: ${(qualityLevel * 100).toFixed(0)}%`;
+
+    requestAnimationFrame(render);
+  }
 
   requestAnimationFrame(render);
 });
-
-
-
-
