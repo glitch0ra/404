@@ -115,45 +115,18 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
   return vec4(col,t);
 }
 
- // --- moon() без аудио (fft заменено на шум) ---
-  vec4 moon(vec3 ro, vec3 rd){
-    const vec4 mdim=vec4(1E5*vec3(0.,0.4,1.0),20000.0);
-    const vec3 mcol0=HSV2RGB(vec3(0.75,0.7,1.0));
-    const vec3 mcol3=HSV2RGB(vec3(0.75,0.55,1.0));
-    vec2 md=raySphere(ro,rd,mdim);
-    vec3 mpos=ro+rd*md.x;
-    vec3 mnor=normalize(mpos-mdim.xyz);
-    float mdif=max(dot(ldir,mnor),0.0);
-    float mf=smoothstep(0.0,10000.0,md.y-md.x);
-    float mfre=1.0+dot(rd,mnor);
-    float imfre=1.0-mfre;
-    vec3 col=mdif*mcol0*4.0;
-
-    // Заменяем аудио FFT на процедурный шум
-    vec3 fcol=vec3(0.0);
-    vec2 msp=toSpherical(-mnor.zxy).yz;
-    vec2 omsp=msp;
-    float msf=sin(msp.x);
-    msp.x-=PI*0.5;
-    const float mszy=(TAU/(4.0))*0.125;
-    float msny=mod1(msp.y,mszy);
-    msp.y*=msf;
-    const int limit=1;
-    for(int i=-limit;i<=limit;i++){
-      vec2 pp=msp+vec2(0.0,mszy*float(i));
-      float d0=abs(pp.y);
-      float fake=0.3+0.7*vnoise(pp*50.0+TIME*0.5);
-      float h=mix(0.66,0.99,fake);
-      vec3 mcol1=hsv2rgb(vec3(h,0.55,1.0));
-      vec3 mcol2=hsv2rgb(vec3(h,0.85,1.0));
-      fcol+=mcol1*0.5*tanh_approx(0.0025/max(d0,0.0))*imfre*pow(msf,mix(100.0,10.0,fake));
-      fcol+=mcol2*5.0*tanh_approx(0.00025/(max(length(pp)-0.05*fake,0.0)*max(length(pp)-0.05*fake,0.0)))*imfre*msf;
-    }
-    fcol+=mcol3*0.5*tanh_approx(0.0025/max(abs(msp.x),0.0))*imfre;
-    const float start=18.0;
-    col+=fcol*smoothstep(start,start+6.0+2.0*abs(omsp.y),TIME);
-    return vec4(col,mf);
-  }
+// --- чистая луна ---
+vec4 moon(vec3 ro, vec3 rd){
+  const vec4 mdim=vec4(1E5*vec3(0.,0.4,1.0),20000.0);
+  const vec3 mcol0=HSV2RGB(vec3(0.75,0.7,1.0));
+  vec2 md=raySphere(ro,rd,mdim);
+  vec3 mpos=ro+rd*md.x;
+  vec3 mnor=normalize(mpos-mdim.xyz);
+  float mdif=max(dot(ldir,mnor),0.0);
+  float mf=smoothstep(0.0,10000.0,md.y-md.x);
+  vec3 col=mdif*mcol0*4.0;
+  return vec4(col,mf);
+}
 
 // --- упрощённое небо ---
 vec3 skyColor(vec3 ro, vec3 rd){
@@ -221,8 +194,8 @@ void main(){
   p.x*=RESOLUTION.x/RESOLUTION.y;
   vec3 col=effect(p);
 
-  // Размытие горизонта
-  float horizon = smoothstep(0.35, 0.55, q.y);
+  // Размытие горизонта — опускаем ниже
+  float horizon = smoothstep(0.15, 0.35, q.y);
   col = mix(col, vec3(col * 0.8), horizon);
 
   // Верх экрана — прозрачный альфа
@@ -232,8 +205,7 @@ void main(){
   col=aces_approx(col);
   col=sRGB(col);
   fragColor=vec4(col, alpha);
-}`;
-
+}
 
   // ──────────────────────── Compile ────────────────────────
   function compile(type, src){
@@ -275,4 +247,5 @@ void main(){
   }
   requestAnimationFrame(render);
 });
+
 
