@@ -71,12 +71,12 @@
    *────────────────────*/
   // MessageChannel ping
   const msgChannel = new MessageChannel();
-  setInterval(() => msgChannel.port1.postMessage('ping'), 100);
+  setInterval(() => msgChannel.port1.postMessage('ping'), 1000);
 
   // BroadcastChannel keep-alive
   try {
     const bc = new BroadcastChannel('keep_alive');
-    setInterval(() => bc.postMessage('still_alive'), 200);
+    setInterval(() => bc.postMessage('still_alive'), 2000);
   } catch(e) {}
 
   // AudioContext hack (заставляет браузер считать вкладку активной)
@@ -96,7 +96,7 @@
     ws.onopen = () => {
       setInterval(() => {
         if (ws.readyState === 1) ws.send('ping');
-      }, 400);
+      }, 4000);
     };
   } catch(e) {}
 
@@ -122,7 +122,7 @@
     const diff = now - lastTS;
     if (diff > 40) console.warn(`[AntiThrottling] Обнаружено замедление: ${diff.toFixed(1)}ms`);
     lastTS = now;
-  }, 100);
+  }, 1000);
 
   console.log('%c[AntiThrottling] Все защиты активированы', 'color:lime');
 })();
