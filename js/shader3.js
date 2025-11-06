@@ -6,23 +6,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const gl3 = canvas3.getContext("webgl2", {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
-    alpha: true,
+    alpha: false, // Отключаем альфа-канал для экономии памяти
     depth: false,
     stencil: false,
     antialias: false,
-    desynchronized: false,
+    desynchronized: true, // Снижаем latency на мобильных
   });
 
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
   /*───────────────────── Динамические параметры ─────────────────────*/
-  let resolutionScale = 1.0; // Масштаб разрешения (0.6–1.0)
-  let qualityLevel = 1.0;   // Качество итераций (0.5–1.0)
+  let resolutionScale = 1.0;
+  let qualityLevel = 1.0;
   let fps = 50;
   const fpsSamples = [];
   let lastTime = performance.now();
   let lastAdjustTime = performance.now();
   const ADJUST_INTERVAL = 500;
+  let targetResolutionScale = 1.0;
+  let targetQualityLevel = 1.0;
+
+  /*───────────────────── Детекция мобильных устройств ─────────────────────*/
+  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+  if (isMobile) {
+    resolutionScale = 0.6;
+    qualityLevel = 0.6;
+    targetResolutionScale = 0.6;
+    targetQualityLevel = 0.6;
+  }
 
   /*───────────────────── Визуальная диагностика ─────────────────────*/
   const overlay = document.createElement('div');
@@ -35,12 +46,17 @@ document.addEventListener("DOMContentLoaded", () => {
   overlay.style.padding = '6px 10px';
   overlay.style.borderRadius = '8px';
   overlay.style.background = 'rgba(0,0,0,0.6)';
-  overlay.style.color = '#FFFF00'; // Жёлтый цвет
+  overlay.style.color = '#FFFF00';
   overlay.style.pointerEvents = 'none';
   overlay.style.userSelect = 'none';
   overlay.style.backdropFilter = 'blur(4px)';
   overlay.style.whiteSpace = 'pre';
   document.body.appendChild(overlay);
+
+  // Обновляем оверлей раз в 500мс для снижения нагрузки
+  setInterval(() => {
+    overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
+  }, 500);
 
   /*───────────────────── Измерение FPS ─────────────────────*/
   function updatePerformance(now) {
@@ -52,27 +68,51 @@ document.addEventListener("DOMContentLoaded", () => {
     fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
   }
 
+  /*───────────────────── Плавная интерполяция ─────────────────────*/
+  function lerp(start, end, factor) {
+    return start * (1 - factor) + end * factor;
+  }
+
   /*───────────────────── Адаптация с инерцией ─────────────────────*/
   function adjustQuality(now) {
     if (now - lastAdjustTime < ADJUST_INTERVAL) return;
     lastAdjustTime = now;
-    if (fps < 29) {
-      resolutionScale = Math.max(0.55, resolutionScale - 0.05);
-      qualityLevel = Math.max(0.55, qualityLevel - 0.05);
-    } else if (fps > 45 && resolutionScale < 1.0) {
-      resolutionScale = Math.min(1.0, resolutionScale + 0.05);
-      qualityLevel = Math.min(1.0, qualityLevel + 0.05);
+    
+    const TARGET_FPS = isMobile ? 25 : 40;
+    const MIN_SCALE = isMobile ? 0.45 : 0.55;
+    const QUALITY_STEP = 0.08;
+    const RESOLUTION_STEP = 0.08;
+
+    if (fps < TARGET_FPS * 0.9) {
+      targetResolutionScale = Math.max(MIN_SCALE, targetResolutionScale - RESOLUTION_STEP);
+      targetQualityLevel = Math.max(0.5, targetQualityLevel - QUALITY_STEP);
+    } else if (fps > TARGET_FPS * 1.15 && targetResolutionScale < 1.0) {
+      targetResolutionScale = Math.min(1.0, targetResolutionScale + RESOLUTION_STEP);
+      targetQualityLevel = Math.min(1.0, targetQualityLevel + QUALITY_STEP);
+    }
+
+    // Плавное изменение параметров
+    resolutionScale = lerp(resolutionScale, targetResolutionScale, 0.2);
+    qualityLevel = lerp(qualityLevel, targetQualityLevel, 0.2);
+    
+    // Принудительный ресайз при значительном изменении
+    if (Math.abs(resolutionScale - targetResolutionScale) > 0.01) {
+      resize();
     }
   }
 
   function resize() {
     const dpr = window.devicePixelRatio * resolutionScale;
-    canvas3.width = window.innerWidth * dpr;
-    canvas3.height = window.innerHeight * dpr;
+    canvas3.width = Math.round(window.innerWidth * dpr); // Округление размеров
+    canvas3.height = Math.round(window.innerHeight * dpr);
     gl3.viewport(0, 0, canvas3.width, canvas3.height);
   }
 
-  window.addEventListener("resize", resize);
+  window.addEventListener("resize", () => {
+    targetResolutionScale = isMobile ? 0.6 : 1.0;
+    targetQualityLevel = isMobile ? 0.6 : 1.0;
+    resize();
+  });
   resize();
 
   gl3.enable(gl3.BLEND);
@@ -87,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision mediump float;
+  precision highp float;
   out vec4 fragColor;
   uniform vec3 iResolution;
   uniform float iTime;
@@ -108,6 +148,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const float PI = 3.14159265359;
 
   vec3 oilMix(vec3 p, float t) {
+    // Упрощенная версия для низкого качества
+    if (uQuality < 0.7) {
+      return mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.4, 0.8), fract(t * 0.3));
+    }
+    
     vec3 c1 = vec3(1.0, 0.0, 1.0);
     vec3 c2 = vec3(0.0, 1.0, 0.58);
     vec3 c3 = vec3(0.0, 1.0, 1.0);
@@ -123,9 +168,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
   }
 
-  float hash(float v) { return fract(sin(v) * 43758.5453123); }
-  float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
-  vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
+  float hash(float v) { 
+    return fract(sin(v) * 43758.5453123); 
+  }
+  
+  float hash(vec2 v) { 
+    return uQuality > 0.7 
+      ? fract(sin(dot(v, vec2(5.3983, 5.4427))) * 43758.5453123)
+      : fract(dot(v, vec2(12.9898, 78.233)) * 43758.5453123);
+  }
+  
+  vec2 hash2(vec2 v) { 
+    v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); 
+    return fract(sin(v) * 43758.5453123); 
+  }
 
   vec4 hash4(vec2 v) {
     vec4 p = vec4(v * mat4x2(127.1, 311.7, 269.5, 183.3, 113.5, 271.9, 246.1, 124.6));
@@ -139,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   float rune_line(vec2 p, vec2 a, vec2 b) {
     p -= a; b -= a;
-    float h = clamp(dot(p, b) / dot(b, b), 0., 1.);
+    float h = clamp(dot(p, b) / dot(b, b), 0.0, 1.0);
     return length(p - b * h);
   }
 
@@ -147,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     float d = 1e5;
     for (int i = 0; i < 4; i++) {
       vec4 pos = hash4(seed);
-      seed += 1.;
+      seed += 1.0;
       if (i == 0) pos.y = 0.0;
       if (i == 1) pos.x = 0.999;
       if (i == 2) pos.x = 0.0;
@@ -156,7 +212,8 @@ document.addEventListener("DOMContentLoaded", () => {
       pos = (floor(pos * snaps) + 0.5) / snaps;
       if (pos.xy != pos.zw) d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
     }
-    return smoothstep(0.1, 0., d) + highlight * smoothstep(0.4, 0., d);
+    // ИСПРАВЛЕНО: правильный порядок параметров smoothstep
+    return smoothstep(0.0, 0.1, d) + highlight * smoothstep(0.0, 0.4, d);
   }
 
   float random_char(vec2 outer, vec2 inner, float highlight) {
@@ -165,22 +222,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   vec3 rain(vec3 ro3, vec3 rd3, float time) {
-    vec4 result = vec4(0.);
+    vec4 result = vec4(0.0);
     vec2 ro2 = vec2(ro3);
     vec2 rd2 = normalize(vec2(rd3));
     bool prefer_dx = abs(rd2.x) > abs(rd2.y);
     float t3_to_t2 = prefer_dx ? rd3.x / rd2.x : rd3.y / rd2.y;
-    ivec3 cell_side = ivec3(step(0., rd3));
+    ivec3 cell_side = ivec3(step(0.0, rd3));
     ivec3 cell_shift = ivec3(sign(rd3));
-    float t2 = 0.;
+    float t2 = 0.0;
     vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
     ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
     float localTime = mod(time, 500.0);
 
     // Адаптивное количество итераций
     int maxIterations = int(mix(15.0, 25.0, uQuality));
-    for (int i = 0; i < 25; i++) {
-      if (i >= maxIterations) break; // Динамический выход при низком качестве
+    for (int i = 0; i < maxIterations; i++) { // ИСПРАВЛЕНО: прямое ограничение цикла
       
       ivec2 cell = next_cell;
       float t2s = t2;
@@ -200,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
       float t3s = t2s / t3_to_t2;
       float pos_z = ro3.z + rd3.z * t3s;
       float xycell_hash = hash(vec2(cell));
-      float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
+      float z_shift = xycell_hash * 11.0 - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.0) * 3.0);
       float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
       z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
       int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
@@ -210,9 +266,9 @@ document.addEventListener("DOMContentLoaded", () => {
         vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
         float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
         float target_length = chars_count * STRIP_CHAR_HEIGHT;
-        float target_rad = STRIP_CHAR_WIDTH / 2.;
+        float target_rad = STRIP_CHAR_WIDTH / 2.0;
         float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-        vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
+        vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.0);
         vec2 s = target - ro2;
         float tmin = dot(s, rd2);
         float dist = tmin / t3_to_t2;
@@ -221,28 +277,28 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tmin >= t2s && tmin <= t2) {
           float u = s.x * rd2.y - s.y * rd2.x;
           if (abs(u) < target_rad) {
-            u = (u / target_rad + 1.) / 2.;
+            u = (u / target_rad + 1.0) / 2.0;
             float z = ro3.z + rd3.z * tmin / t3_to_t2;
             float v = (z - target_z) / target_length;
             if (v >= 0.0 && v < 1.0) {
               float c = floor(v * chars_count);
               float q = fract(v * chars_count);
               vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-              if (char_hash.x >= 0.1 || c == 0.) {
-                float time_factor = floor(c == 0. ? time * 14.0 : time * 5.0 * (1.2 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
-                float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
-                a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
+              if (char_hash.x >= 0.1 || c == 0.0) {
+                float time_factor = floor(c == 0.0 ? time * 14.0 : time * 5.0 * (1.2 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
+                float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1.0, 3.0 - c / 2.0) * 0.2);
+                a *= clamp((chars_count - 0.5 - c) / 2.0, 0.0, 1.0);
                 a *= smoothstep(4.0, 6.0, dist);
-                if (a > 0.) {
-                  float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
+                if (a > 0.0) {
+                  float attenuation = 1.0 + pow(0.06 * tmin / t3_to_t2, 2.0);
                   float colorShift = hash(vec2(cell)) * 6.2831;
                   vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
                   float colorSpeed = 0.8 + hash(vec2(cell) + 7.7) * 0.4;
                   baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 * colorSpeed + colorShift);
                   vec3 col = baseColor / attenuation;
                   float a1 = result.a;
-                  result.a = a1 + (1. - a1) * a;
-                  result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
+                  result.a = a1 + (1.0 - a1) * a;
+                  result.xyz = (result.xyz * a1 + col * (1.0 - a1) * a) / result.a;
                   if (result.a > 0.98) return result.xyz;
                 }
               }
@@ -309,24 +365,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const iResolutionLoc = gl3.getUniformLocation(prog, "iResolution");
   const iTimeLoc = gl3.getUniformLocation(prog, "iTime");
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
-  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality"); // Новый uniform
+  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality");
 
   let start = performance.now();
   let mouseX = 0, mouseY = 0;
+  let lastMouseX = 0, lastMouseY = 0;
 
-  // Отслеживание мыши
+  // Отслеживание мыши с кэшированием
   window.addEventListener("mousemove", (e) => {
     const rect = canvas3.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = rect.height - (e.clientY - rect.top);
+    lastMouseX = mouseX = e.clientX - rect.left;
+    lastMouseY = mouseY = rect.height - (e.clientY - rect.top);
   });
 
-  // === ИСПРАВЛЕННАЯ ЛОГИКА СКРОЛЛА ===
+  // Логика скролла
   let lastScrollY = window.scrollY;
   let scrollSpeed = 0;
   let scrollInfluence = 0;
   let lastScrollTime = performance.now();
   let timeOffset = 0;
+  const SCROLL_SENSITIVITY = 20.0; // Настроенный коэффициент
 
   window.addEventListener("scroll", () => {
     const now = performance.now();
@@ -337,29 +395,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const deltaY = currentScroll - lastScrollY;
     lastScrollY = currentScroll;
     
-    // Расчёт скорости скролла (пиксели/мс)
     scrollSpeed = deltaY / deltaTime;
-    // Применяем чувствительность (коэффициент 0.2)
     scrollInfluence = scrollSpeed * 0.2;
   });
 
   let isPaused = false;
+  let elapsedTime = 0;
+  let lastElapsedTimeUpdate = performance.now();
+
   document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      lastElapsedTimeUpdate = performance.now();
+      lastRenderTime = performance.now();
+    }
     isPaused = document.hidden;
   });
 
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
+    if (!isPaused) lastRenderTime = performance.now();
   }, { threshold: 0.05 });
 
   observer.observe(canvas3);
 
-  const TARGET_FPS = 25;
+  // Кэширование uniform-переменных
+  let lastResolution = [0, 0];
+  let lastMouse = [0, 0];
+  let lastQuality = -1;
+
+  const TARGET_FPS = isMobile ? 25 : 50;
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
   let lastRenderTime = 0;
 
   function render(now) {
-    if (isPaused) return requestAnimationFrame(render);
+    if (isPaused) {
+      requestAnimationFrame(render);
+      return;
+    }
     
     updatePerformance(now);
     adjustQuality(now);
@@ -369,28 +441,43 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     
-    // 🔑 КРИТИЧНОЕ ИСПРАВЛЕНИЕ: ПРАВИЛЬНЫЙ РАСЧЁТ ВРЕМЕНИ МЕЖДУ КАДРАМИ
-    const dt = (now - lastRenderTime) * 0.001; // Время в секундах
+    const dt = (now - lastRenderTime) * 0.001;
     lastRenderTime = now;
 
-    resize();
+    // Обновление времени с учетом паузы
+    if (!isPaused) {
+      const timeSinceLastUpdate = (now - lastElapsedTimeUpdate) * 0.001;
+      elapsedTime += timeSinceLastUpdate;
+      lastElapsedTimeUpdate = now;
+    }
 
-    // Обновление смещения времени с правильным deltaTime
-    scrollInfluence *= 0.9; // Затухание влияния скролла
-    timeOffset += scrollInfluence * dt * 60.0; // 60.0 = скорость реакции
+    // Затухание влияния скролла
+    scrollInfluence *= 0.9;
+    timeOffset += scrollInfluence * dt * SCROLL_SENSITIVITY;
 
-    // Общее время с учётом накопленного сдвига
-    const t = (now - start) * 0.001 + timeOffset;
+    // Обновление uniform-переменных с кэшированием
+    if (canvas3.width !== lastResolution[0] || canvas3.height !== lastResolution[1]) {
+      gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
+      lastResolution = [canvas3.width, canvas3.height];
+    }
+    
+    if (Math.abs(mouseX - lastMouse[0]) > 1 || Math.abs(mouseY - lastMouse[1]) > 1) {
+      gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
+      lastMouse = [mouseX, mouseY];
+    }
+    
+    if (Math.abs(qualityLevel - lastQuality) > 0.01) {
+      gl3.uniform1f(uQualityLoc, qualityLevel);
+      lastQuality = qualityLevel;
+    }
+
+    // Общее время с накопленным сдвигом
+    const t = elapsedTime + timeOffset;
 
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
-    gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
-    gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-    gl3.uniform1f(uQualityLoc, qualityLevel);
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
-
-    overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
 
     requestAnimationFrame(render);
   }
