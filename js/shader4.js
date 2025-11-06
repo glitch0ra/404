@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const gl = canvas4.getContext("webgl2", {
     powerPreference: "high-performance",
-    alpha: true,
+    alpha: false,
     preserveDrawingBuffer: false,
     antialias: false
   });
@@ -194,7 +194,7 @@ void main(){
   p.x*=RESOLUTION.x/RESOLUTION.y;
   vec3 col=effect(p);
 
-  // Размытие горизонта — опускаем ниже
+  // Размытие горизонта
   float horizon = smoothstep(0.15, 0.35, q.y);
   col = mix(col, vec3(col * 0.8), horizon);
 
@@ -205,7 +205,8 @@ void main(){
   col=aces_approx(col);
   col=sRGB(col);
   fragColor=vec4(col, alpha);
-}
+}`;
+
 
   // ──────────────────────── Compile ────────────────────────
   function compile(type, src){
@@ -247,5 +248,3 @@ void main(){
   }
   requestAnimationFrame(render);
 });
-
-
