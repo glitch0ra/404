@@ -200,7 +200,7 @@ void main() {
   col = mix(col, vec3(col * 1.35), horizon);
 
   // ✅ Тот же принцип разделения, что в оригинальном shader4.js
-  float alpha = smoothstep(0.60, 0.35, q.y);
+  float alpha = smoothstep(0.55, 0.30, q.y);
 
   col = aces_approx(col);
   col = sRGB(col);
@@ -247,6 +247,7 @@ void main() {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
