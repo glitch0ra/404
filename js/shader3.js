@@ -321,9 +321,8 @@ document.addEventListener("DOMContentLoaded", () => {
     mouseY = rect.height - (e.clientY - rect.top);
   });
 
-  // === Управление временем анимации через скролл ===
-  let scrollY = window.scrollY;
-  let lastScrollY = scrollY;
+  // === ИСПРАВЛЕННАЯ ЛОГИКА СКРОЛЛА ===
+  let lastScrollY = window.scrollY;
   let scrollSpeed = 0;
   let scrollInfluence = 0;
   let lastScrollTime = performance.now();
@@ -331,13 +330,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("scroll", () => {
     const now = performance.now();
-    const deltaT = Math.max(1, now - lastScrollTime);
+    const deltaTime = Math.max(1, now - lastScrollTime);
     lastScrollTime = now;
-    const newScrollY = window.scrollY;
-    const deltaY = newScrollY - lastScrollY;
-    lastScrollY = newScrollY;
-    scrollSpeed = deltaY / deltaT;
-    scrollInfluence = scrollSpeed * 0.2; // чувствительность (0.1–0.3)
+    
+    const currentScroll = window.scrollY;
+    const deltaY = currentScroll - lastScrollY;
+    lastScrollY = currentScroll;
+    
+    // Расчёт скорости скролла (пиксели/мс)
+    scrollSpeed = deltaY / deltaTime;
+    // Применяем чувствительность (коэффициент 0.2)
+    scrollInfluence = scrollSpeed * 0.2;
   });
 
   let isPaused = false;
@@ -361,14 +364,20 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePerformance(now);
     adjustQuality(now);
 
-    if (now - lastRenderTime < FRAME_INTERVAL) return requestAnimationFrame(render);
+    if (now - lastRenderTime < FRAME_INTERVAL) {
+      requestAnimationFrame(render);
+      return;
+    }
+    
+    // 🔑 КРИТИЧНОЕ ИСПРАВЛЕНИЕ: ПРАВИЛЬНЫЙ РАСЧЁТ ВРЕМЕНИ МЕЖДУ КАДРАМИ
+    const dt = (now - lastRenderTime) * 0.001; // Время в секундах
     lastRenderTime = now;
 
     resize();
 
-    // Плавная инерция и накопление смещения времени
-    scrollInfluence *= 0.9;
-    timeOffset += scrollInfluence * (now - lastRenderTime) * 0.001 * 60.0;
+    // Обновление смещения времени с правильным deltaTime
+    scrollInfluence *= 0.9; // Затухание влияния скролла
+    timeOffset += scrollInfluence * dt * 60.0; // 60.0 = скорость реакции
 
     // Общее время с учётом накопленного сдвига
     const t = (now - start) * 0.001 + timeOffset;
@@ -378,10 +387,9 @@ document.addEventListener("DOMContentLoaded", () => {
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
     gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-    gl3.uniform1f(uQualityLoc, qualityLevel); // Передача уровня качества в шейдер
+    gl3.uniform1f(uQualityLoc, qualityLevel);
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
 
-    // Обновление диагностического оверлея
     overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
 
     requestAnimationFrame(render);
