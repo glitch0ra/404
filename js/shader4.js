@@ -197,7 +197,7 @@ void main() {
 
   // Сохраняем размытость горизонта (чуть ниже центра)
   float horizon = smoothstep(0.01, 0.30, q.y);
-  col = mix(col, vec3(col * 1.5), horizon);
+  col = mix(col, vec3(col * 1.35), horizon);
 
   // ✅ Тот же принцип разделения, что в оригинальном shader4.js
   float alpha = smoothstep(0.60, 0.35, q.y);
@@ -247,6 +247,7 @@ void main() {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
