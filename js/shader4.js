@@ -11,9 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   if (!gl4) return alert("Ваш браузер не поддерживает WebGL2");
 
-  console.log("✅ WebGL2 активен (shader4)");
-
-  // Автоматический ресайз
+  // resize
   function resize() {
     canvas4.width = window.innerWidth;
     canvas4.height = window.innerHeight;
@@ -21,10 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   window.addEventListener("resize", resize);
   resize();
-
-  // ──────────────────────────────
-  // GLSL Шейдер
-  // ──────────────────────────────
 
   const vertexSrc = `#version 300 es
   precision highp float;
@@ -101,23 +95,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec4(col, t);
   }
 
+  // simplified stars (less weight to avoid green bias)
   vec3 stars(vec2 sp) {
     const vec3 scol0 = HSV2RGB(vec3(0.85, 0.8, 1.0));
     const vec3 scol1 = HSV2RGB(vec3(0.65, 0.5, 1.0));
     vec3 col = vec3(0.0);
-    for(float i=0.;i<6.;i++){
+    for(float i=0.; i<6.; i++){
       vec2 pp=sp+0.5*i;
       float s=i/5.;
       vec2 dim=vec2(mix(0.05,0.003,s)*PI);
-      vec2 np=mod(pp,dim)-0.5*dim;
-      vec2 h=vec2(hash(np+127.0+i),hash(np+37.0+i));
-      vec2 o=-1.0+2.0*h;
-      pp+=o*dim*0.5;
-      float l=length(pp);
-      float h1=fract(h.x*1667.0);
-      float h2=fract(h.x*1887.0);
-      vec3 scol=mix(scol0,scol1,h1*h1)*mix(8.0*h2,0.25*h2*h2,s);
-      col+=exp(-6000.0*max(l-0.001,0.0))*scol;
+      vec2 np = mod(pp,dim)-0.5*dim;
+      vec2 h = vec2(hash(np+127.0+i), hash(np+37.0+i));
+      vec2 o = -1.0+2.0*h;
+      pp += o*dim*0.5;
+      float l = length(pp);
+      float w = exp(-mix(2000.0,6000.0,s)*max(l-0.001,0.0));
+      vec3 scol = mix(scol0, scol1, h.x*h.x) * (0.6 + 0.4*s) * (0.6 + 0.4*h.y);
+      col += w * scol;
     }
     return col;
   }
@@ -126,10 +120,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const vec3 acol = HSV2RGB(vec3(0.6, 0.9, 0.075));
     const vec3 lcol = HSV2RGB(vec3(0.75, 0.8, 1.0));
     vec2 sp = vec2(atan(rd.y, rd.x), acos(rd.z));
-    float li = 0.02*mix(1.0,10.0,pow(max(rd.y,0.0),80.0))/(abs((rd.y+0.055))+0.025);
-    vec3 col = stars(sp)*smoothstep(0.5,0.0,li);
-    col += smoothstep(-0.4, 0.0, (sp.x - PI*0.5))*acol;
-    col += tanh(lcol*li);
+    float lf = pow(max(dot(normalize(vec3(0., -0.15, 1.0)), rd), 0.0), 80.0);
+    float li = 0.02*mix(1.0,10.0,lf)/(abs((rd.y+0.055))+0.025);
+    vec3 col = stars(sp)*smoothstep(0.5,0.0,li)*0.9; // slightly reduced weight (fix tint)
+    col += smoothstep(-0.4, 0.0, (sp.x - PI*0.5))*acol*0.9;
+    col += tanh(lcol*li)*0.6;
     return col;
   }
 
@@ -152,21 +147,51 @@ document.addEventListener("DOMContentLoaded", () => {
         vec3 npp=ro+rd*pd;
         vec4 pcol=plane(ro,rd,pp,npp,vec3(0.0),nz+float(i));
         float fadeIn=smoothstep(maxDist,fadeDist,pd);
-        pcol.xyz=mix(skyCol,pcol.xyz,fadeIn);
+        pcol.xyz = mix(skyCol, pcol.xyz, fadeIn);
         acol = mix(acol, vec4(pcol.xyz,1.0), pcol.w);
       }
     }
     return mix(skyCol, acol.rgb, acol.w);
   }
 
-  vec3 effect(vec2 p, vec2 q){
-    float tm = TIME*0.25;
-    vec3 ro = vec3(0.0,0.0,tm);
-    vec3 dro = normalize(vec3(0.0,0.09,1.0));
-    vec3 ww = normalize(dro);
-    vec3 uu = normalize(cross(vec3(0.0,1.0,0.0), ww));
-    vec3 vv = normalize(cross(ww, uu));
-    return color(ww, uu, vv, ro, p);
+  // volumetric sphere (simple, screen-space) and sun glow
+  vec3 renderSun(vec2 q, out float sunMask) {
+    // horizon center (small bright point)
+    vec2 centerH = vec2(0.5, 0.5); // horizon center in uv
+    float d = distance(q, centerH);
+    float sun = exp(-d * 80.0) * 1.6; // tight bright spot
+    float halo = exp(-d * 18.0) * 0.45; // softer halo
+    sunMask = clamp(sun + halo, 0.0, 1.0);
+    // color warm neon-ish
+    vec3 sunCol = hsv2rgb(vec3(0.05, 0.9, 1.0)) * (1.0 + 0.6 * halo);
+    return sunCol * sunMask;
+  }
+
+  vec3 renderSphere(vec2 q, out float sphereMask) {
+    // sphere positioned above horizon, centered slightly up
+    vec2 sphCenter = vec2(0.5, 0.28); // tweak vertical position here
+    float radius = 0.12; // visual radius
+    float r = distance(q, sphCenter);
+    if (r > radius) { sphereMask = 0.0; return vec3(0.0); }
+    float nr = r / radius;
+    // normal of sphere in screen-space
+    float z = sqrt(max(0.0, 1.0 - nr*nr));
+    vec3 n = normalize(vec3((q - sphCenter)/radius, z));
+    vec3 lightDir = normalize(vec3(0.0, -0.15, 1.0));
+    float lam = clamp(dot(n, lightDir), 0.0, 1.0);
+    // subtle specular
+    vec3 view = vec3(0.0, 0.0, 1.0);
+    vec3 halfv = normalize(lightDir + view);
+    float spec = pow(max(dot(n, halfv), 0.0), 60.0) * 0.9;
+    // base color (use neon palette via hsv2rgb)
+    vec3 base = hsv2rgb(vec3(0.72 + 0.02*sin(TIME*0.6), 0.8, 1.0)); // bluish-pinkish shift
+    vec3 col = base * (0.4 + 1.2 * lam) + vec3(1.0) * spec * 0.7;
+    // soft rim
+    float rim = pow(1.0 - max(0.0, dot(n, view)), 2.0);
+    col += hsv2rgb(vec3(0.95, 0.9, 1.0)) * rim * 0.25;
+    // mask with smooth edge
+    sphereMask = smoothstep(radius, radius * 0.88, r) * 1.0;
+    return col * sphereMask;
   }
 
   vec3 aces_approx(vec3 v){
@@ -177,24 +202,38 @@ document.addEventListener("DOMContentLoaded", () => {
   float sRGB(float t){return mix(1.055*pow(t,1./2.4)-0.055,12.92*t,step(t,0.0031308));}
   vec3 sRGB(vec3 c){return vec3(sRGB(c.x),sRGB(c.y),sRGB(c.z));}
 
-  void main(){
-    vec2 q = gl_FragCoord.xy / RESOLUTION.xy;
-    vec2 p = -1.0 + 2.0*q;
+  void main() {
+    vec2 q = gl_FragCoord.xy / RESOLUTION.xy;       // 0..1 uv
+    vec2 p = -1.0 + 2.0 * q;
     p.x *= RESOLUTION.x / RESOLUTION.y;
 
+    // main scene (static camera effect)
     vec3 col = effect(p, q);
-    col *= smoothstep(0.0, 8.0, TIME - abs(q.y));
+
+    // add sun (horizon bright spot)
+    float sunMask = 0.0;
+    vec3 sunCol = renderSun(q, sunMask);
+    col += sunCol;
+
+    // add volumetric sphere in sky
+    float sphereMask = 0.0;
+    vec3 sphereCol = renderSphere(q, sphereMask);
+    col += sphereCol;
+
+    // tone mapping
     col = aces_approx(col);
     col = sRGB(col);
 
-    // Прозрачный верх — всё, что выше линии горизонта (~середина экрана)
-    float alpha = smoothstep(0.55, 0.35, q.y);
+    // alpha logic:
+    // bgAlpha = transparency of sky above horizon (we want top transparent).
+    // keep sun/sphere opaque by lifting alpha where they exist.
+    float bgAlpha = smoothstep(0.60, 0.42, q.y); // tweak falloff here
+    float objAlpha = max(sunMask, sphereMask);
+    float alpha = max(bgAlpha, objAlpha);
+
+    // final
     fragColor = vec4(col, alpha);
   }`;
-
-  // ──────────────────────────────
-  // Компиляция и запуск
-  // ──────────────────────────────
 
   function compileShader(type, src) {
     const shader = gl4.createShader(type);
@@ -213,6 +252,10 @@ document.addEventListener("DOMContentLoaded", () => {
   gl4.attachShader(program, vs);
   gl4.attachShader(program, fs);
   gl4.linkProgram(program);
+  if (!gl4.getProgramParameter(program, gl4.LINK_STATUS)) {
+    console.error(gl4.getProgramInfoLog(program));
+    return;
+  }
   gl4.useProgram(program);
 
   const quad = gl4.createBuffer();
@@ -228,17 +271,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const iTimeLoc = gl4.getUniformLocation(program, "iTime");
 
   let start = performance.now();
-
   function render() {
     resize();
     const t = (performance.now() - start) * 0.001;
     gl4.uniform3f(iResolutionLoc, canvas4.width, canvas4.height, 1.0);
     gl4.uniform1f(iTimeLoc, t);
+    // clear to transparent
     gl4.clearColor(0, 0, 0, 0);
     gl4.clear(gl4.COLOR_BUFFER_BIT);
     gl4.drawArrays(gl4.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
-
   requestAnimationFrame(render);
 });
