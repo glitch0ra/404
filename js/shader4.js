@@ -51,40 +51,29 @@ vec3 hsv2rgb(vec3 c){
 }
 #define HSV2RGB(c) (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
 
-float hash(float co){ return fract(sin(co*12.9898)*13758.5453); }
-float hash(vec2 p){ float a=dot(p,vec2(127.1,311.7)); return fract(sin(a)*43758.5453123); }
-vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453123); }
+float hash(float co){return fract(sin(co*12.9898)*13758.5453);}
+float hash(vec2 p){float a=dot(p,vec2(127.1,311.7));return fract(sin(a)*43758.5453123);}
+float vnoise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.0-2.0*f);
+float a=hash(i+vec2(0.0,0.0));float b=hash(i+vec2(1.0,0.0));float c=hash(i+vec2(0.0,1.0));float d=hash(i+vec2(1.0,1.0));
+return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+float tanh_approx(float x){float x2=x*x;return clamp(x*(27.0+x2)/(27.0+9.0*x2),-1.0,1.0);}
 
-float vnoise(vec2 p){
-  vec2 i=floor(p); vec2 f=fract(p);
-  vec2 u=f*f*(3.0-2.0*f);
-  float a=hash(i+vec2(0.0)); float b=hash(i+vec2(1.0,0.0));
-  float c=hash(i+vec2(0.0,1.0)); float d=hash(i+vec2(1.0,1.0));
-  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-}
-
-float tanh_approx(float x){ float x2=x*x; return clamp(x*(27.0+x2)/(27.0+9.0*x2), -1.0,1.0); }
-
-float hifbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
-float lofbm(vec2 p){ float s=0.0,a=1.0; for(int i=0;i<2;i++){ s+=a*vnoise(p); a*=0.5; p*=2.0; } return s; }
-float hiheight(vec2 p){ return hifbm(p)-1.8; }
-float loheight(vec2 p){ return lofbm(p)-2.15; }
+float hifbm(vec2 p){float s=0.0,a=1.0;for(int i=0;i<5;i++){s+=a*vnoise(p);a*=0.5;p*=2.0;}return s;}
+float lofbm(vec2 p){float s=0.0,a=1.0;for(int i=0;i<2;i++){s+=a*vnoise(p);a*=0.5;p*=2.0;}return s;}
+float hiheight(vec2 p){return hifbm(p)-1.8;}
+float loheight(vec2 p){return lofbm(p)-2.15;}
 
 vec4 alphaBlend(vec4 back, vec4 front){
   float w = front.w + back.w*(1.0-front.w);
   vec3 xyz = (front.xyz*front.w + back.xyz*back.w*(1.0-front.w))/w;
   return w>0.0?vec4(xyz,w):vec4(0.0);
 }
-vec3 alphaBlend(vec3 back, vec4 front){ return mix(back, front.xyz, front.w); }
+vec3 alphaBlend(vec3 back, vec4 front){return mix(back,front.xyz,front.w);}
 
-vec2 mod2(inout vec2 p, vec2 size){
-  vec2 c=floor((p+size*0.5)/size);
-  p=mod(p+size*0.5,size)-size*0.5;
-  return c;
-}
 float mod1(inout float p,float size){float halfsize=size*0.5;float c=floor((p+halfsize)/size);p=mod(p+halfsize,size)-halfsize;return c;}
+vec2 mod2(inout vec2 p,vec2 size){vec2 c=floor((p+size*0.5)/size);p=mod(p+size*0.5,size)-size*0.5;return c;}
 
-vec2 raySphere(vec3 ro, vec3 rd, vec4 sph){
+vec2 raySphere(vec3 ro,vec3 rd,vec4 sph){
   vec3 oc=ro-sph.xyz;
   float b=dot(oc,rd);
   float c=dot(oc,oc)-sph.w*sph.w;
@@ -97,8 +86,8 @@ vec3 toSpherical(vec3 p){float r=length(p);float t=acos(p.z/r);float ph=atan(p.y
 const vec3 lpos=1E6*vec3(0.,-0.15,1.0);
 const vec3 ldir=normalize(lpos);
 
-// --- plane() ---
-vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
+// --------- Plane (земля) ----------
+vec4 plane(vec3 ro,vec3 rd,vec3 pp,vec3 npp,vec3 off,float n){
   float h=hash(n);
   vec2 p=(pp-off*2.0*vec3(1.0,1.0,0.0)).xy;
   const vec2 stp=vec2(0.5,0.33);
@@ -115,36 +104,44 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
   return vec4(col,t);
 }
 
-// --- чистая луна ---
+// --------- Луна (восстановленная плотная) ----------
 vec4 moon(vec3 ro, vec3 rd){
   const vec4 mdim=vec4(1E5*vec3(0.,0.4,1.0),20000.0);
   const vec3 mcol0=HSV2RGB(vec3(0.75,0.7,1.0));
+  const vec3 mcol1=HSV2RGB(vec3(0.75,0.55,1.0));
   vec2 md=raySphere(ro,rd,mdim);
+  if(md.x<0.0) return vec4(0.0);
   vec3 mpos=ro+rd*md.x;
   vec3 mnor=normalize(mpos-mdim.xyz);
   float mdif=max(dot(ldir,mnor),0.0);
+  float mfre=pow(1.0+dot(rd,mnor),2.0);
+  vec3 base=mcol0*1.2 + mcol1*0.5;
+  vec3 col=base*(0.4+0.6*mdif)+0.1*mfre;
   float mf=smoothstep(0.0,10000.0,md.y-md.x);
-  vec3 col=mdif*mcol0*4.0;
   return vec4(col,mf);
 }
 
-// --- упрощённое небо ---
+// --------- Небо и горизонт ----------
 vec3 skyColor(vec3 ro, vec3 rd){
-  const vec3 acol=HSV2RGB(vec3(0.6,0.9,0.075));
-  const vec3 lcol=HSV2RGB(vec3(0.75,0.8,1.0));
-  vec2 sp=toSpherical(rd.xzy).yz;
-  vec4 mcol=moon(ro,rd);
-  vec3 col=vec3(0.0);
-  // убрано: stars() и яркое небо сверху
-  // добавим мягкий градиент перехода к горизонту
-  float horizonFade = smoothstep(0.1, -0.2, rd.y);
-  col = mix(vec3(0.0), acol, horizonFade);
-  col = mix(col, mcol.xyz, mcol.w);
-  col += tanh(lcol*0.03);
-  return col;
+  const vec3 horizonGlow = HSV2RGB(vec3(0.08, 0.8, 1.0)); // оранжево-розовый
+  const vec3 topFade = HSV2RGB(vec3(0.6, 0.6, 0.25));     // голубоватый
+  const vec3 lcol = HSV2RGB(vec3(0.75, 0.8, 1.0));
+  vec4 mcol = moon(ro, rd);
+
+  float h = clamp(rd.y*0.5 + 0.5, 0.0, 1.0);
+  vec3 sky = mix(horizonGlow, topFade, pow(h, 1.5));
+  sky += 0.1*lcol;
+  sky = mix(sky, mcol.xyz, mcol.w);
+
+  // добавляем мягкое свечение по линии горизонта
+  float glow = exp(-60.0*abs(rd.y + 0.05));
+  sky += horizonGlow * glow * 1.2;
+
+  return sky;
 }
 
-vec3 color(vec3 ww,vec3 uu,vec3 vv,vec3 ro,vec2 p){
+// --------- Сборка сцены ----------
+vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p){
   float rdd=2.0;
   vec3 rd=normalize(p.x*uu+p.y*vv+rdd*ww);
   vec3 nrd=normalize(p.x*uu+p.y*vv+rdd*ww);
@@ -168,12 +165,12 @@ vec3 color(vec3 ww,vec3 uu,vec3 vv,vec3 ro,vec2 p){
       pcol.xyz=mix(skyCol,pcol.xyz,fadeIn);
       pcol=clamp(pcol,0.0,1.0);
       acol=alphaBlend(pcol,acol);
-    }else{ break; }
+    }else{break;}
   }
-  vec3 col=alphaBlend(skyCol,acol);
-  return col;
+  return alphaBlend(skyCol,acol);
 }
 
+// --------- Камера и вывод ----------
 vec3 effect(vec2 p){
   float tm=TIME*0.25;
   vec3 ro=vec3(0.0,0.0,tm);
@@ -194,18 +191,19 @@ void main(){
   p.x*=RESOLUTION.x/RESOLUTION.y;
   vec3 col=effect(p);
 
-  // Размытие горизонта
-  float horizon = smoothstep(0.35, 0.55, q.y);
-  col = mix(col, vec3(col * 0.8), horizon);
+  // лёгкое размытие горизонта
+  float blur = smoothstep(0.35, 0.45, q.y);
+  col = mix(col, vec3(0.95*col), blur);
 
-  // Верх экрана — прозрачный альфа
-  float skyFade = smoothstep(0.4, 0.8, q.y);
+  // прозрачность только ближе к верхушке
+  float skyFade = smoothstep(0.65, 0.85, q.y);
   float alpha = 1.0 - skyFade;
 
-  col=aces_approx(col);
-  col=sRGB(col);
-  fragColor=vec4(col, alpha);
+  col = aces_approx(col);
+  col = sRGB(col);
+  fragColor = vec4(col, alpha);
 }`;
+
 
   // ──────────────────────── Compile ────────────────────────
   function compile(type, src){
