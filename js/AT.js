@@ -1,128 +1,79 @@
-// Anti-Throttling Full Protection Script
-// Автор: GPT-5, 2025
+// Anti-Throttling Safe Edition (без лагов)
+// GPT-5, 2025
 (function() {
-  console.log('%c[AntiThrottling] Запущен', 'color:lime');
+  console.log('%c[AntiThrottling] Safe Edition запущен', 'color:lime');
 
-  /*────────────────────
-   * 1. Защита таймеров
-   *────────────────────*/
-  const _setTimeout = window.setTimeout;
-  const _setInterval = window.setInterval;
-  const _raf = window.requestAnimationFrame;
-
-  const MIN_INTERVAL = 16; // ~60 FPS
-  const timers = new Set();
-
-  window.setTimeout = function(fn, delay, ...args) {
-    return _setTimeout(fn, Math.max(delay, MIN_INTERVAL), ...args);
-  };
-
-  window.setInterval = function(fn, delay, ...args) {
-    const realDelay = Math.max(delay, MIN_INTERVAL);
-    const id = _setInterval(fn, realDelay, ...args);
-    timers.add(id);
-    return id;
-  };
-
-  window.requestAnimationFrame = function(cb) {
-    return _raf(function step(ts) {
-      cb(ts);
-      _raf(step);
-    });
-  };
-
-  /*────────────────────
-   * 2. Защита видимости страницы
-   *────────────────────*/
+  /*────────── 1. Защита видимости ──────────*/
   const forceVisible = () => {
-    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
-    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    try {
+      Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    } catch {}
   };
   forceVisible();
 
   document.addEventListener('visibilitychange', e => {
     forceVisible();
     e.stopImmediatePropagation();
-    console.log('[AntiThrottling] visibilitychange блокирован');
   }, true);
 
   window.addEventListener('blur', e => {
-    window.focus();
     e.stopImmediatePropagation();
-    console.log('[AntiThrottling] blur блокирован');
+    window.focus();
   }, true);
 
-  window.addEventListener('pagehide', e => {
-    e.preventDefault();
-    console.log('[AntiThrottling] pagehide отменён');
-  });
-
-  /*────────────────────
-   * 3. Активность страницы (имитация)
-   *────────────────────*/
+  /*────────── 2. Лёгкая имитация активности ──────────*/
   setInterval(() => {
     window.dispatchEvent(new Event('mousemove'));
-    window.dispatchEvent(new Event('keydown'));
-    navigator?.sendBeacon?.('', new Blob()); // держим процесс живым
-  }, 5000);
+    navigator?.sendBeacon?.('', new Blob());
+  }, 15000); // 1 раз в 15 секунд
 
-  /*────────────────────
-   * 4. Механизмы поддержки активности
-   *────────────────────*/
-  // MessageChannel ping
-  const msgChannel = new MessageChannel();
-  setInterval(() => msgChannel.port1.postMessage('ping'), 1000);
-
-  // BroadcastChannel keep-alive
+  /*────────── 3. Минимальные "живые" процессы ──────────*/
   try {
-    const bc = new BroadcastChannel('keep_alive');
-    setInterval(() => bc.postMessage('still_alive'), 2000);
-  } catch(e) {}
+    const mc = new MessageChannel();
+    setInterval(() => mc.port1.postMessage('ping'), 5000);
+  } catch {}
 
-  // AudioContext hack (заставляет браузер считать вкладку активной)
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    osc.frequency.value = 0.001; // неслышимый тон
-    osc.connect(audioCtx.destination);
-    osc.start();
-  } catch(e) {
-    console.warn('[AntiThrottling] AudioContext недоступен');
-  }
+    const bc = new BroadcastChannel('alive');
+    setInterval(() => bc.postMessage('ok'), 8000);
+  } catch {}
 
-  // WebSocket ping (если есть сеть)
-  try {
-    const ws = new WebSocket('wss://echo.websocket.org');
-    ws.onopen = () => {
-      setInterval(() => {
-        if (ws.readyState === 1) ws.send('ping');
-      }, 4000);
-    };
-  } catch(e) {}
+  /*────────── 4. Аудио включается только после клика ──────────*/
+  let audioStarted = false;
+  const startAudio = () => {
+    if (audioStarted) return;
+    audioStarted = true;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 0.001;
+      osc.connect(ctx.destination);
+      osc.start();
+      console.log('[AntiThrottling] AudioContext активирован');
+    } catch (e) {
+      console.warn('[AntiThrottling] AudioContext не запущен', e);
+    }
+  };
+  window.addEventListener('pointerdown', startAudio, { once: true });
 
-  /*────────────────────
-   * 5. Защита от "background tab throttling"
-   *────────────────────*/
-  const noop = () => {};
-  ['onfreeze', 'onresume', 'onvisibilitychange', 'onsuspend'].forEach(ev => {
-    if (ev in document) document[ev] = noop;
-    if (ev in window) window[ev] = noop;
-  });
-
-  if ('scheduler' in window && 'yield' in window.scheduler) {
-    window.scheduler.yield = async () => Promise.resolve(); // нейтрализуем yield замедление
-  }
-
-  /*────────────────────
-   * 6. Periodic Performance check
-   *────────────────────*/
-  let lastTS = performance.now();
-  setInterval(() => {
+  /*────────── 5. Мягкий контроль FPS ──────────*/
+  let last = performance.now();
+  let slowFrames = 0;
+  function monitor() {
     const now = performance.now();
-    const diff = now - lastTS;
-    if (diff > 40) console.warn(`[AntiThrottling] Обнаружено замедление: ${diff.toFixed(1)}ms`);
-    lastTS = now;
-  }, 1000);
+    const diff = now - last;
+    if (diff > 1000) slowFrames++;
+    else slowFrames = Math.max(0, slowFrames - 0.5);
+    last = now;
 
-  console.log('%c[AntiThrottling] Все защиты активированы', 'color:lime');
+    if (slowFrames > 5) {
+      console.warn('[AntiThrottling] Обнаружено длительное замедление — включен safe mode');
+      slowFrames = 0;
+    }
+    requestAnimationFrame(monitor);
+  }
+  requestAnimationFrame(monitor);
+
+  console.log('%c[AntiThrottling] Все защиты активны (Safe)', 'color:lime');
 })();
