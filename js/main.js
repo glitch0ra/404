@@ -148,14 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => {
     showPage(window.location.hash.replace('#', '') || 'home');
   });
-
-document.querySelector('.page-header-video').addEventListener('loadedmetadata', () => {
-  setInterval(() => {
-    // Принудительно обновляем currentTime без визуальных изменений
-    video.currentTime += 0.0001;
-    video.currentTime -= 0.0001;
-  }, 16); // 16ms = ~60 FPS
-});
   
 });
+
 
