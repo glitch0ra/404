@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const float maxDist = planeDist * float(furthest);
     float nz = floor(ro.z / planeDist);
 
-    vec4 accum = vec4(0.0); // accumulated color+alpha
+    vec4 accum = vec4(0.0);
 
     for (int i = 1; i <= furthest; ++i) {
         float pz = planeDist * nz + planeDist * float(i);
@@ -161,29 +161,31 @@ document.addEventListener("DOMContentLoaded", () => {
             vec3 off = vec3(0.0);
             vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-            // обычное ослабление по расстоянию
+            // базовый fade по глубине
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
             pcol = clamp(pcol, 0.0, 1.0);
 
-            // -------------------------
-            // 🔥 Новый блок: плавное проявление для последних 4 слоёв (12–16)
+            // ---------------------------------------------
+            // 🔥 Добавляем плавное появление + "blur" для дальних слоёв (12–16)
             if (i >= 12) {
-                float appearTime = (TIME * 0.5) - float(i - 12) * 0.4; // немного сдвигаем по времени
-                float phase = clamp((TIME - appearTime) / 2.0, 0.0, 1.0); // 2 секунды на проявление
+                // pd – расстояние от камеры, fade-порог
+                float appearZoneStart = maxDist - 6.0;   // когда слой только рождается
+                float appearZoneEnd   = maxDist - 2.0;   // когда он уже должен быть виден
+                float appearPhase = smoothstep(appearZoneStart, appearZoneEnd, pd);
 
-                // прозрачность (0→1)
-                pcol.a *= smoothstep(0.0, 1.0, phase);
+                // прозрачность
+                pcol.a *= appearPhase;
 
-                // размытость: чем меньше phase — тем сильнее blur
-                float blurAmount = (1.0 - phase);
-                // смягчённая яркость и контраст, чтобы “молочная” дымка
-                pcol.rgb = mix( vec3(dot(pcol.rgb, vec3(0.333))), pcol.rgb, 1.0 - blurAmount * 0.7 );
-                pcol.rgb = mix(pcol.rgb, vec3(0.5), blurAmount * 0.5);
+                // псевдоразмытость (по цвету, туманному эффекту)
+                float blurAmount = 1.0 - appearPhase;
+                vec3 avg = vec3(dot(pcol.rgb, vec3(0.333)));
+                pcol.rgb = mix(avg, pcol.rgb, appearPhase);
+                pcol.rgb = mix(pcol.rgb, vec3(0.6), blurAmount * 0.5);
             }
-            // -------------------------
+            // ---------------------------------------------
 
-            accum = alphaBlendVec4(accum, pcol); // front over back
+            accum = alphaBlendVec4(accum, pcol);
         } else {
             break;
         }
@@ -313,5 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
