@@ -162,8 +162,12 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 off = vec3(0.0);
     vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-    // --- только плавная прозрачность появления (без изменения цвета) ---
+    // --- альфа появления ---
     float fadeAlpha = smoothstep(maxDist * 1.1, fadeDist * 1.1, pd);
+
+    // --- смягчение цвета только в момент рождения слоя ---
+    float birth = clamp(fadeAlpha * 1.5, 0.0, 1.0);
+    pcol.xyz *= mix(0.6, 1.0, birth);  // цвет мягче при рождении, потом нормализуется
     pcol.w *= fadeAlpha;
 
     pcol = clamp(pcol, 0.0, 1.0);
@@ -297,5 +301,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
