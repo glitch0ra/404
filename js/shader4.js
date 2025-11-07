@@ -119,30 +119,26 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
     vec3 baseCol = acol + 0.5 * gcol;
 
-    // ---------- ЭФФЕКТ ПЛАВНОГО ПОЯВЛЕНИЯ ----------
-    // Чем дальше слой (только появился), тем больше размытие и меньше прозрачность.
-    float distToCam = abs(pp.z - ro.z);
-    float fadeStart = 10.0;     // дистанция, где размытие активно
-    float fadeEnd = 25.0;       // дальше этого полностью размыт
-    float blurPhase = smoothstep(fadeEnd, fadeStart, distToCam); // 0 = далеко (сильно размыто), 1 = близко (чётко)
+    // ---------- ЭФФЕКТ ПЛАВНОГО ВОЗНИКНОВЕНИЯ ----------
+    // Вычисляем "возраст" слоя на основе позиции камеры (ro.z) и слоя (pp.z)
+    float life = fract((TIME * 0.25 + pp.z * 0.05)); // 0 -> 1 каждые ~20 кадров
+    float appear = smoothstep(0.0, 0.15, life);      // быстрое появление
+    float focus  = smoothstep(0.0, 0.5, life);       // постепенная фокусировка
 
-    // Реализация размытия: выборка с оффсетом
-    float blurSize = mix(0.008, 0.0005, blurPhase);
+    // Размытие: сильное в начале, уменьшается за 1–2 секунды
+    float blurSize = mix(0.015, 0.0005, focus);
     vec3 blurCol = (
       hsv2rgb(vec3(mix(0.9, 0.6, df + blurSize), 0.9, mix(1.0, 0.0, df))) +
       hsv2rgb(vec3(mix(0.9, 0.6, df - blurSize), 0.9, mix(1.0, 0.0, df)))
     ) * 0.5;
 
-    // Микс между размытым и чётким
-    vec3 col = mix(blurCol, baseCol, blurPhase);
-
-    // Добавим лёгкий fade-in прозрачности — слой появляется из ничего
-    float alphaFade = smoothstep(fadeEnd, fadeStart, distToCam);
-    float finalAlpha = clamp(t * alphaFade, 0.0, 1.0);
+    vec3 col = mix(blurCol, baseCol, focus);
+    float finalAlpha = t * appear;
     // ---------- КОНЕЦ БЛОКА ----------
 
     return vec4(col, finalAlpha);
   }
+
 
 
 
