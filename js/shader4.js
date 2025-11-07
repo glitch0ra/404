@@ -162,26 +162,16 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 off = vec3(0.0);
     vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-    // -------- плавное проявление слоя при приближении --------
-    // pd — это расстояние от камеры до слоя вдоль луча
-    // fadeIn управляет мягкостью цвета, fadeAlpha — прозрачностью появления
-    float fadeIn = smoothstep(maxDist * 1.6, fadeDist * 1.6, pd);
-    float fadeAlpha = smoothstep(maxDist * 1.2, fadeDist * 1.2, pd);
+    // --- только плавная прозрачность появления (без изменения цвета) ---
+    float fadeAlpha = smoothstep(maxDist * 1.1, fadeDist * 1.1, pd);
+    pcol.w *= fadeAlpha;
 
-    // затемняем дальние и прозрачные слои
-    pcol.xyz *= fadeIn;
-    pcol.w  *= fadeAlpha;
-
-    // ограничиваем диапазон и не допускаем пересвета
     pcol = clamp(pcol, 0.0, 1.0);
-
-    // накапливаем с учётом прозрачности
     accum = alphaBlendVec4(accum, pcol);
   } else {
     break;
   }
 }
-
 
     // moon
     vec4 m = moon(ro, rd);
@@ -307,4 +297,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
