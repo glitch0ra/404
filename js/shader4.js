@@ -3,16 +3,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const canvas4 = document.getElementById("shader-canvas4");
   if (!canvas4) return console.error("Canvas #shader-canvas4 не найден!");
 
-  const gl = canvas4.getContext("webgl2", {
+  const gl4 = canvas4.getContext("webgl2", {
     powerPreference: "high-performance",
     alpha: true,
     premultipliedAlpha: false,
-    preserveDrawingBuffer: false
+    preserveDrawingBuffer: false,
   });
-  if (!gl) return console.error("WebGL2 не поддерживается");
+  if (!gl4) return console.error("WebGL2 не поддерживается");
 
+  /*──────────────────── Шейдер ────────────────────*/
   const fragSrc = `#version 300 es
   precision highp float;
+
   uniform vec3 iResolution;
   uniform float iTime;
   out vec4 fragColor;
@@ -119,7 +121,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ==== ОСНОВНОЙ РЕНДЕР ====
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p) {
-    float lp = length(p);
     vec2 np = p + 2.0/RESOLUTION.y;
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
     vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
@@ -170,66 +171,68 @@ document.addEventListener("DOMContentLoaded", () => {
     p.x *= RESOLUTION.x/RESOLUTION.y;
     vec3 col = effect(p);
     fragColor = vec4(col, 1.0);
-  }
-  `;
+  }`;
 
-  // === Компиляция ===
-  function compile(type, src) {
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error(gl.getShaderInfoLog(s));
-      return null;
-    }
-    return s;
+  /*──────────────────── Компиляция ────────────────────*/
+  function compileShader(gl, type, src) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+      console.error(gl.getShaderInfoLog(shader));
+    return shader;
   }
 
-  const vs = compile(gl.VERTEX_SHADER, `#version 300 es
+  const vs = compileShader(gl4, gl4.VERTEX_SHADER, `#version 300 es
     in vec4 aPosition;
-    void main() { gl_Position = aPosition; }
+    void main(){ gl_Position = aPosition; }
   `);
-  const fs = compile(gl.FRAGMENT_SHADER, fragSrc);
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-    console.error(gl.getProgramInfoLog(prog));
+  const fs = compileShader(gl4, gl4.FRAGMENT_SHADER, fragSrc);
+  const prog = gl4.createProgram();
+  gl4.attachShader(prog, vs);
+  gl4.attachShader(prog, fs);
+  gl4.linkProgram(prog);
+  if (!gl4.getProgramParameter(prog, gl4.LINK_STATUS))
+    console.error(gl4.getProgramInfoLog(prog));
 
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  const buf = gl4.createBuffer();
+  gl4.bindBuffer(gl4.ARRAY_BUFFER, buf);
+  gl4.bufferData(gl4.ARRAY_BUFFER, new Float32Array([
     -1,-1, 1,-1, -1,1,
     -1,1, 1,-1, 1,1
-  ]), gl.STATIC_DRAW);
+  ]), gl4.STATIC_DRAW);
 
-  const loc = gl.getAttribLocation(prog, "aPosition");
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const posLoc = gl4.getAttribLocation(prog, "aPosition");
+  gl4.enableVertexAttribArray(posLoc);
+  gl4.vertexAttribPointer(posLoc, 2, gl4.FLOAT, false, 0, 0);
 
-  const resLoc = gl.getUniformLocation(prog, "iResolution");
-  const timeLoc = gl.getUniformLocation(prog, "iTime");
+  const resLoc = gl4.getUniformLocation(prog, "iResolution");
+  const timeLoc = gl4.getUniformLocation(prog, "iTime");
+
+  /*──────────────────── Рендер ────────────────────*/
+  let startTime = performance.now();
+  const resolutionScale = 1.0;
 
   function resize() {
-    const w = canvas4.clientWidth, h = canvas4.clientHeight;
-    if (canvas4.width !== w || canvas4.height !== h) {
-      canvas4.width = w; canvas4.height = h;
-      gl.viewport(0,0,w,h);
-    }
+    const dpr = window.devicePixelRatio * resolutionScale;
+    canvas4.width = window.innerWidth * dpr;
+    canvas4.height = window.innerHeight * dpr;
+    gl4.viewport(0, 0, canvas4.width, canvas4.height);
   }
 
-  const start = performance.now();
-  function draw() {
-    resize();
-    const t = (performance.now() - start) * 0.001;
-    gl.clearColor(0,0,0,0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(prog);
-    gl.uniform3f(resLoc, canvas4.width, canvas4.height, 1);
-    gl.uniform1f(timeLoc, t);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-    requestAnimationFrame(draw);
+  window.addEventListener("resize", resize);
+  resize();
+
+  function render() {
+    const time = (performance.now() - startTime) * 0.001;
+    gl4.clearColor(0, 0, 0, 0);
+    gl4.clear(gl4.COLOR_BUFFER_BIT);
+    gl4.useProgram(prog);
+    gl4.uniform3f(resLoc, canvas4.width, canvas4.height, 1.0);
+    gl4.uniform1f(timeLoc, time);
+    gl4.drawArrays(gl4.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
   }
-  draw();
+
+  render();
 });
