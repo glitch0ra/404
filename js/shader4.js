@@ -102,7 +102,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec2(-b - h, -b + h);
   }
 
-  // plane/layer function from original: returns color + alpha
     vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
@@ -118,26 +117,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
-    vec3 col = acol + 0.5 * gcol;
+    vec3 baseCol = acol + 0.5 * gcol;
 
-    // ---------- эффект размытия при появлении ----------
-    // Рассчитываем "возраст" слоя по расстоянию до камеры
-    float appearFade = clamp(exp(-0.15 * (distance(ro, pp))), 0.0, 1.0);
-    float blurFactor = smoothstep(0.0, 1.0, appearFade);
+    // ---------- ЭФФЕКТ ПЛАВНОГО ПОЯВЛЕНИЯ ----------
+    // Чем дальше слой (только появился), тем больше размытие и меньше прозрачность.
+    float distToCam = abs(pp.z - ro.z);
+    float fadeStart = 10.0;     // дистанция, где размытие активно
+    float fadeEnd = 25.0;       // дальше этого полностью размыт
+    float blurPhase = smoothstep(fadeEnd, fadeStart, distToCam); // 0 = далеко (сильно размыто), 1 = близко (чётко)
 
-    // имитация размытия через усреднение соседних выборок
-    vec2 blurOff = vec2(0.002, 0.003) * blurFactor;
+    // Реализация размытия: выборка с оффсетом
+    float blurSize = mix(0.008, 0.0005, blurPhase);
     vec3 blurCol = (
-      hsv2rgb(vec3(mix(0.9, 0.6, df + blurOff.x), 0.9, mix(1.0, 0.0, df))) +
-      hsv2rgb(vec3(mix(0.9, 0.6, df - blurOff.y), 0.9, mix(1.0, 0.0, df)))
+      hsv2rgb(vec3(mix(0.9, 0.6, df + blurSize), 0.9, mix(1.0, 0.0, df))) +
+      hsv2rgb(vec3(mix(0.9, 0.6, df - blurSize), 0.9, mix(1.0, 0.0, df)))
     ) * 0.5;
 
-    // смешиваем: в начале слоя — больше размытие, ближе к камере — меньше
-    col = mix(blurCol, col, smoothstep(0.0, 0.8, appearFade));
-    // ---------- конец блока размытия ----------
+    // Микс между размытым и чётким
+    vec3 col = mix(blurCol, baseCol, blurPhase);
 
-    return vec4(col, clamp(t, 0.0, 1.0));
+    // Добавим лёгкий fade-in прозрачности — слой появляется из ничего
+    float alphaFade = smoothstep(fadeEnd, fadeStart, distToCam);
+    float finalAlpha = clamp(t * alphaFade, 0.0, 1.0);
+    // ---------- КОНЕЦ БЛОКА ----------
+
+    return vec4(col, finalAlpha);
   }
+
 
 
   // moon implementation (kept original geometry/signature)
@@ -314,6 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
