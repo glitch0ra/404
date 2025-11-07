@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
 
     const float planeDist = 1.0;
-    const int furthest = 12;
+    const int furthest = 16;
     const int fadeFrom = 10;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
@@ -294,3 +294,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
