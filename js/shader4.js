@@ -104,12 +104,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // plane/layer function from original: returns color + alpha
     vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
-    uv.y += floor(nz);
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
-    float he = hiheight(vec2(p.x, pp.z) * stp);
-    float lohe = loheight(vec2(p.x, pp.z) * stp);
+    
+    // стабилизация слоя — убираем дергание по z
+float zStable = floor(n * 37.0); // уникальный seed для каждого слоя
+float he = hiheight(vec2(p.x, zStable) * stp);
+float lohe = loheight(vec2(p.x, zStable) * stp);
+
     float d = p.y - he;
     float lod = p.y - lohe;
     float aa = distance(pp, npp)*sqrt(1.0/3.0);
@@ -302,6 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
