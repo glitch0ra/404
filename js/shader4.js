@@ -168,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- плавное появление нового слоя (2 секунды fade-in) ---
     float layerAge = mod(TIME + float(i) * 7.123, 1000.0); // уникальный сдвиг
     float appearTime = 2.0;
-    float appearAlpha = clamp(layerAge / appearTime, 0.0, 1.0);
+    float appearAlpha = smoothstep(0.0, appearTime, layerAge);
     pcol.w *= appearAlpha;
 
     accum = alphaBlendVec4(accum, pcol); // front over back
@@ -301,6 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
