@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const float planeDist = 1.0;
     const int furthest = 16;
-    const int fadeFrom = 12;
+    const int fadeFrom = 10;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
     float nz = floor(ro.z / planeDist);
@@ -165,8 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------- плавное проявление слоя при приближении --------
     // pd — это расстояние от камеры до слоя вдоль луча
     // fadeIn управляет мягкостью цвета, fadeAlpha — прозрачностью появления
-    float fadeIn = smoothstep(maxDist * 1.3, fadeDist * 1.3, pd);
-    float fadeAlpha = smoothstep(maxDist * 1.0, fadeDist * 1.0, pd);
+    float fadeIn = smoothstep(maxDist * 1.6, fadeDist * 1.6, pd);
+    float fadeAlpha = smoothstep(maxDist * 1.2, fadeDist * 1.2, pd);
 
     // затемняем дальние и прозрачные слои
     pcol.xyz *= fadeIn;
@@ -307,19 +307,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
