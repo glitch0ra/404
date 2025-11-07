@@ -102,42 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec2(-b - h, -b + h);
   }
 
-  // plane/layer function from original: returns color + alpha
-    vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
-    float h = hash(n);
-    vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
-    const vec2 stp = vec2(0.5, 0.33);
-
-    float he = hiheight(vec2(p.x, pp.z) * stp);
-    float lohe = loheight(vec2(p.x, pp.z) * stp);
-    float d = p.y - he;
-    float lod = p.y - lohe;
-    float aa = distance(pp, npp)*sqrt(1.0/3.0);
-    float t = smoothstep(aa, -aa, d);
-    float df = exp(-0.1 * (distance(ro, pp) - 2.0));
-
-    vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
-    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
-    vec3 col = acol + 0.5 * gcol;
-
-    // ---------- эффект размытия при появлении ----------
-    // Рассчитываем "возраст" слоя по расстоянию до камеры
-    float appearFade = clamp(exp(-0.15 * (distance(ro, pp))), 0.0, 1.0);
-    float blurFactor = smoothstep(0.0, 1.0, appearFade);
-
-    // имитация размытия через усреднение соседних выборок
-    vec2 blurOff = vec2(0.002, 0.003) * blurFactor;
-    vec3 blurCol = (
-      hsv2rgb(vec3(mix(0.9, 0.6, df + blurOff.x), 0.9, mix(1.0, 0.0, df))) +
-      hsv2rgb(vec3(mix(0.9, 0.6, df - blurOff.y), 0.9, mix(1.0, 0.0, df)))
-    ) * 0.5;
-
-    // смешиваем: в начале слоя — больше размытие, ближе к камере — меньше
-    col = mix(blurCol, col, smoothstep(0.0, 0.8, appearFade));
-    // ---------- конец блока размытия ----------
-
-    return vec4(col, clamp(t, 0.0, 1.0));
-  }
+  
 
 
   // moon implementation (kept original geometry/signature)
@@ -314,4 +279,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
