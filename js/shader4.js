@@ -104,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // plane/layer function from original: returns color + alpha
     vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
+    uv.y += floor(nz);
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
@@ -301,6 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
