@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // pd — это расстояние от камеры до слоя вдоль луча
     // fadeIn управляет мягкостью цвета, fadeAlpha — прозрачностью появления
     float fadeIn = smoothstep(maxDist, fadeDist, pd);
-    float fadeAlpha = smoothstep(maxDist * 0.8, fadeDist * 0.8, pd);
+    float fadeAlpha = smoothstep(maxDist * 1.0, fadeDist * 1.0, pd);
 
     // затемняем дальние и прозрачные слои
     pcol.xyz *= fadeIn;
@@ -307,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
