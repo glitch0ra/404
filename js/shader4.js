@@ -102,11 +102,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec2(-b - h, -b + h);
   }
 
+    // plane/layer function from original: returns color + alpha
     vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
-
     float he = hiheight(vec2(p.x, pp.z) * stp);
     float lohe = loheight(vec2(p.x, pp.z) * stp);
     float d = p.y - he;
@@ -114,33 +114,11 @@ document.addEventListener("DOMContentLoaded", () => {
     float aa = distance(pp, npp)*sqrt(1.0/3.0);
     float t = smoothstep(aa, -aa, d);
     float df = exp(-0.1 * (distance(ro, pp) - 2.0));
-
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
-    vec3 baseCol = acol + 0.5 * gcol;
-
-    // ---------- ЭФФЕКТ ПЛАВНОГО ВОЗНИКНОВЕНИЯ ----------
-    // Вычисляем "возраст" слоя на основе позиции камеры (ro.z) и слоя (pp.z)
-    float life = fract((TIME * 0.25 + pp.z * 0.05)); // 0 -> 1 каждые ~20 кадров
-    float appear = smoothstep(0.0, 0.15, life);      // быстрое появление
-    float focus  = smoothstep(0.0, 0.5, life);       // постепенная фокусировка
-
-    // Размытие: сильное в начале, уменьшается за 1–2 секунды
-    float blurSize = mix(0.015, 0.0005, focus);
-    vec3 blurCol = (
-      hsv2rgb(vec3(mix(0.9, 0.6, df + blurSize), 0.9, mix(1.0, 0.0, df))) +
-      hsv2rgb(vec3(mix(0.9, 0.6, df - blurSize), 0.9, mix(1.0, 0.0, df)))
-    ) * 0.5;
-
-    vec3 col = mix(blurCol, baseCol, focus);
-    float finalAlpha = t * appear;
-    // ---------- КОНЕЦ БЛОКА ----------
-
-    return vec4(col, finalAlpha);
+    vec3 col = acol + 0.5 * gcol;
+    return vec4(col, clamp(t, 0.0, 1.0));
   }
-
-
-
 
   // moon implementation (kept original geometry/signature)
   vec4 moon(vec3 ro, vec3 rd) {
@@ -175,22 +153,29 @@ document.addEventListener("DOMContentLoaded", () => {
     vec4 accum = vec4(0.0); // accumulated color+alpha
 
     for (int i = 1; i <= furthest; ++i) {
-      float pz = planeDist * nz + planeDist * float(i);
-      float pd = (pz - ro.z) / rd.z;
-      vec3 pp = ro + rd * pd;
+  float pz = planeDist * nz + planeDist * float(i);
+  float pd = (pz - ro.z) / rd.z;
+  vec3 pp = ro + rd * pd;
 
-      if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
-        vec3 npp = ro + nrd * pd;
-        vec3 off = vec3(0.0);
-        vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
-        float fadeIn = smoothstep(maxDist, fadeDist, pd);
-        pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
-        pcol = clamp(pcol, 0.0, 1.0);
-        accum = alphaBlendVec4(accum, pcol); // front over back
-      } else {
-        break;
-      }
-    }
+  if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
+    vec3 npp = ro + nrd * pd;
+    vec3 off = vec3(0.0);
+    vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
+    float fadeIn = smoothstep(maxDist, fadeDist, pd);
+    pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
+    pcol = clamp(pcol, 0.0, 1.0);
+
+    // --- плавное появление нового слоя (2 секунды fade-in) ---
+    float layerAge = mod(TIME + float(i) * 7.123, 1000.0); // уникальный сдвиг
+    float appearTime = 2.0;
+    float appearAlpha = clamp(layerAge / appearTime, 0.0, 1.0);
+    pcol.w *= appearAlpha;
+
+    accum = alphaBlendVec4(accum, pcol); // front over back
+  } else {
+    break;
+  }
+}
 
     // moon
     vec4 m = moon(ro, rd);
@@ -316,6 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
