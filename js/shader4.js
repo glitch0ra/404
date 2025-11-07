@@ -139,17 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
-    vec3 rd  = normalize(p.x*uu + p.y*vv + 2.0*ww);
-    vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
+    vec3 rd = normalize(p.x * uu + p.y * vv + 2.0 * ww);
+    vec3 nrd = normalize(np.x * uu + np.y * vv + 2.0 * ww);
 
     const float planeDist = 1.0;
     const int furthest = 16;
     const int fadeFrom = 10;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
-    float nz = floor(ro.z / planeDist);
 
-    vec4 accum = vec4(0.0);
+    float nz = floor(ro.z / planeDist);
+    vec4 accum = vec4(0.0); // accumulated color+alpha
 
     for (int i = 1; i <= furthest; ++i) {
         float pz = planeDist * nz + planeDist * float(i);
@@ -161,30 +161,27 @@ document.addEventListener("DOMContentLoaded", () => {
             vec3 off = vec3(0.0);
             vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-            // базовый fade по глубине
+            // стандартный fade по глубине
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
-            pcol = clamp(pcol, 0.0, 1.0);
 
-            // ---------------------------------------------
-            // 🔥 Добавляем плавное появление + "blur" для дальних слоёв (12–16)
+            // ───── ДОБАВЛЕН РАЗМЫВАЮЩИЙ ЭФФЕКТ ДЛЯ ДАЛЬНИХ СЛОЁВ ─────
             if (i >= 12) {
-                // pd – расстояние от камеры, fade-порог
-                float appearZoneStart = maxDist - 6.0;   // когда слой только рождается
-                float appearZoneEnd   = maxDist - 2.0;   // когда он уже должен быть виден
-                float appearPhase = smoothstep(appearZoneStart, appearZoneEnd, pd);
+                // сила эффекта от 0 (на 12) до 1 (на 16)
+                float blurStrength = smoothstep(float(furthest - 4), float(furthest), float(i));
+                // завязка на дистанцию
+                float blurDepth = clamp(pd / maxDist, 0.0, 1.0);
+                float blur = pow(blurDepth * blurStrength, 1.5);
 
-                // прозрачность
-                pcol.a *= appearPhase;
+                // немного «расплываем» цвет и теряем насыщенность
+                pcol.rgb = mix(pcol.rgb, vec3(dot(pcol.rgb, vec3(0.333))), blur * 0.7);
 
-                // псевдоразмытость (по цвету, туманному эффекту)
-                float blurAmount = 1.0 - appearPhase;
-                vec3 avg = vec3(dot(pcol.rgb, vec3(0.333)));
-                pcol.rgb = mix(avg, pcol.rgb, appearPhase);
-                pcol.rgb = mix(pcol.rgb, vec3(0.6), blurAmount * 0.5);
+                // чуть уменьшаем альфу, чтобы появление было мягким
+                pcol.a *= 1.0 - blur * 0.8;
             }
-            // ---------------------------------------------
+            // ──────────────────────────────────────────────────────────
 
+            pcol = clamp(pcol, 0.0, 1.0);
             accum = alphaBlendVec4(accum, pcol);
         } else {
             break;
@@ -195,16 +192,17 @@ document.addEventListener("DOMContentLoaded", () => {
     vec4 m = moon(ro, rd);
 
     // compose: layers (accum) over transparent black, then moon blended in
-    // We'll place moon 'on top' using its alpha as weight
     vec3 base = accum.xyz;
     float baseA = accum.w;
+
     // blend moon over base
     vec3 finalRGB = mix(base, m.xyz, m.w);
     float finalA = max(baseA, m.w);
 
     outA = finalA;
     return finalRGB;
-  }
+}
+
 
   vec3 effect(vec2 p, out float outA) {
     float tm = TIME * 0.25;
@@ -315,6 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
