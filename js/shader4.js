@@ -137,7 +137,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec4(col, clamp(mf, 0.0, 1.0));
   }
 
-  // main color accumulation: returns rgb and alpha via out param
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
     vec3 rd  = normalize(p.x*uu + p.y*vv + 2.0*ww);
@@ -153,21 +152,41 @@ document.addEventListener("DOMContentLoaded", () => {
     vec4 accum = vec4(0.0); // accumulated color+alpha
 
     for (int i = 1; i <= furthest; ++i) {
-      float pz = planeDist * nz + planeDist * float(i);
-      float pd = (pz - ro.z) / rd.z;
-      vec3 pp = ro + rd * pd;
+        float pz = planeDist * nz + planeDist * float(i);
+        float pd = (pz - ro.z) / rd.z;
+        vec3 pp = ro + rd * pd;
 
-      if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
-        vec3 npp = ro + nrd * pd;
-        vec3 off = vec3(0.0);
-        vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
-        float fadeIn = smoothstep(maxDist, fadeDist, pd);
-        pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
-        pcol = clamp(pcol, 0.0, 1.0);
-        accum = alphaBlendVec4(accum, pcol); // front over back
-      } else {
-        break;
-      }
+        if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
+            vec3 npp = ro + nrd * pd;
+            vec3 off = vec3(0.0);
+            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
+
+            // обычное ослабление по расстоянию
+            float fadeIn = smoothstep(maxDist, fadeDist, pd);
+            pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
+            pcol = clamp(pcol, 0.0, 1.0);
+
+            // -------------------------
+            // 🔥 Новый блок: плавное проявление для последних 4 слоёв (12–16)
+            if (i >= 12) {
+                float appearTime = (TIME * 0.5) - float(i - 12) * 0.4; // немного сдвигаем по времени
+                float phase = clamp((TIME - appearTime) / 2.0, 0.0, 1.0); // 2 секунды на проявление
+
+                // прозрачность (0→1)
+                pcol.a *= smoothstep(0.0, 1.0, phase);
+
+                // размытость: чем меньше phase — тем сильнее blur
+                float blurAmount = (1.0 - phase);
+                // смягчённая яркость и контраст, чтобы “молочная” дымка
+                pcol.rgb = mix( vec3(dot(pcol.rgb, vec3(0.333))), pcol.rgb, 1.0 - blurAmount * 0.7 );
+                pcol.rgb = mix(pcol.rgb, vec3(0.5), blurAmount * 0.5);
+            }
+            // -------------------------
+
+            accum = alphaBlendVec4(accum, pcol); // front over back
+        } else {
+            break;
+        }
     }
 
     // moon
@@ -294,4 +313,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
