@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const float planeDist = 1.0;
     const int furthest = 12;
-    const int fadeFrom = 10;
+    const int fadeFrom = 9;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
     float nz = floor(ro.z / planeDist);
@@ -307,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
