@@ -136,13 +136,14 @@ vec4 hash4(vec3 v) {
 // Твоя текстура: ширина 128, высота 64. Слева '1', справа '0'.
 // Каждая цифра занимает половину по X.
 float digitTex(vec2 uv, int n) {
-    // Увеличиваем цифры в 1.5 раза и отражаем по X
-    uv = (uv - 0.5) * 1.5 + 0.5; // масштаб ×1.5
-    uv.x = 1.0 - uv.x;           // отражение по горизонтали
+    // Увеличиваем цифры (масштаб ×1.5 визуально)
+    uv = (uv - 0.5) / 1.5 + 0.5;  // делим, чтобы увеличить символ
+    
+    uv.x = 1.0 - uv.x;            // отражаем по горизонтали
 
     // если слева "1", справа "0"
     float xOffset = (n == 0) ? 0.5 : 0.0;
-    vec2 atlasUV = vec2(xOffset + uv.x * 0.5, 1.0 - uv.y); // переворот по Y если нужно
+    vec2 atlasUV = vec2(xOffset + uv.x * 0.5, 1.0 - uv.y);
     vec4 texColor = texture(uFontAtlas, atlasUV);
     return texColor.a;
 }
@@ -430,4 +431,5 @@ image.onerror = () => {
 
   requestAnimationFrame(render);
 });
+
 
