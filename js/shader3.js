@@ -269,7 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 col = rain(ro, rd, time);
 
     float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.1 ? 1.0 : 0.0; // всё, что темнее 0.1 — прозрачное
+    float alpha = brightness > 0.9 ? 1.0 : 0.0; // всё, что темнее 0.1 — прозрачное
     col *= alpha;
     fragColor = vec4(col, alpha);
 
@@ -404,6 +404,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
