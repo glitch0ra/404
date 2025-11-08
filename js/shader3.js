@@ -16,15 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!gl3) return console.error("WebGL2 не поддерживается.");
 
   /*───────────────────── Динамические параметры ─────────────────────*/
-  let resolutionScale = 1.0; // Масштаб разрешения (0.6–1.0)
-  let qualityLevel = 1.0;   // Качество итераций (0.5–1.0)
+  let resolutionScale = 1.0;
+  let qualityLevel = 1.0;
   let fps = 50;
   const fpsSamples = [];
   let lastTime = performance.now();
   let lastAdjustTime = performance.now();
   const ADJUST_INTERVAL = 500;
 
-  /*───────────────────── Визуальная диагностика ─────────────────────*/
+  /*───────────────────── FPS Overlay ─────────────────────*/
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
   overlay.style.bottom = '10px';
@@ -35,14 +35,12 @@ document.addEventListener("DOMContentLoaded", () => {
   overlay.style.padding = '6px 10px';
   overlay.style.borderRadius = '8px';
   overlay.style.background = 'rgba(0,0,0,0.6)';
-  overlay.style.color = '#FFFF00'; // Жёлтый цвет
+  overlay.style.color = '#00FF00';
   overlay.style.pointerEvents = 'none';
   overlay.style.userSelect = 'none';
-  overlay.style.backdropFilter = 'blur(4px)';
   overlay.style.whiteSpace = 'pre';
   document.body.appendChild(overlay);
 
-  /*───────────────────── Измерение FPS ─────────────────────*/
   function updatePerformance(now) {
     const delta = now - lastTime;
     lastTime = now;
@@ -52,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
     fps = fpsSamples.reduce((a, b) => a + b) / fpsSamples.length;
   }
 
-  /*───────────────────── Адаптация с инерцией ─────────────────────*/
   function adjustQuality(now) {
     if (now - lastAdjustTime < ADJUST_INTERVAL) return;
     lastAdjustTime = now;
@@ -86,207 +83,41 @@ document.addEventListener("DOMContentLoaded", () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
+  // адаптированный фрагментный шейдер из файла "новый шейдер.txt"
   const fragmentSrc = `#version 300 es
 precision mediump float;
 out vec4 fragColor;
+
 uniform vec3 iResolution;
 uniform float iTime;
 uniform vec4 iMouse;
-uniform float uQuality;
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
 
-const float SPEED = .21;
-const float STRIP_CHARS_MIN = 7.0;
-const float STRIP_CHARS_MAX = 40.0;
-const float STRIP_CHAR_HEIGHT = 0.15;
-const float STRIP_CHAR_WIDTH = 0.10;
-const float ZCELL_SIZE = 1.0 * (STRIP_CHAR_HEIGHT * STRIP_CHARS_MAX);
-const float XYCELL_SIZE = 12.0 * STRIP_CHAR_WIDTH;
-const int BLOCK_SIZE = 10;
-const int BLOCK_GAP = 2;
-const float WALK_SPEED = 1.0 * XYCELL_SIZE;
-const float BLOCKS_BEFORE_TURN = 3.0;
-const float PI = 3.14159265359;
+const float fontSize = 16.0;
+const float wordSpeed = 0.002;
+const float flowSpeed = 0.15;
 
-vec3 oilMix(vec3 p, float t) {
-    vec3 c1 = vec3(1.0, 0.0, 1.0);
-    vec3 c2 = vec3(0.0, 1.0, 0.58);
-    vec3 c3 = vec3(0.0, 1.0, 1.0);
-    vec3 c4 = vec3(1.0, 0.4, 0.8);
-    float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 2.8);
-    float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 3.2);
-    float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 2.6);
-    float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.2);
-    n1 = 0.5 + 0.5 * n1;
-    n2 = 0.5 + 0.5 * n2;
-    n3 = 0.5 + 0.5 * n3;
-    n4 = 0.5 + 0.5 * n4;
-    return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
+float words(vec2 fragCoord){
+    vec2 UV = mod(fragCoord, fontSize) / (fontSize * 16.0);
+    vec2 noise = floor(fract(texture(iChannel1, fragCoord / (fontSize * 16.0) - UV + iTime * wordSpeed).xy) * 16.0) / 16.0;
+    return texture(iChannel0, UV + noise).x; 
 }
 
-float hash(float v) { return fract(sin(v) * 43758.5453123); }
-float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
-vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
-vec4 hash4(vec3 v) {
-    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 269.5, 183.3, 246.1, 113.5, 271.9, 124.6, 271.9, 269.5, 311.7));
-    return fract(sin(p) * 43758.5453123);
+vec3 flow(vec2 fragCoord){
+    vec2 uv = fragCoord - mod(fragCoord, fontSize);
+    float offset = cos(uv.x * 1.14 + 5.14) + 1.919810;
+    float y = fract(fragCoord.y / iResolution.y + offset * 3.14 + iTime * offset * flowSpeed);
+    return vec3(0.2, 1.0, 0.2) / (y * 12.0);
 }
 
-// ─────────── Пиксельный шрифт 0 и 1 ───────────
-float digit(vec2 uv, int num) {
-    uv = floor(uv * vec2(4.0, 6.0));
-    uv.y = 5.0 - uv.y;
-    uv.x = 3.0 - uv.x;
-
-    // Границы пиксельной сетки
-    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0))))
-        return 0.0;
-
-    float x = uv.x;
-    float y = uv.y;
-    float px = 0.0;
-
-    if (num == 0) {
-        // контур нуля
-        float verticals = (step(0.5, x) * step(x, 3.5)) * (step(0.5, y) * step(y, 4.5));
-        float top = step(4.5, y) * step(x, 3.5) * step(0.5, x);
-        float bottom = step(y, 0.5) * step(x, 3.5) * step(0.5, x);
-        px = clamp(verticals + top + bottom, 0.0, 1.0);
-    } else {
-        // форма единицы
-        float body = step(2.5, x) * step(0.5, y) * step(y, 4.5);
-        float head = step(1.5, y) * step(y, 5.5) * step(1.5, x) * step(x, 3.5);
-        px = clamp(body + head, 0.0, 1.0);
-    }
-
-    return px;
-}
-
-float random_digit(vec2 outer, vec2 inner, float time) {
-    float changeRate = 2.5; // скорость смены символов (сек) — медленно
-    float tStep = floor(time / changeRate);
-    float h = hash(outer + tStep);
-    int n = int(floor(h * 2.0)); // 0 или 1
-    float pixel = digit(inner, n);
-    float flicker = 0.8 + 0.2 * sin(dot(outer, vec2(37.1, 91.7)) + time * 0.5);
-    return pixel * flicker;
-}
-
-
-
-// ─────────── Главная логика дождя ───────────
-vec3 rain(vec3 ro3, vec3 rd3, float time) {
-    vec4 result = vec4(0.);
-    vec2 ro2 = vec2(ro3);
-    vec2 rd2 = normalize(vec2(rd3));
-    bool prefer_dx = abs(rd2.x) > abs(rd2.y);
-    float t3_to_t2 = prefer_dx ? rd3.x / rd2.x : rd3.y / rd2.y;
-    ivec3 cell_side = ivec3(step(0., rd3));
-    ivec3 cell_shift = ivec3(sign(rd3));
-    float t2 = 0.;
-    vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
-    ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
-
-    int maxIterations = int(mix(15.0, 25.0, uQuality));
-    for (int i = 0; i < 25; i++) {
-        if (i >= maxIterations) break;
-        ivec2 cell = next_cell;
-        float t2s = t2;
-        vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
-        vec2 t2_side = (side - ro2) / rd2;
-        if (t2_side.x < t2_side.y) {
-            t2 = t2_side.x;
-            next_cell.x += cell_shift.x;
-        } else {
-            t2 = t2_side.y;
-            next_cell.y += cell_shift.y;
-        }
-        vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
-        float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
-        if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
-
-        float xycell_hash = hash(vec2(cell));
-        float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
-        float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
-        z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
-        int zcell = int(floor((ro3.z - z_shift) / ZCELL_SIZE));
-
-        for (int j = 0; j < 2; j++) {
-            vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
-            vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
-            float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
-            float target_length = chars_count * STRIP_CHAR_HEIGHT;
-            float target_rad = STRIP_CHAR_WIDTH / 2.;
-            float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-            vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
-            vec2 s = target - ro2;
-            float tmin = dot(s, rd2);
-            float dist = tmin / t3_to_t2;
-            if (dist < 4.0) continue;
-
-            if (tmin >= t2s && tmin <= t2) {
-                float u = s.x * rd2.y - s.y * rd2.x;
-                if (abs(u) < target_rad) {
-                    u = (u / target_rad + 1.) / 2.;
-                    float z = ro3.z + rd3.z * tmin / t3_to_t2;
-                    float v = (z - target_z) / target_length;
-                    if (v >= 0.0 && v < 1.0) {
-                        float c = floor(v * chars_count);
-                        float q = fract(v * chars_count);
-                        vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-                        float time_factor = time * 2.0 + char_hash.y * 10.0;
-                        float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
-                        a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-                        a *= smoothstep(4.0, 6.0, dist);
-                        if (a > 0.) {
-                            float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                            float colorShift = hash(vec2(cell)) * 6.2831;
-                            vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
-                            vec3 col = baseColor / attenuation;
-                            float a1 = result.a;
-                            result.a = a1 + (1. - a1) * a;
-                            result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                            if (result.a > 0.98) return result.xyz;
-                        }
-                    }
-                }
-            }
-            zcell += cell_shift.z;
-        }
-    }
-    return result.xyz * result.a;
-}
-
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-    vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 60.0 / iResolution.y;
-    vec2 mouse = iMouse.xy / iResolution.xy;
-    mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.02;
-    float time = mod(iTime, 240.0) * SPEED;
-    vec3 ro = vec3(0.5, 0.5, 0.0);
-    vec3 rd = vec3(uv.x, 2.0, uv.y);
-    vec3 col = rain(ro, rd, time);
-
-    float saturation = 1.5;
-    float contrast = 1.3;
-    float brightnessBoost = 0.15;
-    float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(lum), col, saturation);
-    col = (col - 0.5) * contrast + 0.5;
-    col += brightnessBoost;
-    col = clamp(col, 0.0, 1.0);
-
-    float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.1 ? 1.0 : 0.0;
-    col *= alpha;
-    fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
+void mainImage(out vec4 fragColor, in vec2 fragCoord){
+    fragColor = vec4(words(fragCoord) * flow(fragCoord), 1.0);  
 }
 
 void main() {
-    vec4 c;
-    mainImage(c, gl_FragCoord.xy);
-    fragColor = c;
-}`;
+    mainImage(fragColor, gl_FragCoord.xy);
+  }`;
 
   /*──────────────────── Компиляция ────────────────────*/
   function compileShader(gl, type, src) {
@@ -312,96 +143,46 @@ void main() {
 
   const quad = gl3.createBuffer();
   gl3.bindBuffer(gl3.ARRAY_BUFFER, quad);
-  gl3.bufferData(
-    gl3.ARRAY_BUFFER,
-    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-    gl3.STATIC_DRAW
-  );
+  gl3.bufferData(gl3.ARRAY_BUFFER, new Float32Array([
+    -1, -1, 1, -1, -1, 1,
+    -1, 1, 1, -1, 1, 1
+  ]), gl3.STATIC_DRAW);
   gl3.enableVertexAttribArray(0);
   gl3.vertexAttribPointer(0, 2, gl3.FLOAT, false, 0, 0);
 
   const iResolutionLoc = gl3.getUniformLocation(prog, "iResolution");
   const iTimeLoc = gl3.getUniformLocation(prog, "iTime");
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
-  const uQualityLoc = gl3.getUniformLocation(prog, "uQuality"); // Новый uniform
 
   let start = performance.now();
   let mouseX = 0, mouseY = 0;
 
-  // Отслеживание мыши
   window.addEventListener("mousemove", (e) => {
     const rect = canvas3.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = rect.height - (e.clientY - rect.top);
   });
 
-  // === ИСПРАВЛЕННАЯ ЛОГИКА СКРОЛЛА ===
-  let lastScrollY = window.scrollY;
-  let scrollSpeed = 0;
-  let scrollInfluence = 0;
-  let lastScrollTime = performance.now();
-  let timeOffset = 0;
-
-  window.addEventListener("scroll", () => {
-    const now = performance.now();
-    const deltaTime = Math.max(1, now - lastScrollTime);
-    lastScrollTime = now;
-    
-    const currentScroll = window.scrollY;
-    const deltaY = currentScroll - lastScrollY;
-    lastScrollY = currentScroll;
-    
-    // Расчёт скорости скролла (пиксели/мс)
-    scrollSpeed = deltaY / deltaTime;
-    // Применяем чувствительность (коэффициент 0.2)
-    scrollInfluence = scrollSpeed * 0.2;
-  });
-
-  let isPaused = false;
-  document.addEventListener('visibilitychange', () => {
-    isPaused = document.hidden;
-  });
-
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
   }, { threshold: 0.05 });
 
+  let isPaused = false;
   observer.observe(canvas3);
-
-  const TARGET_FPS = 25;
-  const FRAME_INTERVAL = 1000 / TARGET_FPS;
-  let lastRenderTime = 0;
 
   function render(now) {
     if (isPaused) return requestAnimationFrame(render);
-    
     updatePerformance(now);
     adjustQuality(now);
-
-    if (now - lastRenderTime < FRAME_INTERVAL) {
-      requestAnimationFrame(render);
-      return;
-    }
-    
-    // 🔑 КРИТИЧНОЕ ИСПРАВЛЕНИЕ: ПРАВИЛЬНЫЙ РАСЧЁТ ВРЕМЕНИ МЕЖДУ КАДРАМИ
-    const dt = (now - lastRenderTime) * 0.001; // Время в секундах
-    lastRenderTime = now;
-
     resize();
 
-    // Обновление смещения времени с правильным deltaTime
-    scrollInfluence *= 0.9; // Затухание влияния скролла
-    timeOffset += scrollInfluence * dt * 50.0; // 50.0 = скорость реакции
-
-    // Общее время с учётом накопленного сдвига
-    const t = (now - start) * 0.001 + timeOffset;
+    const t = (now - start) * 0.001;
 
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
     gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
-    gl3.uniform1f(uQualityLoc, qualityLevel);
     gl3.drawArrays(gl3.TRIANGLES, 0, 6);
 
     overlay.textContent = `FPS: ${fps.toFixed(1)}\nRES: ${(resolutionScale * 100).toFixed(0)}%\nQUAL: ${(qualityLevel * 100).toFixed(0)}%`;
@@ -411,21 +192,3 @@ void main() {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
