@@ -138,37 +138,34 @@ float digit(vec2 uv, int num) {
     uv.x = 3.0 - uv.x;
 
     // Границы пиксельной сетки
-    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))))
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0))))
         return 0.0;
 
-    // Условные формы 0 и 1 без массивов
     float x = uv.x;
     float y = uv.y;
-
     float px = 0.0;
+
     if (num == 0) {
         // контур нуля
-        px = step(0.5, max(
-            step(0.5, y) * step(y, 4.5) * (
-                step(0.5, x) * step(x, 3.5)
-            ),
-            max(step(y, 5.5 - 0.5), step(0.5 - y, 0.0))
-        ));
+        float verticals = (step(0.5, x) * step(x, 3.5)) * (step(0.5, y) * step(y, 4.5));
+        float top = step(4.5, y) * step(x, 3.5) * step(0.5, x);
+        float bottom = step(y, 0.5) * step(x, 3.5) * step(0.5, x);
+        px = clamp(verticals + top + bottom, 0.0, 1.0);
     } else {
-        // форма единицы: вертикальная линия справа + шапка
-        px = step(2.5, x) * step(0.5, y) * step(y, 4.5);
-        px += step(1.5, y) * step(y, 5.5) * step(1.5, x) * step(x, 3.5);
+        // форма единицы
+        float body = step(2.5, x) * step(0.5, y) * step(y, 4.5);
+        float head = step(1.5, y) * step(y, 5.5) * step(1.5, x) * step(x, 3.5);
+        px = clamp(body + head, 0.0, 1.0);
     }
 
-    return clamp(px, 0.0, 1.0);
+    return px;
 }
 
-// стабильное редкое обновление
 float random_digit(vec2 outer, vec2 inner, float time) {
-    float changeRate = 0.8; // раз в 0.8 сек
+    float changeRate = 2.5; // скорость смены символов (сек) — медленно
     float tStep = floor(time / changeRate);
     float h = hash(outer + tStep);
-    int n = int(floor(h * 2.0));
+    int n = int(floor(h * 2.0)); // 0 или 1
     float pixel = digit(inner, n);
     float flicker = 0.8 + 0.2 * sin(dot(outer, vec2(37.1, 91.7)) + time * 0.5);
     return pixel * flicker;
@@ -414,6 +411,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
