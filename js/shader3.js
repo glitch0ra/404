@@ -268,12 +268,10 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
 
-// 🔥 Убираем весь чёрный диапазон — делаем прозрачным
-float brightness = max(col.r, max(col.g, col.b));
-float alpha = smoothstep(0.05, 0.15, brightness); // чем темнее — тем прозрачнее
-col = col * alpha; // сохраняем цвета рун
-
-fragColor = vec4(col, alpha);
+    float brightness = max(col.r, max(col.g, col.b));
+    float alpha = brightness > 0.1 ? 1.0 : 0.0; // всё, что темнее 0.1 — прозрачное
+    col *= alpha;
+    fragColor = vec4(col, alpha);
 
   }
 
@@ -406,6 +404,7 @@ fragColor = vec4(col, alpha);
 
   requestAnimationFrame(render);
 });
+
 
 
 
