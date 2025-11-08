@@ -132,15 +132,19 @@ vec4 hash4(vec3 v) {
 }
 
 // ─────────── Пиксельный шрифт 0 и 1 ───────────
+// --- ЦИФРОВОЙ ДОЖДЬ: ЗАМЕНА РУН НА 0/1 (исправлено) ---
+
+// Возвращает яркость пикселя цифры (0 или 1)
 float digit(vec2 uv, int num) {
     uv = floor(uv * vec2(4.0, 6.0)); // 4x6 пиксельная сетка
-    // Переворот по вертикали (чтобы не была вверх ногами)
+    // Переворот по вертикали и горизонтали, чтобы не было зеркала
     uv.y = 5.0 - uv.y;
+    uv.x = 3.0 - uv.x;
 
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))) 
         return 0.0;
 
-    // форма нуля (1 — пиксель активен)
+    // форма нуля (1 — активный пиксель)
     int zeroData[24] = int[24](
         1,1,1,1,
         1,0,0,1,
@@ -150,7 +154,7 @@ float digit(vec2 uv, int num) {
         1,1,1,1
     );
 
-    // форма единицы (исправленная, не зеркальная)
+    // форма единицы (нормальная, без зеркала)
     int oneData[24] = int[24](
         0,1,0,0,
         1,1,0,0,
@@ -166,13 +170,14 @@ float digit(vec2 uv, int num) {
 
 // Случайный выбор цифры и мерцание
 float random_digit(vec2 outer, vec2 inner, float time) {
-    float h = hash(outer + floor(time * 0.2)); // медленная смена цифр (раз в 15 раз медленнее)
+    float h = hash(outer + floor(time * 0.06)); // теперь смена в ~50 раз медленнее
     int n = int(floor(h * 2.0)); // 0 или 1
     float pixel = digit(inner, n);
-    // мягкое мигание
-    float flicker = smoothstep(0.4, 0.6, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.2)));
+    // мягкое мигание (тоже замедлено)
+    float flicker = smoothstep(0.4, 0.6, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.06)));
     return pixel * flicker;
 }
+
 
 // ─────────── Главная логика дождя ───────────
 vec3 rain(vec3 ro3, vec3 rd3, float time) {
@@ -412,6 +417,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
