@@ -135,16 +135,17 @@ vec4 hash4(vec3 v) {
 // --- ЦИФРОВОЙ ДОЖДЬ: ЗАМЕНА РУН НА 0/1 (исправлено) ---
 
 // Возвращает яркость пикселя цифры (0 или 1)
+// --- ЦИФРОВОЙ ДОЖДЬ: стабильные 0/1 с редкой сменой ---
+
+// Возвращает яркость пикселя цифры (0 или 1)
 float digit(vec2 uv, int num) {
-    uv = floor(uv * vec2(4.0, 6.0)); // 4x6 пиксельная сетка
-    // Переворот по вертикали и горизонтали, чтобы не было зеркала
+    uv = floor(uv * vec2(4.0, 6.0));
     uv.y = 5.0 - uv.y;
     uv.x = 3.0 - uv.x;
 
-    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))) 
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))))
         return 0.0;
 
-    // форма нуля (1 — активный пиксель)
     int zeroData[24] = int[24](
         1,1,1,1,
         1,0,0,1,
@@ -154,7 +155,6 @@ float digit(vec2 uv, int num) {
         1,1,1,1
     );
 
-    // форма единицы (нормальная, без зеркала)
     int oneData[24] = int[24](
         0,1,0,0,
         1,1,0,0,
@@ -168,13 +168,18 @@ float digit(vec2 uv, int num) {
     return (num == 0) ? float(zeroData[idx]) : float(oneData[idx]);
 }
 
-// Случайный выбор цифры и мерцание
+// Случайный выбор цифры, но смена дискретная и медленная
 float random_digit(vec2 outer, vec2 inner, float time) {
-    float h = hash(outer + floor(time * 0.000002)); // теперь смена в ~50 раз медленнее
-    int n = int(floor(h * 2.0)); // 0 или 1
+    // меняем символ только раз в 50 кадров, при 60fps ≈ каждые 0.8 сек
+    float changeRate = 0.8; // секунда между сменами
+    float tStep = floor(time / changeRate);
+
+    float h = hash(outer + tStep); // стабильный хеш пока tStep не изменится
+    int n = int(floor(h * 2.0));
     float pixel = digit(inner, n);
-    // мягкое мигание (тоже замедлено)
-    float flicker = smoothstep(0.4, 0.6, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.06)));
+
+    // чуть-чуть мигает, не скачет
+    float flicker = 0.8 + 0.2 * sin(dot(outer, vec2(37.1, 91.7)) + time * 0.5);
     return pixel * flicker;
 }
 
@@ -417,6 +422,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
