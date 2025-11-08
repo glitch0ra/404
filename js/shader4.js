@@ -128,54 +128,61 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     return vec4(col, clamp(t, 0.0, 1.0));
 }
 
-// moon implementation (kept original geometry/signature)
 vec4 moon(vec3 ro, vec3 rd)
 {
-    // --- геометрия сферы ---
+    // --- параметры "планеты" ---
     vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
     vec2 md = raySphere(ro, rd, mdim);
     if (md.x < 0.0) return vec4(0.0);
 
+    // --- координаты пересечения луча со сферой ---
     vec3 mpos = ro + rd * md.x;
     vec3 mnor = normalize(mpos - mdim.xyz);
 
-    // --- вращение поверхности (в 2 раза медленнее) ---
-    float rot = TIME * 0.05;
-    float s = sin(rot), c = cos(rot);
-    vec3 mnorR = vec3(
-        mnor.x * c - mnor.z * s,
-        mnor.y,
-        mnor.x * s + mnor.z * c
-    );
+    // --- проекция на UV-поверхность планеты ---
+    vec2 uv;
+    uv.x = atan(mnor.z, mnor.x) / (2.0 * PI) + 0.5;
+    uv.y = mnor.y * 0.5 + 0.5;
 
-    // --- источник света ---
-    vec3 ldir = normalize(vec3(0.3, 0.2, 0.9));
-    float diff = max(dot(ldir, mnorR), 0.0);
+    // --- "атмосферный" цвет планеты ---
+    vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
 
-    // --- текстура кратеров через фрактальный шум ---
-    float crat = hifbm(mnorR.xy * 10.0 + mnorR.zx * 5.0);
-    float detail = lofbm(mnorR.yz * 15.0 + mnorR.xy * 3.0);
-    float crater = smoothstep(0.3, 0.8, crat * detail);
-    float craterShade = mix(1.0, 0.5, crater);
+    // --- имитация текстуры поверхности (полосы, шум, динамика) ---
+    vec2 p = uv * vec2(20.0, 5.5) + vec2(2.0, 1.0);
+    float t = TIME * 0.5;
+    float ax = 0.2;
+    float ay = 0.3;
 
-    // --- освещение ---
-    float ambient = 0.12;
-    float light = ambient + diff * 0.75;
-    vec3 baseCol = vec3(0.9) * craterShade;
+    for (int i = 1; i < 10; i++) {
+        float fi = float(i);
+        p.x += ax * sin(fi * p.y + t * 0.5);
+        p.y += ay * cos(fi * p.x + t * 0.2);
+    }
 
-    // --- в 4 раза темнее ---
-    vec3 shaded = baseCol * light * 0.25;
+    float r = cos(p.x + p.y + 2.0) * 0.5 + 0.5;
+    float g = sin(p.x + p.y + 2.2) * 0.5 + 0.5;
+    float b = (sin(p.x + p.y + 1.0) + cos(p.x + p.y + 1.5)) * 0.5 + 0.5;
+    vec3 surfaceColor = vec3(r, g, b) + 0.5;
 
-    // --- подчёркивание снизу (рефлекс) ---
-    float rim = smoothstep(-0.1, 0.4, -mnorR.y);
-    shaded += vec3(0.1, 0.1, 0.15) * rim;
+    // --- освещение и затенение ---
+    float light = pow(uv.x, 2.0 * (cos(TIME * 0.1 + 1.0) + 1.5));
+    surfaceColor *= light;
 
-    // --- контраст ---
-    shaded = pow(shaded, vec3(0.7));
-    shaded = clamp(shaded, 0.0, 1.0);
+    // --- атмосферный слой (френель-эффект) ---
+    float fresnel = pow(1.0 - max(dot(rd, mnor), 0.0), 3.0);
+    vec3 finalColor = mix(surfaceColor, atmosphereColor, fresnel * 0.8);
 
-    float mf = smoothstep(0.0, 10000.0, md.y - md.x);
-    return vec4(shaded, mf);
+    // --- лёгкое затемнение краёв, чтобы выглядело объемно ---
+    float edge = pow(1.0 - abs(mnor.z), 2.0);
+    finalColor *= mix(1.0, 0.3, edge);
+
+    // --- небольшое “сияние” у нижнего края (твоя фишка) ---
+    float rim = smoothstep(-0.3, 0.2, -mnor.y);
+    finalColor += vec3(0.15, 0.12, 0.1) * rim;
+
+    // --- готово ---
+    float alpha = smoothstep(0.0, 10000.0, md.y - md.x);
+    return vec4(finalColor, alpha);
 }
 
 
@@ -340,6 +347,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
