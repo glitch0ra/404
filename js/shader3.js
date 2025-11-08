@@ -133,13 +133,16 @@ vec4 hash4(vec3 v) {
 
 // ─────────── Пиксельный шрифт 0 и 1 ───────────
 float digit(vec2 uv, int num) {
-    uv = floor(uv * vec2(4.0, 6.0)); // 4x6 сетка
-    if (uv.x < 0.0 || uv.x > 3.0 || uv.y < 0.0 || uv.y > 5.0) return 0.0;
+    uv = floor(uv * vec2(4.0, 6.0)); // 4x6 пиксельная сетка
+    // Переворот по вертикали и горизонтали, чтобы не было зеркала
+    uv.y = 5.0 - uv.y;
+    uv.x = 3.0 - uv.x;
 
-    int idx = int(uv.y * 4.0 + uv.x);
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))) 
+        return 0.0;
 
-    // Паттерн 0
-    int zero[24] = int[24](
+    // форма нуля (1 — активный пиксель)
+    int zeroData[24] = int[24](
         1,1,1,1,
         1,0,0,1,
         1,0,0,1,
@@ -147,8 +150,9 @@ float digit(vec2 uv, int num) {
         1,0,0,1,
         1,1,1,1
     );
-    // Паттерн 1
-    int one[24] = int[24](
+
+    // форма единицы (нормальная, без зеркала)
+    int oneData[24] = int[24](
         0,1,0,0,
         1,1,0,0,
         0,1,0,0,
@@ -157,17 +161,18 @@ float digit(vec2 uv, int num) {
         1,1,1,0
     );
 
-    return float(num == 0 ? zero[idx] : one[idx]);
+    int idx = int(uv.y * 4.0 + uv.x);
+    return (num == 0) ? float(zeroData[idx]) : float(oneData[idx]);
 }
 
-// ─────────── Генерация цифры ───────────
+// Случайный выбор цифры и мерцание
 float random_digit(vec2 outer, vec2 inner, float time) {
-    float h = hash(outer + floor(time * 1.3));
+    float h = hash(outer + floor(time * 0.06)); // теперь смена в ~50 раз медленнее
     int n = int(floor(h * 2.0)); // 0 или 1
-    float px = digit(inner, n);
-    // Случайное мерцание
-    float flicker = step(0.3, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 2.5)));
-    return px * flicker;
+    float pixel = digit(inner, n);
+    // мягкое мигание (тоже замедлено)
+    float flicker = smoothstep(0.4, 0.6, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.06)));
+    return pixel * flicker;
 }
 
 // ─────────── Главная логика дождя ───────────
@@ -401,4 +406,5 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
