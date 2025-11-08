@@ -21,8 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   #define RESOLUTION iResolution
   #define TIME iTime
-  #define PI 3.141592654
-  #define TAU (2.0*PI)
 
   vec3 hsv2rgb(vec3 c) {
     vec3 K = vec3(1.0, 2.0/3.0, 1.0/3.0);
@@ -34,12 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
     float outA = front.w + back.w * (1.0 - front.w);
     if (outA <= 0.0) return vec4(0.0);
     vec3 outRGB = (front.xyz * front.w + back.xyz * back.w * (1.0 - front.w)) / outA;
-    return vec4(outRGB, outA);
-  }
-
-  vec4 alphaBlendVec3Vec4(vec3 back, vec4 front) {
-    vec3 outRGB = mix(back, front.xyz, front.w);
-    float outA = front.w + 0.0 * (1.0 - front.w);
     return vec4(outRGB, outA);
   }
 
@@ -131,6 +123,35 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec4(col, clamp(mf, 0.0, 1.0));
   }
 
+  // cheap multi-sample positional blur for a plane: returns averaged pp,npp and an alpha multiplier
+  void positionalBlur(inout vec3 pp, inout vec3 npp, float strength, out float alphaMul) {
+    // 3 sample offsets
+    vec3 pp0 = pp;
+    vec3 npp0 = npp;
+    vec3 accumP = pp0;
+    vec3 accumNP = npp0;
+
+    // use noise-based offsets, scale by strength and by world depth (pp.z) to keep consistent
+    float s = strength;
+    vec2 base = pp.xy * 0.5;
+    vec2 off1 = (vnoise(base + 13.1) - 0.5) * s;
+    vec2 off2 = (vnoise(base + 72.3) - 0.5) * s;
+    vec2 off3 = (vnoise(base + 99.7) - 0.5) * s;
+
+    accumP += vec3(off1, 0.0);
+    accumNP += vec3(off1, 0.0);
+    accumP += vec3(off2, 0.0);
+    accumNP += vec3(off2, 0.0);
+    accumP += vec3(off3, 0.0);
+    accumNP += vec3(off3, 0.0);
+
+    pp = accumP / 4.0;
+    npp = accumNP / 4.0;
+
+    // alpha multiplier reduces visibility for blurred layers (0.2..1.0)
+    alphaMul = 1.0 - clamp(strength * 0.9, 0.0, 0.95);
+  }
+
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
@@ -152,16 +173,25 @@ document.addEventListener("DOMContentLoaded", () => {
         vec3 npp = ro + nrd * pd;
         vec3 off = vec3(0.0);
 
-        // --- Размытие дальних слоёв (12–16) ---
+        // --- Усиленное размытие для дальних слоёв (12–16) ---
         float blurFactor = 0.0;
+        float alphaMul = 1.0;
         if (i >= 12) {
+          // 0..1 по индексам 12..16
           blurFactor = smoothstep(12.0, 16.0, float(i));
-          vec2 blurOffset = vec2(blurFactor * iBlurStrength);
-          pp.xy += blurOffset * (vnoise(pp.xy * 0.5) - 0.5);
-          npp.xy += blurOffset * (vnoise(npp.xy * 0.5) - 0.5);
+          // комбинируем с uniform силой
+          float strength = clamp(iBlurStrength * blurFactor, 0.0, 2.5); // allow strong values
+          positionalBlur(pp, npp, strength, alphaMul);
+          // дополнительно можно учитывать pd (дистанцию) — дальние слои размываются сильнее
+          alphaMul *= smoothstep(0.0, maxDist, pd);
         }
 
         vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
+
+        // apply alpha multiplier for blurred far layers to hide spawn
+        pcol.w *= alphaMul;
+
+        // existing fade-in based on plane distance
         float fadeIn = smoothstep(maxDist, fadeDist, pd);
         pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
         pcol = clamp(pcol, 0.0, 1.0);
@@ -271,7 +301,8 @@ document.addEventListener("DOMContentLoaded", () => {
     gl.useProgram(prog);
     gl.uniform3f(iResolutionLoc, canvas4.width, canvas4.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
-    gl.uniform1f(iBlurStrengthLoc, 0.3); // ← сила размытия дальних слоёв
+    // <-- увеличил дефолт до 0.8 (можно 0.0..2.5). Меняй для интенсивности.
+    gl.uniform1f(iBlurStrengthLoc, 0.8);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
