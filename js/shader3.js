@@ -270,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Выравнивание яркости всех рун ---
     // Нормализуем цвет по средней яркости
-    float avg = (col.r + col.g + col.b) / 3.0;
+    float avg = (col.r + col.g + col.b) / 1.0;
     if (avg > 0.0) {
         col /= avg;        // выравниваем
         col *= 0.3;        // общая целевая яркость
@@ -435,6 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
