@@ -93,6 +93,7 @@ uniform vec3 iResolution;
 uniform float iTime;
 uniform vec4 iMouse;
 uniform float uQuality;
+uniform sampler2D uFontAtlas;
 
 const float SPEED = .21;
 const float STRIP_CHARS_MIN = 7.0;
@@ -131,48 +132,29 @@ vec4 hash4(vec3 v) {
     return fract(sin(p) * 43758.5453123);
 }
 
-// ─────────── Пиксельный шрифт 0 и 1 ───────────
-float digit(vec2 uv, int num) {
-    uv = floor(uv * vec2(4.0, 6.0)); // 4x6 пиксельная сетка
-    // Переворот по вертикали и горизонтали, чтобы не было зеркала
-    uv.y = 5.0 - uv.y;
-    uv.x = 3.0 - uv.x;
-
-    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))) 
-        return 0.0;
-
-    // форма нуля (1 — активный пиксель)
-    int zeroData[24] = int[24](
-        1,1,1,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,1,1,1
-    );
-
-    // форма единицы (нормальная, без зеркала)
-    int oneData[24] = int[24](
-        0,1,0,0,
-        1,1,0,0,
-        0,1,0,0,
-        0,1,0,0,
-        0,1,0,0,
-        1,1,1,0
-    );
-
-    int idx = int(uv.y * 4.0 + uv.x);
-    return (num == 0) ? float(zeroData[idx]) : float(oneData[idx]);
+// --- выборка символа из атласа ---
+// Твоя текстура: ширина 128, высота 64. Слева '1', справа '0'.
+// Каждая цифра занимает половину по X.
+float digitTex(vec2 uv, int n) {
+    // uv — локальные координаты внутри символа (0..1, по X и Y)
+    // n == 1 -> '1' находится слева(0..0.5). n == 0 -> '0' справа(0.5..1.0)
+    float xOffset = (n == 1) ? 0.0 : 0.5;
+    vec2 atlasUV = vec2(xOffset + uv.x * 0.5, 1.0 - uv.y); // инвертируем Y на случай разницы ориентации
+    vec4 t = texture(uFontAtlas, atlasUV);
+    // используем альфу (прозрачный фон) для формы; чёрные цифры -> обычно alpha = 1 на цифре
+    // если у тебя чёрный на прозрачном фоне и alpha - корректна, возвращай t.a
+    // если цвета не такие — можно взять (1.0 - t.r) или t.r в зависимости от изображения
+    return t.a;
 }
 
-// Случайный выбор цифры и мерцание
 // Случайный выбор цифры без мерцания, с крайне медленной сменой
 float random_digit(vec2 outer, vec2 inner, float time) {
-    // смена символов ОЧЕНЬ редкая (раз в ~15–30 секунд)
-    float h = hash(outer + floor(time * 0.00005));
+    // time очень медленный (ты просил extreme slowdown)
+    float h = hash(outer + floor(time * 0.0000005)); // ещё замедлил относительно предыдущего
     int n = int(floor(h * 2.0)); // 0 или 1
-    float pixel = digit(inner, n);
-    return pixel; // убрали мерцание полностью
+    // inner — локальные координаты в пределах символа: ожидается 0..1
+    float pixel = digitTex(inner, n);
+    return pixel;
 }
 
 // ─────────── Главная логика дождя ───────────
@@ -235,7 +217,8 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
                         float c = floor(v * chars_count);
                         float q = fract(v * chars_count);
                         vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-                        float time_factor = time * 0.00001 + char_hash.y * 10.0; // было 2.0 → стало 0.2
+                        // time_factor здесь используется в генерации внешнего hash — сделано очень медленным
+                        float time_factor = time * 0.00001 + char_hash.y * 10.0;
                         float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
                         a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
                         a *= smoothstep(4.0, 6.0, dist);
@@ -326,6 +309,41 @@ void main() {
   const iTimeLoc = gl3.getUniformLocation(prog, "iTime");
   const iMouseLoc = gl3.getUniformLocation(prog, "iMouse");
   const uQualityLoc = gl3.getUniformLocation(prog, "uQuality");
+  const uFontAtlasLoc = gl3.getUniformLocation(prog, "uFontAtlas");
+
+  // ───── подготовка текстуры атласа (texture01.png) ─────
+  const texture01 = gl3.createTexture();
+  const image = new Image();
+  image.src = "assets/texture01.png"; // путь к твоей текстуре — проверь, что файл по этому пути находится
+  image.onload = () => {
+    gl3.bindTexture(gl3.TEXTURE_2D, texture01);
+    gl3.texImage2D(gl3.TEXTURE_2D, 0, gl3.RGBA, gl3.RGBA, gl3.UNSIGNED_BYTE, image);
+    // для пиксельного шрифта предпочтительнее NEAREST, чтобы сохранить жесткие края
+    gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MIN_FILTER, gl3.NEAREST);
+    gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MAG_FILTER, gl3.NEAREST);
+    gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_WRAP_S, gl3.CLAMP_TO_EDGE);
+    gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_WRAP_T, gl3.CLAMP_TO_EDGE);
+
+    // назначаем uniform единично (texture unit 0)
+    gl3.useProgram(prog);
+    gl3.activeTexture(gl3.TEXTURE0);
+    gl3.bindTexture(gl3.TEXTURE_2D, texture01);
+    if (uFontAtlasLoc) gl3.uniform1i(uFontAtlasLoc, 0);
+  };
+// если картинка не загрузится — можно подать 1x1 белый пиксель, чтобы шейдер не ломался:
+image.onerror = () => {
+  const whitePixel = new Uint8Array([255, 255, 255, 255]);
+  gl3.bindTexture(gl3.TEXTURE_2D, texture01);
+  gl3.texImage2D(gl3.TEXTURE_2D, 0, gl3.RGBA, 1, 1, 0, gl3.RGBA, gl3.UNSIGNED_BYTE, whitePixel);
+  gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MIN_FILTER, gl3.NEAREST);
+  gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MAG_FILTER, gl3.NEAREST);
+  if (uFontAtlasLoc) {
+    gl3.useProgram(prog);
+    gl3.activeTexture(gl3.TEXTURE0);
+    gl3.bindTexture(gl3.TEXTURE_2D, texture01);
+    gl3.uniform1i(uFontAtlasLoc, 0);
+  }
+};
 
   let start = performance.now();
   let mouseX = 0,
@@ -393,6 +411,12 @@ void main() {
 
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
+
+    // каждый кадр биндим текстуру на unit 0 и подтверждаем uniform (безопасно)
+    gl3.activeTexture(gl3.TEXTURE0);
+    gl3.bindTexture(gl3.TEXTURE_2D, texture01);
+    if (uFontAtlasLoc) gl3.uniform1i(uFontAtlasLoc, 0);
+
     gl3.uniform3f(iResolutionLoc, canvas3.width, canvas3.height, 1.0);
     gl3.uniform1f(iTimeLoc, t);
     gl3.uniform4f(iMouseLoc, mouseX, mouseY, 0.0, 0.0);
@@ -406,13 +430,3 @@ void main() {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
