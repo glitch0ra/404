@@ -288,10 +288,13 @@ document.addEventListener("DOMContentLoaded", () => {
     col += brightnessBoost;
     col = clamp(col, 0.0, 1.0);
 
+    // альфа по итоговой яркости
     float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.4 ? 1.0 : 0.0; // всё, что темнее 0.1 — прозрачное
+    float alpha = smoothstep(0.15, 0.35, brightness); // плавный порог, не режет мелкие руны
     col *= alpha;
-    fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
+
+    // финальный лёгкий неоновый буст
+    fragColor = vec4(pow(col, vec3(0.85)) * 1.15, alpha);
 
   }
 
@@ -424,6 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
