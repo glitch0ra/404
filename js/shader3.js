@@ -144,20 +144,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   float rune(vec2 U, vec2 seed, float highlight) {
-    float d = 1e5;
-    for (int i = 0; i < 4; i++) {
-      vec4 pos = hash4(seed);
-      seed += 1.;
-      if (i == 0) pos.y = 0.0;
-      if (i == 1) pos.x = 0.999;
-      if (i == 2) pos.x = 0.0;
-      if (i == 3) pos.y = 0.999;
-      vec4 snaps = vec4(2, 3, 2, 3);
-      pos = (floor(pos * snaps) + 0.5) / snaps;
-      if (pos.xy != pos.zw) d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
-    }
-    return smoothstep(0.1, 0., d) + highlight * smoothstep(0.4, 0., d);
+  float d = 1e5;
+  for (int i = 0; i < 4; i++) {
+    vec4 pos = hash4(seed);
+    seed += 1.;
+    if (i == 0) pos.y = 0.0;
+    if (i == 1) pos.x = 0.999;
+    if (i == 2) pos.x = 0.0;
+    if (i == 3) pos.y = 0.999;
+    vec4 snaps = vec4(2, 3, 2, 3);
+    pos = (floor(pos * snaps) + 0.5) / snaps;
+    if (pos.xy != pos.zw) d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
   }
+  
+ 
+  float line = smoothstep(0.02, 0.0, d); // Было 0.1, стало тоньше и резче
+  float glow = highlight * smoothstep(0.08, 0.0, d); // Умеренный акцент без "ореола"
+  return line + glow;
+}
+
 
   float random_char(vec2 outer, vec2 inner, float highlight) {
     vec2 seed = vec2(dot(outer, vec2(269.5, 183.3)), dot(outer, vec2(113.5, 271.9)));
@@ -397,5 +402,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
