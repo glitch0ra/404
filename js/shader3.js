@@ -235,7 +235,7 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
                         float c = floor(v * chars_count);
                         float q = fract(v * chars_count);
                         vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-                        float time_factor = time * 0.0000001 + char_hash.y * 10.0; // было 2.0 → стало 0.2
+                        float time_factor = time * 0.000001 + char_hash.y * 10.0; // было 2.0 → стало 0.2
                         float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
                         a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
                         a *= smoothstep(4.0, 6.0, dist);
@@ -406,6 +406,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
