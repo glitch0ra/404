@@ -172,7 +172,7 @@ vec4 moon(vec3 ro, vec3 rd) {
     // имитация дневной стороны и освещения
     // Мягче свет, ближе к оригинальному Jupiter.txt
 float lightBase = clamp(nrm.x * 0.6 + 0.4, 0.0, 1.0);
-float light = pow(lightBase, 1.65) * 0.2 + 0.05;
+float light = pow(lightBase, 1.65) * 0.2 + 0.3;
 
     float lightAtmos = pow(clamp(nrm.x, 0.0, 1.0), 2.0);
     vec3 surfaceColor = jupColor * light;
@@ -352,6 +352,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
