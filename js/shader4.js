@@ -130,20 +130,49 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
 
 // moon implementation (kept original geometry/signature)
 vec4 moon(vec3 ro, vec3 rd) {
-    // Use non-const so no compile-time assignment issues
+    // Параметры луны
     vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
-    vec3 mcol0 = hsv2rgb(vec3(0.75, 0.7, 1.0));
+
+    // серо-черная палитра (не синяя)
+    vec3 baseCol = vec3(0.15, 0.15, 0.17); // базовый серый
+    vec3 lightCol = vec3(0.85);            // цвет света
+    vec3 darkCol  = vec3(0.02);            // тень
+
+    // пересечение с шаром
     vec2 md = raySphere(ro, rd, mdim);
     if (md.x < 0.0) return vec4(0.0);
+    
+    // позиция и нормаль
     vec3 mpos = ro + rd * md.x;
     vec3 mnor = normalize(mpos - mdim.xyz);
-    vec3 lpos = 1e6 * vec3(0.0, -0.15, 1.0);
-    vec3 ldir = normalize(lpos);
-    float mdif = max(dot(ldir, mnor), 0.0);
+
+    // источник света — низко сбоку (чтобы подсветка осталась)
+    vec3 ldir = normalize(vec3(0.0, -0.4, 0.6));
+
+    // диффузное освещение (мягкое)
+    float diff = clamp(dot(ldir, mnor) * 0.8 + 0.2, 0.0, 1.0);
+
+    // фейковый "терминатор" (плавный переход света/тени)
+    float shade = smoothstep(-0.4, 0.5, diff);
+
+    // имитация мягкого объемного затенения (градиент по нормали)
+    float vignet = smoothstep(-0.3, 0.9, mnor.y);
+    vec3 col = mix(darkCol, baseCol, vignet);
+    col = mix(col, lightCol, shade * 0.4);
+
+    // усиление нижнего контура (подсветка снизу)
+    float rim = smoothstep(0.4, 1.0, dot(mnor, vec3(0.0, -1.0, 0.0)));
+    col += rim * 0.2;
+
+    // добавим немного неровностей (простое шумовое затемнение)
+    float n = vnoise(mpos.xy * 0.00005);
+    col *= 0.9 + n * 0.2;
+
+    // итоговая яркость и альфа
     float mf = smoothstep(0.0, 10000.0, md.y - md.x);
-    vec3 col = mdif * mcol0 * 3.5;
     return vec4(col, clamp(mf, 0.0, 1.0));
 }
+
 
 // main color accumulation: returns rgb and alpha via out param
 vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
@@ -305,6 +334,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
