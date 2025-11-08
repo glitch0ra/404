@@ -129,24 +129,27 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
 }
 
 // moon implementation (kept original geometry/signature)
-// заменяет старую moon(vec3 ro, vec3 rd)
+// === Полная адаптация Юпитера в твой 3D контекст ===
 vec4 moon(vec3 ro, vec3 rd) {
-    // Параметры сферы — оставить как у луны
+    // Параметры сферы — точно как у луны
     vec4 sph = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
-    vec2 t = raySphere(ro, rd, sph);
-    if (t.x < 0.0) return vec4(0.0);
+    vec2 hit = raySphere(ro, rd, sph);
+    if (hit.x < 0.0) return vec4(0.0);
 
     // Позиция и нормаль
-    vec3 pos = ro + rd * t.x;
+    vec3 pos = ro + rd * hit.x;
     vec3 nrm = normalize(pos - sph.xyz);
 
-    // Координаты "долгот/широт" для полос Юпитера
-    float theta = atan(nrm.z, nrm.x);
-    float phi = acos(clamp(nrm.y, -1.0, 1.0));
-    vec2 uv = vec2(theta / (2.0 * PI) + 0.5, phi / PI);
+    // ==== Сферические координаты ====
+    float lon = atan(nrm.z, nrm.x);  // долгота
+    float lat = asin(nrm.y);         // широта
+    // в оригинале Юпитер развёрнут иначе, поэтому меняем порядок и флип
+    vec2 uv = vec2(lon / (2.0 * PI) + 0.5, lat / PI + 0.5);
+    uv = vec2(uv.y, 1.0 - uv.x); // ориентация как в оригинале Юпитера
 
-    // ==== Процедурная текстура Юпитера (адаптировано из твоего файла) ====
-    float time = iTime * 0.5;
+    // ==== Процедурный узор Юпитера (из исходника) ====
+    float time = iTime;
+    float timeScale = 0.5;
     vec2 zoom = vec2(20.0, 5.5);
     vec2 offset = vec2(2.0, 1.0);
     vec2 point = uv * zoom + offset;
@@ -156,7 +159,7 @@ vec4 moon(vec3 ro, vec3 rd) {
 
     for (int i = 1; i < 10; i++) {
         float fi = float(i);
-        point.x += a_x * sin(fi * point.y + time);
+        point.x += a_x * sin(fi * point.y + time * timeScale);
         point.y += a_y * cos(fi * point.x + time * 0.2);
     }
 
@@ -165,21 +168,26 @@ vec4 moon(vec3 ro, vec3 rd) {
     float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
     vec3 jupColor = vec3(r, g, b) + 0.5;
 
-    // ==== Освещение ====
-    vec3 lightDir = normalize(vec3(0.3, 0.1, 0.9));
-    float diff = clamp(dot(nrm, lightDir), 0.0, 1.0);
-    float light = pow(diff, 1.0) * 1.3 + 0.1;
+    // ==== Свет и атмосфера из оригинального Jupiter.txt ====
+    // имитация дневной стороны и освещения
+    float light = pow(clamp(nrm.x * 0.8 + 0.2, 0.0, 1.0),
+                      2.0 * (cos(iTime * 0.1 + 1.0) + 1.5));
+    float lightAtmos = pow(clamp(nrm.x, 0.0, 1.0), 2.0);
+    vec3 surfaceColor = jupColor * light;
 
-    // Атмосферное осветление по краям (fresnel)
+    // Цвет атмосферы как в оригинале
+    vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
     float fresnel = pow(1.0 - clamp(dot(nrm, -rd), 0.0, 1.0), 3.0);
-    vec3 atmosphere = mix(jupColor, vec3(0.7, 0.6, 0.5), fresnel * 0.8);
+    vec3 fresnelMix = mix(surfaceColor, atmosphereColor,
+                          fresnel * lightAtmos * 0.8);
 
-    // Итоговый цвет
-    vec3 col = atmosphere * light;
-    float alpha = smoothstep(0.0, 10000.0, t.y - t.x);
+    // ==== Яркость и альфа ====
+    vec3 col = fresnelMix * 1.5;  // усилить яркость до оригинала
+    float alpha = smoothstep(0.0, 10000.0, hit.y - hit.x);
 
     return vec4(col, alpha);
 }
+
 
 
 // main color accumulation: returns rgb and alpha via out param
@@ -342,3 +350,4 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
