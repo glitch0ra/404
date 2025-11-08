@@ -165,21 +165,26 @@ document.addEventListener("DOMContentLoaded", () => {
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
 
-            // ───── ДОБАВЛЕН РАЗМЫВАЮЩИЙ ЭФФЕКТ ДЛЯ ДАЛЬНИХ СЛОЁВ ─────
-            if (i >= 12) {
-                // сила эффекта от 0 (на 12) до 1 (на 16)
-                float blurStrength = smoothstep(float(furthest - 4), float(furthest), float(i));
-                // завязка на дистанцию
+            // ───── РЕАЛЬНОЕ "РАЗМЫТИЕ" ДЛЯ ДАЛЬНИХ СЛОЁВ ─────
+            if (i >= 13) {
+                float blurStrength = smoothstep(float(furthest - 3), float(furthest), float(i));
                 float blurDepth = clamp(pd / maxDist, 0.0, 1.0);
-                float blur = pow(blurDepth * blurStrength, 1.5);
+                float blur = pow(blurDepth * blurStrength, 2.0);
 
-                // немного «расплываем» цвет и теряем насыщенность
-                pcol.rgb = mix(pcol.rgb, vec3(dot(pcol.rgb, vec3(0.333))), blur * 0.7);
+                // Сэмплируем несколько смещённых направлений для имитации размытия
+                vec3 blurCol = pcol.rgb;
+                blurCol += plane(ro, rd, pp + vec3(0.003, 0.0, 0.0), npp, off, nz + float(i)).rgb;
+                blurCol += plane(ro, rd, pp + vec3(-0.003, 0.0, 0.0), npp, off, nz + float(i)).rgb;
+                blurCol += plane(ro, rd, pp + vec3(0.0, 0.003, 0.0), npp, off, nz + float(i)).rgb;
+                blurCol += plane(ro, rd, pp + vec3(0.0, -0.003, 0.0), npp, off, nz + float(i)).rgb;
+                blurCol /= 5.0;
 
-                // чуть уменьшаем альфу, чтобы появление было мягким
-                pcol.a *= 1.0 - blur * 0.8;
+                // Смешиваем оригинал и размытый результат
+                pcol.rgb = mix(pcol.rgb, blurCol, blur);
+                // ослабляем альфу для мягкости появления
+                pcol.a *= 1.0 - blur * 0.6;
             }
-            // ──────────────────────────────────────────────────────────
+            // ────────────────────────────────────────────────────────
 
             pcol = clamp(pcol, 0.0, 1.0);
             accum = alphaBlendVec4(accum, pcol);
@@ -313,6 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
