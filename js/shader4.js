@@ -152,8 +152,8 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
 
     const float planeDist = 1.0;
-    const int furthest = 22;
-    const int fadeFrom = 20;
+    const int furthest = 30;
+    const int fadeFrom = 28;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
 
@@ -305,6 +305,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
