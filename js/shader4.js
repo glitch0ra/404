@@ -16,184 +16,128 @@ document.addEventListener("DOMContentLoaded", () => {
   precision highp float;
 
   uniform vec3 iResolution;
-  uniform float iTime;
-  out vec4 fragColor;
+uniform float iTime;
+#define RESOLUTION iResolution
+#define TIME iTime
+#define PI 3.141592654
+#define TAU (2.0*PI)
 
-  #define RESOLUTION iResolution
-  #define TIME iTime
-  #define PI 3.141592654
-  #define TAU (2.0*PI)
+const vec4 hsv2rgb_K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+vec3 hsv2rgb(vec3 c) {
+    vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www);
+    return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
+}
 
-  vec3 hsv2rgb(vec3 c) {
-    vec3 K = vec3(1.0, 2.0/3.0, 1.0/3.0);
-    vec3 p = abs(fract(c.xxx + K) * 6.0 - vec3(3.0));
-    return c.z * mix(vec3(1.0), clamp(p - vec3(1.0), 0.0, 1.0), c.y);
-  }
-
-  vec4 alphaBlendVec4(vec4 back, vec4 front) {
-    float outA = front.w + back.w * (1.0 - front.w);
-    if (outA <= 0.0) return vec4(0.0);
-    vec3 outRGB = (front.xyz * front.w + back.xyz * back.w * (1.0 - front.w)) / outA;
-    return vec4(outRGB, outA);
-  }
-
-  float hash(float n) { return fract(sin(n*12.9898)*43758.5453); }
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
-
-  float vnoise(vec2 p) {
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float vnoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    vec2 u = f*f*(3.0 - 2.0*f);
+    vec2 u = f*f*(3.0-2.0*f);
     float a = hash(i + vec2(0.0,0.0));
     float b = hash(i + vec2(1.0,0.0));
     float c = hash(i + vec2(0.0,1.0));
     float d = hash(i + vec2(1.0,1.0));
-    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
-  }
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
 
-  float hifbm(vec2 p) {
-    float sum = 0.0;
-    float amp = 1.0;
-    for (int i=0;i<5;i++){
-      sum += amp * vnoise(p);
-      amp *= 0.5;
-      p *= 2.0;
-    }
-    return sum;
-  }
+vec4 alphaBlend(vec4 back, vec4 front) {
+    float w = front.w + back.w*(1.0-front.w);
+    vec3 xyz = (front.xyz*front.w + back.xyz*back.w*(1.0-front.w))/max(w, 1e-6);
+    return vec4(xyz, w);
+}
+vec3 alphaBlend(vec3 back, vec4 front) {
+    return mix(back, front.xyz, front.w);
+}
 
-  float lofbm(vec2 p) {
-    float sum = 0.0;
-    float amp = 1.0;
-    for (int i=0;i<2;i++){
-      sum += amp * vnoise(p);
-      amp *= 0.5;
-      p *= 2.0;
-    }
-    return sum;
-  }
+float tanh_approx(float x){
+    float x2=x*x;
+    return clamp(x*(27.0+x2)/(27.0+9.0*x2),-1.0,1.0);
+}
 
-  float hiheight(vec2 p){ return hifbm(p) - 1.8; }
-  float loheight(vec2 p){ return lofbm(p) - 2.15; }
+float hiheight(vec2 p){return vnoise(p*0.5)-1.8;}
+float loheight(vec2 p){return vnoise(p*0.33)-2.15;}
 
-  vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
-    vec3 oc = ro - sph.xyz;
-    float b = dot(oc, rd);
-    float c = dot(oc, oc) - sph.w * sph.w;
-    float h = b*b - c;
-    if (h < 0.0) return vec2(-1.0);
-    h = sqrt(h);
-    return vec2(-b - h, -b + h);
-  }
-
-  vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
-    float h = hash(n);
-    vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
-    const vec2 stp = vec2(0.5, 0.33);
-    float he = hiheight(vec2(p.x, pp.z) * stp);
-    float lohe = loheight(vec2(p.x, pp.z) * stp);
-    float d = p.y - he;
-    float lod = p.y - lohe;
-    float aa = distance(pp, npp)*sqrt(1.0/3.0);
-    float t = smoothstep(aa, -aa, d);
-    float df = exp(-0.1 * (distance(ro, pp) - 2.0));
+vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n){
+    float h = hash(vec2(n, n*13.37));
+    float df = exp(-0.1*(distance(ro, pp)-2.));
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
-    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, exp(-mix(2.0, 8.0, df) * lod)));
-    vec3 col = acol + 0.5 * gcol;
-    return vec4(col, clamp(t, 0.0, 1.0));
-  }
+    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df)*pp.y))));
+    vec3 col = acol + 0.5*gcol;
+    float alpha = smoothstep(0.0, 0.1, -pp.y);
+    return vec4(col, alpha);
+}
 
-  vec4 moon(vec3 ro, vec3 rd) {
-    vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
-    vec3 mcol0 = hsv2rgb(vec3(0.75, 0.7, 1.0));
-    vec2 md = raySphere(ro, rd, mdim);
-    if (md.x < 0.0) return vec4(0.0);
-    vec3 mpos = ro + rd * md.x;
-    vec3 mnor = normalize(mpos - mdim.xyz);
-    vec3 lpos = 1e6 * vec3(0.0, -0.15, 1.0);
-    vec3 ldir = normalize(lpos);
-    float mdif = max(dot(ldir, mnor), 0.0);
-    float mf = smoothstep(0.0, 10000.0, md.y - md.x);
-    vec3 col = mdif * mcol0 * 3.5;
-    return vec4(col, clamp(mf, 0.0, 1.0));
-  }
+vec3 skyColor(vec3 ro, vec3 rd){
+    vec3 acol = hsv2rgb(vec3(0.6, 0.9, 0.075));
+    return mix(vec3(0.0), acol, smoothstep(-0.4, 0.0, rd.y));
+}
 
-  vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
-    vec2 np = p + 2.0 / RESOLUTION.y;
+// === новый depth blur ===
+vec3 applyDepthBlur(vec3 color, vec2 uv, float depth) {
+    float blur = smoothstep(0.7, 1.0, depth); // чем дальше, тем сильнее
+    float s = blur * 0.003; // сила размытия
+    vec3 c = color;
+    for (int j = 0; j < 4; ++j) {
+        vec2 dir = vec2(cos(PI*0.5*j), sin(PI*0.5*j));
+        float n = vnoise(uv*50.0 + float(j)*13.37);
+        c += color * (0.25 + n*0.25) * exp(-depth*2.0);
+    }
+    return mix(color, c * 0.25, blur);
+}
+// === конец depth blur ===
+
+vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p){
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
-    vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
-
     const float planeDist = 1.0;
-    const int furthest = 16;
-    const int fadeFrom = 10;
-    const float fadeDist = planeDist * float(fadeFrom);
-    const float maxDist = planeDist * float(furthest);
-
+    const int furthest = 12;
     float nz = floor(ro.z / planeDist);
-    vec4 accum = vec4(0.0);
+    vec3 skyCol = skyColor(ro, rd);
+    vec4 acol = vec4(0.0);
+    const float cutOff = 0.95;
 
-    for (int i = 1; i <= furthest; ++i) {
-      float pz = planeDist * nz + planeDist * float(i);
-      float pd = (pz - ro.z) / rd.z;
-      vec3 pp = ro + rd * pd;
+    for (int i = 1; i <= furthest; ++i){
+        float pz = planeDist*nz + planeDist*float(i);
+        float pd = (pz - ro.z)/rd.z;
+        vec3 pp = ro + rd*pd;
+        if (pp.y < 0. && pd > 0.0 && acol.w < cutOff){
+            vec3 npp = ro + rd*pd;
+            vec4 pcol = plane(ro, rd, pp, npp, vec3(0.0), nz+float(i));
 
-      if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
-        vec3 npp = ro + nrd * pd;
-        vec3 off = vec3(0.0);
-        vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
+            // — размытие дальних слоёв 9–12 —
+            if (i >= 9) {
+                float depthNorm = float(i) / float(furthest);
+                pcol.rgb = applyDepthBlur(pcol.rgb, pp.xz, depthNorm);
+            }
 
-        // добавляем размытие дальних слоёв (12–16)
-        float blurAmount = smoothstep(12.0, 16.0, float(i)); // 0..1
-        if (blurAmount > 0.0) {
-          float blurScale = mix(0.0, 0.004, blurAmount); // сила размытия
-          vec3 blurSum = vec3(0.0);
-          const int samples = 6;
-          for (int j = 0; j < samples; ++j) {
-            float ang = float(j) / float(samples) * TAU;
-            vec2 offset = vec2(cos(ang), sin(ang)) * blurScale;
-            vec3 bpp = ro + normalize((p + offset).x*uu + (p + offset).y*vv + 2.0*ww) * pd;
-            vec4 bcol = plane(ro, rd, bpp, npp, off, nz + float(i));
-            blurSum += bcol.xyz;
-          }
-          pcol.xyz = mix(pcol.xyz, blurSum / float(samples), blurAmount);
+            float fadeIn = smoothstep(float(furthest)*planeDist, planeDist*float(furthest-3), pd);
+            pcol.rgb = mix(skyCol, pcol.rgb, fadeIn);
+            acol = alphaBlend(pcol, acol);
         }
-
-        float fadeIn = smoothstep(maxDist, fadeDist, pd);
-        pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
-        pcol = clamp(pcol, 0.0, 1.0);
-        accum = alphaBlendVec4(accum, pcol);
-      } else {
-        break;
-      }
     }
 
-    vec4 m = moon(ro, rd);
-    vec3 base = accum.xyz;
-    float baseA = accum.w;
-    vec3 finalRGB = mix(base, m.xyz, m.w);
-    float finalA = max(baseA, m.w);
-    outA = finalA;
-    return finalRGB;
-  }
+    vec3 col = alphaBlend(skyCol, acol);
+    return col;
+}
 
-  vec3 effect(vec2 p, out float outA) {
-    float tm = TIME * 0.25;
+vec3 effect(vec2 p){
+    float tm = TIME*0.25;
     vec3 ro = vec3(0.0, 0.0, tm);
     vec3 dro = normalize(vec3(0.0, 0.09, 1.0));
     vec3 ww = normalize(dro);
-    vec3 uu = normalize(cross(normalize(vec3(0.0,1.0,0.0)), ww));
+    vec3 uu = normalize(cross(vec3(0.0,1.0,0.0), ww));
     vec3 vv = normalize(cross(ww, uu));
-    return color(ww, uu, vv, ro, p, outA);
-  }
+    return color(ww, uu, vv, ro, p);
+}
 
-  void main() {
-    vec2 q = gl_FragCoord.xy / RESOLUTION.xy;
-    vec2 p = -1.0 + 2.0 * q;
+void mainImage(out vec4 fragColor, in vec2 fragCoord){
+    vec2 q = fragCoord / RESOLUTION.xy;
+    vec2 p = -1.0 + 2.0*q;
     p.x *= RESOLUTION.x / RESOLUTION.y;
-    float alpha;
-    vec3 col = effect(p, alpha);
-    fragColor = vec4(col, alpha);
-  }`;
+    vec3 col = effect(p);
+    fragColor = vec4(col, 1.0);
+}`;
 
   // ---------- VERTEX SHADER ----------
   const vertSource = `#version 300 es
@@ -268,3 +212,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
