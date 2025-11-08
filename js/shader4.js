@@ -103,22 +103,40 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // plane/layer function from original: returns color + alpha
-  vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
+ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float blurAmount) {
     float h = hash(n);
-    vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
+    vec2 p = (pp - off * 2.0 * vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
-    float he = hiheight(vec2(p.x, pp.z) * stp);
-    float lohe = loheight(vec2(p.x, pp.z) * stp);
+
+    // ─── Размытие координат: усредняем несколько сэмплов шума ───
+    float he = 0.0;
+    float lohe = 0.0;
+    int samples = (blurAmount > 0.0) ? 5 : 1;
+    for (int s = 0; s < 5; s++) {
+        vec2 offs = vec2(
+            (float(s % 2) - 0.5) * blurAmount * 0.5,
+            (float(s / 2) - 0.5) * blurAmount * 0.5
+        );
+        float w = (s < samples) ? 1.0 : 0.0;
+        he   += w * hiheight((vec2(p.x, pp.z) + offs) * stp);
+        lohe += w * loheight((vec2(p.x, pp.z) + offs) * stp);
+    }
+    he   /= float(samples);
+    lohe /= float(samples);
+    // ──────────────────────────────────────────────────────────────
+
     float d = p.y - he;
     float lod = p.y - lohe;
-    float aa = distance(pp, npp)*sqrt(1.0/3.0);
+    float aa = distance(pp, npp) * sqrt(1.0/3.0);
     float t = smoothstep(aa, -aa, d);
     float df = exp(-0.1 * (distance(ro, pp) - 2.0));
+
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
     vec3 col = acol + 0.5 * gcol;
     return vec4(col, clamp(t, 0.0, 1.0));
-  }
+}
+
 
   // moon implementation (kept original geometry/signature)
   vec4 moon(vec3 ro, vec3 rd) {
@@ -304,6 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
