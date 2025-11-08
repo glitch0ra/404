@@ -99,8 +99,8 @@ vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     return vec2(-b - h, -b + h);
 }
 
-// Jupiter shader implementation from the provided file
-float rand(vec2 co, float seed){
+// Jupiter shader implementation - точная копия из файла
+float rand(vec2 co, float seed) {
     return fract(sin(dot(co.xy + seed ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
@@ -114,10 +114,10 @@ vec3 makeJupiter(vec2 uv, float time)
     float p_y = float(point.y);
     float a_x = .2;
     float a_y = .3;
-    for(int i=1; i<int(10); i++){
+    for(int i=1; i<10; i++){
         float float_i = float(i); 
-        point.x+=a_x*sin(float_i*point.y+time*timeScale);
-        point.y+=a_y*cos(float_i*point.x+time*.2);
+        point.x += a_x * sin(float_i*point.y + time*timeScale);
+        point.y += a_y * cos(float_i*point.x + time*.2);
     }
     float r = cos(point.x+point.y+2.)*.5+.5;
     float g = sin(point.x+point.y+2.2)*.5+.5;
@@ -127,41 +127,79 @@ vec3 makeJupiter(vec2 uv, float time)
     return col;
 }
 
-// Original moon function replaced with Jupiter
+// Полностью переписанная функция для рендеринга Юпитера
 vec4 moon(vec3 ro, vec3 rd) {
-    // Sphere parameters
+    // Параметры сферы (луны/юпитера)
     vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
     
-    // Check for ray-sphere intersection
+    // Проверяем пересечение луча со сферой
     vec2 md = raySphere(ro, rd, mdim);
     if (md.x < 0.0) return vec4(0.0);
     
-    // Calculate position on the sphere
+    // Вычисляем позицию на сфере
     vec3 mpos = ro + rd * md.x;
-    
-    // Calculate UV coordinates for texturing the sphere
     vec3 mnor = normalize(mpos - mdim.xyz);
     
-    // Convert to spherical coordinates for texturing
-    vec2 uv;
-    uv.x = atan(mnor.z, mnor.x) / (2.0 * PI) + 0.5; // Longitude [0..1]
-    uv.y = asin(mnor.y) / PI + 0.5;                // Latitude [0..1]
+    // Рассчитываем расстояние до центра сферы на экране
+    vec2 screenCenter = vec2(0.0, 0.4); // центр сферы в нормализованных координатах
+    vec2 fragCoord = gl_FragCoord.xy / RESOLUTION.xy;
+    vec2 res = RESOLUTION.xy;
     
-    // Apply Jupiter texture
-    vec3 jupiterColor = makeJupiter(uv, TIME);
+    // Расстояние от текущего фрагмента до центра сферы на экране
+    vec2 center = vec2(0.5, 0.5); // центр экрана
+    vec2 planetCenterScreen = center + screenCenter;
+    float dis = distance(fragCoord, planetCenterScreen) * res.y;
     
-    // Simple lighting
-    vec3 lpos = 1e6 * vec3(0.0, -0.15, 1.0); // Light position
-    vec3 ldir = normalize(lpos - mpos);
-    float mdif = max(0.0, dot(ldir, mnor));
+    // Радиус сферы на экране
+    float radius = 0.15 * res.y; // примерный радиус для нашей сцены
     
-    // Apply lighting to Jupiter color
-    vec3 col = jupiterColor * (mdif * 1.2 + 0.3); // Add ambient light
+    // Если мы внутри сферы - рисуем юпитер
+    if (dis < radius) {
+        // Находим координаты на планете
+        vec2 posOnPlanet = (fragCoord - (planetCenterScreen - vec2(radius/res.y, radius/res.x)));
+        vec2 planetCoord = posOnPlanet / (vec2(radius/res.y, radius/res.x) * 2.0);
+        
+        // Сферифицируем координаты
+        planetCoord = planetCoord * 2.0 - 1.0;
+        float sphereDis = length(planetCoord);
+        if (sphereDis > 1.0) return vec4(0.0); // за пределами сферы
+        
+        sphereDis = 1.0 - pow(1.0 - sphereDis, 0.6);
+        planetCoord = normalize(planetCoord) * sphereDis;
+        planetCoord = (planetCoord + 1.0) / 2.0;
+        
+        // Вычисляем координаты текстуры
+        vec2 uv;
+        uv.x = atan(mnor.z, mnor.x) / (2.0 * PI) + 0.5; // Долгота [0..1]
+        uv.y = asin(mnor.y) / PI + 0.5;                 // Широта [0..1]
+        
+        // Поворачиваем координаты для правильной ориентации
+        uv = vec2(uv.y, uv.x);
+        
+        // Вычисляем освещение
+        float light = pow(planetCoord.x, 2.0 * (cos(TIME * 0.1 + 1.0) + 1.5));
+        float lightAtmosphere = pow(planetCoord.x, 2.0);
+        
+        // Применяем текстуру Юпитера
+        vec3 surfaceColor = makeJupiter(uv, TIME);
+        surfaceColor *= light;
+        
+        // Добавляем атмосферу по краям (эффект Френеля)
+        vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
+        float fresnelIntensity = pow(dis / radius, 3.0);
+        vec3 fresnel = mix(surfaceColor, atmosphereColor, fresnelIntensity * lightAtmosphere);
+        
+        // Вычисляем альфа-канал на основе пересечения со сферой
+        float mf = smoothstep(0.0, 10000.0, md.y - md.x);
+        
+        // Применяем затемнение левой части для создания эффекта объема
+        vec3 finalColor = fresnel;
+        finalColor *= (1.0 - 0.3 * (1.0 - uv.x)); // Затемнение левой части
+        
+        return vec4(finalColor, clamp(mf, 0.0, 1.0));
+    }
     
-    // Calculate alpha based on sphere intersection
-    float mf = smoothstep(0.0, 10000.0, md.y - md.x);
-    
-    return vec4(col, clamp(mf, 0.0, 1.0));
+    return vec4(0.0);
 }
 
 // plane/layer function from original: returns color + alpha
@@ -342,6 +380,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
