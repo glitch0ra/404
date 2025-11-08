@@ -303,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             zcell += cell_shift.z;
         }
-        }
+        
         return result.xyz * result.a;
     }
 
@@ -470,3 +470,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
     requestAnimationFrame(render);
 });
+
