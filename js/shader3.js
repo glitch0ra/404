@@ -268,9 +268,19 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
 
+    // --- 1. Глобальное усиление насыщенности ---
+    float intensity = dot(col, vec3(0.299, 0.587, 0.114)); // общая яркость (luma)
+    col = mix(vec3(intensity), col, 2.8); // коэффициент 2.8 = сильная насыщенность (можешь менять 2.0–3.5)
+    
+    // --- 2. Убираем затемнение: вытягиваем тёмные оттенки ---
+    col = max(col, vec3(0.25)); // минимум 0.25, чтобы не проваливалось в чёрный (можно 0.2–0.3)
+    
+    // --- 3. Убираем чёрный фон ---
     float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.1 ? 1.0 : 0.0; // всё, что темнее 0.1 — прозрачное
+    float alpha = brightness > 0.1 ? 1.0 : 0.0;
     col *= alpha;
+    
+    // --- 4. Финальный результат ---
     fragColor = vec4(col, alpha);
 
   }
@@ -404,6 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
