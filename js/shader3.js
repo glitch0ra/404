@@ -269,7 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 col = rain(ro, rd, time);
 
      // Повышаем насыщенность и контраст цвета
-    float saturation = 1.8; // 1.0 = оригинал, 1.8 = ярко и сочно
+    float saturation = 1.5; // 1.0 = оригинал, 1.8 = ярко и сочно
     float contrast = 1.3;   // 1.0 = оригинал, 1.3 = чуть контрастнее
     float brightnessBoost = 0.15; // легкая подсветка
 
@@ -289,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     col = clamp(col, 0.0, 1.0);
 
     float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.2 ? 1.0 : 0.0;
+    float alpha = brightness > 0.1 ? 1.0 : 0.0;
     col *= alpha;
 
     fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
@@ -425,6 +425,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
