@@ -268,6 +268,17 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
 
+    // --- Выравнивание яркости всех рун ---
+    // Нормализуем цвет по средней яркости
+    float avg = (col.r + col.g + col.b) / 3.0;
+    if (avg > 0.0) {
+        col /= avg;        // выравниваем
+        col *= 0.8;        // общая целевая яркость
+    }
+
+    // Доп. ограничение (чтобы не слепило)
+    col = clamp(col, 0.0, 1.0);
+    
     // Повышаем насыщенность и контраст цвета
     float saturation = 1.8; // 1.0 = оригинал, 1.8 = ярко и сочно
     float contrast = 1.3;   // 1.0 = оригинал, 1.3 = чуть контрастнее
@@ -424,4 +435,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
