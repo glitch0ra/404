@@ -158,11 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
             d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
     }
 
-    // 🔥 Новый вариант — без чёрной обводки
-    // Просто оставляем яркое тело линии, без внешнего затемнения
-    float core = smoothstep(0.06, 0.0, d);           // уже без размытой границы
-    float glow = highlight * smoothstep(0.25, 0.0, d); // внутреннее свечение (цвет рун)
-    return max(core, glow);
+    return smoothstep(0.1, 0., d) + highlight * smoothstep(0.4, 0., d);
 }
 
   float random_char(vec2 outer, vec2 inner, float highlight) {
@@ -403,6 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
