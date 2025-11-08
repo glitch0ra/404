@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return length(p - b * h);
   }
 
-  float rune(vec2 U, vec2 seed, float highlight) {
+ float rune(vec2 U, vec2 seed, float highlight) {
     float d = 1e5;
     for (int i = 0; i < 4; i++) {
         vec4 pos = hash4(seed);
@@ -154,10 +154,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (i == 3) pos.y = 0.999;
         vec4 snaps = vec4(2, 3, 2, 3);
         pos = (floor(pos * snaps) + 0.5) / snaps;
-        if (pos.xy != pos.zw) d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
+        if (pos.xy != pos.zw) 
+            d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
     }
-    // ИЗМЕНЕНО: Убрана чёрная обводка через корректировку smoothstep
-    return smoothstep(0.01, 0.0, d) + highlight * smoothstep(0.2, 0.0, d);
+
+    // 🔥 Новый вариант — без чёрной обводки
+    // Просто оставляем яркое тело линии, без внешнего затемнения
+    float core = smoothstep(0.06, 0.0, d);           // уже без размытой границы
+    float glow = highlight * smoothstep(0.25, 0.0, d); // внутреннее свечение (цвет рун)
+    return max(core, glow);
 }
 
   float random_char(vec2 outer, vec2 inner, float highlight) {
@@ -266,7 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
-    fragColor = vec4(col, 1.0);
+    fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
   }
 
   void main() {
@@ -398,6 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
