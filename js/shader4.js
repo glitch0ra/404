@@ -1,4 +1,4 @@
-// assets/js/shader4.js
+// s/shader4.js
 document.addEventListener("DOMContentLoaded", () => {
   const canvas4 = document.getElementById("shader-canvas4");
   if (!canvas4) return console.error("Canvas #shader-canvas4 не найден!");
@@ -14,13 +14,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- FRAGMENT SHADER ----------
   const fragSource = `#version 300 es
   precision highp float;
+
   uniform vec3 iResolution;
   uniform float iTime;
-  uniform float iBlurStrength;
   out vec4 fragColor;
 
   #define RESOLUTION iResolution
   #define TIME iTime
+  #define PI 3.141592654
+  #define TAU (2.0*PI)
 
   vec3 hsv2rgb(vec3 c) {
     vec3 K = vec3(1.0, 2.0/3.0, 1.0/3.0);
@@ -33,11 +35,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (outA <= 0.0) return vec4(0.0);
     vec3 outRGB = (front.xyz * front.w + back.xyz * back.w * (1.0 - front.w)) / outA;
     return vec4(outRGB, outA);
-  }
-
-  float tanh_approx(float x) {
-    float x2 = x*x;
-    return clamp(x*(27.0 + x2)/(27.0 + 9.0*x2), -1.0, 1.0);
   }
 
   float hash(float n) { return fract(sin(n*12.9898)*43758.5453); }
@@ -57,11 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
   float hifbm(vec2 p) {
     float sum = 0.0;
     float amp = 1.0;
-    float lacunarity = 2.0;
     for (int i=0;i<5;i++){
       sum += amp * vnoise(p);
       amp *= 0.5;
-      p *= lacunarity;
+      p *= 2.0;
     }
     return sum;
   }
@@ -69,11 +65,10 @@ document.addEventListener("DOMContentLoaded", () => {
   float lofbm(vec2 p) {
     float sum = 0.0;
     float amp = 1.0;
-    float lacunarity = 2.0;
     for (int i=0;i<2;i++){
       sum += amp * vnoise(p);
       amp *= 0.5;
-      p *= lacunarity;
+      p *= 2.0;
     }
     return sum;
   }
@@ -103,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
     float t = smoothstep(aa, -aa, d);
     float df = exp(-0.1 * (distance(ro, pp) - 2.0));
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
-    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
+    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, exp(-mix(2.0, 8.0, df) * lod)));
     vec3 col = acol + 0.5 * gcol;
     return vec4(col, clamp(t, 0.0, 1.0));
   }
@@ -123,34 +118,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return vec4(col, clamp(mf, 0.0, 1.0));
   }
 
-  // cheap multi-sample positional blur for a plane: returns averaged pp,npp and an alpha multiplier
-  void positionalBlur(inout vec3 pp, inout vec3 npp, float strength, out float alphaMul) {
-    vec3 accumP = pp;
-    vec3 accumNP = npp;
-
-    float s = strength;
-    vec2 base = pp.xy * 0.5;
-
-    // правильные векторные смещения
-    vec2 off1 = vec2(vnoise(base + 13.1) - 0.5, vnoise(base + 91.7) - 0.5) * s;
-    vec2 off2 = vec2(vnoise(base + 72.3) - 0.5, vnoise(base + 44.9) - 0.5) * s;
-    vec2 off3 = vec2(vnoise(base + 99.7) - 0.5, vnoise(base + 37.4) - 0.5) * s;
-
-    accumP += vec3(off1, 0.0);
-    accumNP += vec3(off1, 0.0);
-    accumP += vec3(off2, 0.0);
-    accumNP += vec3(off2, 0.0);
-    accumP += vec3(off3, 0.0);
-    accumNP += vec3(off3, 0.0);
-
-    pp = accumP / 4.0;
-    npp = accumNP / 4.0;
-
-    // уменьшение альфы в зависимости от силы размытия
-    alphaMul = 1.0 - clamp(strength * 0.9, 0.0, 0.95);
-}
-
-
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
@@ -161,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const int fadeFrom = 10;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
+
     float nz = floor(ro.z / planeDist);
     vec4 accum = vec4(0.0);
 
@@ -168,34 +136,35 @@ document.addEventListener("DOMContentLoaded", () => {
       float pz = planeDist * nz + planeDist * float(i);
       float pd = (pz - ro.z) / rd.z;
       vec3 pp = ro + rd * pd;
+
       if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
         vec3 npp = ro + nrd * pd;
         vec3 off = vec3(0.0);
-
-        // --- Усиленное размытие для дальних слоёв (12–16) ---
-        float blurFactor = 0.0;
-        float alphaMul = 1.0;
-        if (i >= 12) {
-          // 0..1 по индексам 12..16
-          blurFactor = smoothstep(12.0, 16.0, float(i));
-          // комбинируем с uniform силой
-          float strength = clamp(iBlurStrength * blurFactor, 0.0, 2.5); // allow strong values
-          positionalBlur(pp, npp, strength, alphaMul);
-          // дополнительно можно учитывать pd (дистанцию) — дальние слои размываются сильнее
-          alphaMul *= smoothstep(0.0, maxDist, pd);
-        }
-
         vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-        // apply alpha multiplier for blurred far layers to hide spawn
-        pcol.w *= alphaMul;
+        // добавляем размытие дальних слоёв (12–16)
+        float blurAmount = smoothstep(12.0, 16.0, float(i)); // 0..1
+        if (blurAmount > 0.0) {
+          float blurScale = mix(0.0, 0.004, blurAmount); // сила размытия
+          vec3 blurSum = vec3(0.0);
+          const int samples = 6;
+          for (int j = 0; j < samples; ++j) {
+            float ang = float(j) / float(samples) * TAU;
+            vec2 offset = vec2(cos(ang), sin(ang)) * blurScale;
+            vec3 bpp = ro + normalize((p + offset).x*uu + (p + offset).y*vv + 2.0*ww) * pd;
+            vec4 bcol = plane(ro, rd, bpp, npp, off, nz + float(i));
+            blurSum += bcol.xyz;
+          }
+          pcol.xyz = mix(pcol.xyz, blurSum / float(samples), blurAmount);
+        }
 
-        // existing fade-in based on plane distance
         float fadeIn = smoothstep(maxDist, fadeDist, pd);
         pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
         pcol = clamp(pcol, 0.0, 1.0);
         accum = alphaBlendVec4(accum, pcol);
-      } else { break; }
+      } else {
+        break;
+      }
     }
 
     vec4 m = moon(ro, rd);
@@ -233,7 +202,6 @@ document.addEventListener("DOMContentLoaded", () => {
     gl_Position = aPosition;
   }`;
 
-  // ---------- compile helpers ----------
   function compileShader(type, src) {
     const sh = gl.createShader(type);
     gl.shaderSource(sh, src);
@@ -261,18 +229,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1, -1, 1, -1, -1, 1,
-    -1, 1, 1, -1, 1, 1
-  ]), gl.STATIC_DRAW);
-
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
   const aPos = gl.getAttribLocation(prog, "aPosition");
   gl.enableVertexAttribArray(aPos);
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const iResolutionLoc = gl.getUniformLocation(prog, "iResolution");
   const iTimeLoc = gl.getUniformLocation(prog, "iTime");
-  const iBlurStrengthLoc = gl.getUniformLocation(prog, "iBlurStrength");
 
   const resolutionScale = 1.0;
   function resize() {
@@ -300,11 +263,8 @@ document.addEventListener("DOMContentLoaded", () => {
     gl.useProgram(prog);
     gl.uniform3f(iResolutionLoc, canvas4.width, canvas4.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
-    // <-- увеличил дефолт до 0.8 (можно 0.0..2.5). Меняй для интенсивности.
-    gl.uniform1f(iBlurStrengthLoc, 0.8);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);
 });
-
