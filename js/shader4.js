@@ -104,26 +104,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // plane/layer function from original: returns color + alpha
  vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float blurAmount) {
-    float h = hash(n);
     vec2 p = (pp - off * 2.0 * vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
 
-    // ─── Размытие координат: усредняем несколько сэмплов шума ───
+    // --- Сильное размытие при blurAmount > 0 ---
     float he = 0.0;
     float lohe = 0.0;
-    int samples = (blurAmount > 0.0) ? 5 : 1;
-    for (int s = 0; s < 5; s++) {
-        vec2 offs = vec2(
-            (float(s % 2) - 0.5) * blurAmount * 0.5,
-            (float(s / 2) - 0.5) * blurAmount * 0.5
+    int samples = (blurAmount > 0.0) ? 8 : 1;
+    for (int s = 0; s < 8; s++) {
+        vec2 offs = blurAmount * vec2(
+            sin(float(s) * 2.4),
+            cos(float(s) * 3.1)
         );
-        float w = (s < samples) ? 1.0 : 0.0;
-        he   += w * hiheight((vec2(p.x, pp.z) + offs) * stp);
-        lohe += w * loheight((vec2(p.x, pp.z) + offs) * stp);
+        if (s < samples) {
+            he   += hiheight((vec2(p.x, pp.z) + offs) * stp);
+            lohe += loheight((vec2(p.x, pp.z) + offs) * stp);
+        }
     }
     he   /= float(samples);
     lohe /= float(samples);
-    // ──────────────────────────────────────────────────────────────
 
     float d = p.y - he;
     float lod = p.y - lohe;
@@ -322,6 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
