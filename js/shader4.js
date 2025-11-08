@@ -12,8 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!gl) return console.error("WebGL2 не поддерживается");
 
     // ---------- FRAGMENT SHADER ----------
-    const fragSource = `
-    #version 300 es
+    const fragSource = `#version 300 es
     precision highp float;
     uniform vec3 iResolution;
     uniform float iTime;
@@ -244,17 +243,14 @@ document.addEventListener("DOMContentLoaded", () => {
         vec3 col = effect(p, alpha);
         // output with correct transparency (transparent outside moon/planes)
         fragColor = vec4(col, alpha);
-    }
-    `;
+    }`;
 
     // ---------- VERTEX SHADER ----------
-    const vertSource = `
-    #version 300 es
+    const vertSource = `#version 300 es
     in vec4 aPosition;
     void main() {
         gl_Position = aPosition;
-    }
-    `;
+    }`;
 
     // ---------- compile helpers ----------
     function compileShader(type, src) {
@@ -340,3 +336,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     requestAnimationFrame(render);
 });
+
