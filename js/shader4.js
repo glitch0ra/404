@@ -128,89 +128,46 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     return vec4(col, clamp(t, 0.0, 1.0));
 }
 
-// --- Jupiter shader (точная копия, адаптированная к твоему контексту) ---
+vec4 moon(vec3 ro, vec3 rd) {
+    // положение и размер луны (оставляем как было)
+    vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
+    vec2 md = raySphere(ro, rd, mdim);
+    if (md.x < 0.0) return vec4(0.0);
 
-float randJ(vec2 co, float seed){
-    return fract(sin(dot(co.xy + seed ,vec2(12.9898,78.233))) * 43758.5453);
-}
+    // точка пересечения
+    vec3 mpos = ro + rd * md.x;
+    vec3 mnor = normalize(mpos - mdim.xyz);
+    float t = TIME;
 
-vec3 makeJupiter(vec2 uv, float t)
-{
-    float timeScale = 0.5;
-	vec2 zoom = vec2(20.0, 5.5);
-	vec2 offset = vec2(2.0, 1.0);
+    // UV для сферической проекции
+    float u = atan(mnor.z, mnor.x) / (2.0 * PI) + 0.5;
+    float v = mnor.y * 0.5 + 0.5;
+    vec2 uv = vec2(u, v);
 
-    vec2 point = uv * zoom + offset;
+    // --- текстура Юпитера ---
+    vec2 point = uv * vec2(20.0, 5.5) + vec2(2.0, 1.0);
     float a_x = 0.2;
     float a_y = 0.3;
 
-    for(int i=1; i<10; i++){
+    for (int i = 1; i < 10; i++) {
         float fi = float(i);
-        point.x += a_x * sin(fi*point.y + t*timeScale);
-        point.y += a_y * cos(fi*point.x + t*0.2);
+        point.x += a_x * sin(fi * point.y + t * 0.5);
+        point.y += a_y * cos(fi * point.x + t * 0.2);
     }
 
-    float r = cos(point.x+point.y+2.0)*0.5+0.5;
-    float g = sin(point.x+point.y+2.2)*0.5+0.5;
-    float b = (sin(point.x+point.y+1.0)+cos(point.x+point.y+1.5))*0.5+0.5;
-    vec3 col = vec3(r,g,b);
-    col += vec3(0.5);
-    return col;
-}
+    float r = cos(point.x + point.y + 2.0) * 0.5 + 0.5;
+    float g = sin(point.x + point.y + 2.2) * 0.5 + 0.5;
+    float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
+    vec3 surface = vec3(r, g, b) + 0.5;
 
-vec4 jupiter(vec3 ro, vec3 rd)
-{
-    vec2 resolution = RESOLUTION.xy;
-	vec2 texCoord = gl_FragCoord.xy / resolution.xy;
-	texCoord = vec2(texCoord.y, texCoord.x);
-	vec2 position = (gl_FragCoord.xy / resolution.xy);
+    // --- освещение ---
+    vec3 ldir = normalize(vec3(0.5, 0.2, 1.0));
+    float diff = max(dot(ldir, mnor), 0.0);
+    vec3 col = surface * (diff * 2.0 + 0.3);
 
-	vec2 center = resolution.xy / 2.0;
-	float dis = distance(center, gl_FragCoord.xy);
-	float radius = resolution.y / 3.0;
-	vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
-	vec4 fragColor;
-
-	if (dis < radius) {
-		vec2 posOnPlanet = (gl_FragCoord.xy - (center - radius));
-		vec2 planetCoord = posOnPlanet / (radius * 2.0);
-
-		planetCoord = planetCoord * 2.0 - 1.0;
-		float sphereDis = length(planetCoord);
-		sphereDis = 1.0 - pow(1.0 - sphereDis, 0.6);
-		planetCoord = normalize(planetCoord) * sphereDis;
-		planetCoord = (planetCoord + 1.0) / 2.0;
-
-		float light = pow(planetCoord.x, 2.0*(cos(TIME*0.1 +1.0)+1.5));
-		float lightAtmosphere = pow(planetCoord.x, 2.0);
-
-		vec3 surfaceColor = makeJupiter(texCoord, TIME);
-		surfaceColor *= light;
-
-		float fresnelIntensity = pow(dis / radius, 3.0);
-		vec3 fresnel = mix(surfaceColor, atmosphereColor, fresnelIntensity * lightAtmosphere);
-
-		fragColor = vec4(fresnel.rgb, 1.0);
-        fragColor *= texCoord.x * 2.0;
-	} else {
-		float starAmount = randJ(gl_FragCoord.xy, 0.0);
-		vec3 background = vec3(0.0);
-		if (starAmount < 0.01) {
-			float intensity = starAmount * 1000.0 / 4.0;
-			intensity = clamp(intensity, 0.1, 0.3);
-			background = vec3(intensity);
-		}
-
-		float outter = distance(center, gl_FragCoord.xy) / resolution.y;
-		outter = 1.0 - outter;
-		outter = clamp(outter, 0.5, 0.8);
-		outter = (outter - 0.5) / 0.3;
-		outter = pow(outter, 2.8);
-
-		fragColor = vec4(background + atmosphereColor * outter, 1.0);
-	}
-
-	return fragColor;
+    // --- мягкий контур (альфа) ---
+    float mf = smoothstep(0.0, 10000.0, md.y - md.x);
+    return vec4(col, mf);
 }
 
 
@@ -250,7 +207,7 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     }
 
     // moon
-    vec4 m = jupiter(ro, rd);
+    vec4 m = moon(ro, rd);
 
     // compose: layers (accum) over transparent black, then moon blended in
     // We'll place moon 'on top' using its alpha as weight
@@ -375,6 +332,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
