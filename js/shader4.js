@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const float maxDist = planeDist * float(furthest);
 
     float nz = floor(ro.z / planeDist);
-    vec4 accum = vec4(0.0); // accumulated color+alpha
+    vec4 accum = vec4(0.0);
 
     for (int i = 1; i <= furthest; ++i) {
         float pz = planeDist * nz + planeDist * float(i);
@@ -159,32 +159,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
             vec3 npp = ro + nrd * pd;
             vec3 off = vec3(0.0);
-            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
 
-            // стандартный fade по глубине
+            // уровень размытия — только для дальних (13–16)
+            float blurAmount = 0.0;
+            if (i >= 13) {
+                float blurFactor = smoothstep(13.0, 16.0, float(i));
+                blurAmount = mix(0.0, 0.06, blurFactor); // чем дальше, тем больше blur
+            }
+
+            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i), blurAmount);
+
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
-
-            // ───── РЕАЛЬНОЕ "РАЗМЫТИЕ" ДЛЯ ДАЛЬНИХ СЛОЁВ ─────
-            if (i >= 13) {
-                float blurStrength = smoothstep(float(furthest - 3), float(furthest), float(i));
-                float blurDepth = clamp(pd / maxDist, 0.0, 1.0);
-                float blur = pow(blurDepth * blurStrength, 2.0);
-
-                // Сэмплируем несколько смещённых направлений для имитации размытия
-                vec3 blurCol = pcol.rgb;
-                blurCol += plane(ro, rd, pp + vec3(0.003, 0.0, 0.0), npp, off, nz + float(i)).rgb;
-                blurCol += plane(ro, rd, pp + vec3(-0.003, 0.0, 0.0), npp, off, nz + float(i)).rgb;
-                blurCol += plane(ro, rd, pp + vec3(0.0, 0.003, 0.0), npp, off, nz + float(i)).rgb;
-                blurCol += plane(ro, rd, pp + vec3(0.0, -0.003, 0.0), npp, off, nz + float(i)).rgb;
-                blurCol /= 5.0;
-
-                // Смешиваем оригинал и размытый результат
-                pcol.rgb = mix(pcol.rgb, blurCol, blur);
-                // ослабляем альфу для мягкости появления
-                pcol.a *= 1.0 - blur * 0.6;
-            }
-            // ────────────────────────────────────────────────────────
 
             pcol = clamp(pcol, 0.0, 1.0);
             accum = alphaBlendVec4(accum, pcol);
@@ -318,6 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
