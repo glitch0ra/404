@@ -167,11 +167,16 @@ float digit(vec2 uv, int num) {
 
 // Случайный выбор цифры и мерцание
 float random_digit(vec2 outer, vec2 inner, float time) {
-    float h = hash(outer + floor(time * 0.06)); // теперь смена в ~50 раз медленнее
+    // ↓ была 0.02, теперь смена символов в ~10 раз медленнее
+    float h = hash(outer + floor(time * 0.002)); 
     int n = int(floor(h * 2.0)); // 0 или 1
     float pixel = digit(inner, n);
-    // мягкое мигание (тоже замедлено)
-    float flicker = smoothstep(0.4, 0.6, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.06)));
+
+    // ↓ мерцание тоже в 10 раз медленнее
+    float flicker = smoothstep(0.4, 0.6,
+        fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 0.006))
+    );
+
     return pixel * flicker;
 }
 
@@ -406,5 +411,6 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
