@@ -154,14 +154,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (i == 3) pos.y = 0.999;
     vec4 snaps = vec4(2, 3, 2, 3);
     pos = (floor(pos * snaps) + 0.5) / snaps;
-    if (pos.xy != pos.zw) d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
+    if (pos.xy != pos.zw)
+      d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
   }
-  
- 
-  float line = smoothstep(0.02, 0.0, d); // Было 0.1, стало тоньше и резче
-  float glow = highlight * smoothstep(0.08, 0.0, d); // Умеренный акцент без "ореола"
-  return line + glow;
+
+  // 💡 Исправленная версия — без тёмной каймы, но с цветом
+  float line = smoothstep(0.06, 0.0, d);      // резче граница
+  float inner = smoothstep(0.03, 0.0, d);     // внутренний заполнитель
+  float mask = mix(line, inner, highlight);   // плавное заполнение
+  return mask;
 }
+
 
 
   float random_char(vec2 outer, vec2 inner, float highlight) {
@@ -402,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
