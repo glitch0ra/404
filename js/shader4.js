@@ -128,67 +128,67 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     return vec4(col, clamp(t, 0.0, 1.0));
 }
 
-vec4 moon(vec3 ro, vec3 rd)
-{
-    // --- вычисляем пересечение луча с виртуальной "сферой" планеты ---
-    vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
-    vec2 md = raySphere(ro, rd, mdim);
-    if (md.x < 0.0) return vec4(0.0);
+// --- Jupiter shader integration (replaces moon) ---
 
-    vec3 mpos = ro + rd * md.x;
-    vec3 mnor = normalize(mpos - mdim.xyz);
+float randJ(vec2 co, float seed) {
+    return fract(sin(dot(co.xy + seed ,vec2(12.9898,78.233))) * 43758.5453);
+}
 
-    // --- сферические UV координаты ---
-    vec2 uv;
-    uv.x = atan(mnor.z, mnor.x) / (2.0 * PI) + 0.5;
-    uv.y = mnor.y * 0.5 + 0.5;
-
-    // --- параметры для планеты (как в оригинальном Jupiter шейдере) ---
-    float time = TIME;
+vec3 makeJupiter(vec2 uv, float t) {
     float timeScale = 0.5;
     vec2 zoom = vec2(20.0, 5.5);
     vec2 offset = vec2(2.0, 1.0);
-
     vec2 point = uv * zoom + offset;
+
     float a_x = 0.2;
     float a_y = 0.3;
 
     for (int i = 1; i < 10; i++) {
         float fi = float(i);
-        point.x += a_x * sin(fi * point.y + time * timeScale);
-        point.y += a_y * cos(fi * point.x + time * 0.2);
+        point.x += a_x * sin(fi * point.y + t * timeScale);
+        point.y += a_y * cos(fi * point.x + t * 0.2);
     }
 
     float r = cos(point.x + point.y + 2.0) * 0.5 + 0.5;
     float g = sin(point.x + point.y + 2.2) * 0.5 + 0.5;
     float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
 
-    vec3 surfaceColor = vec3(r, g, b) + 0.5;
-
-    // --- имитация света и атмосферы ---
-    float light = pow(uv.x, 2.0 * (cos(TIME * 0.1 + 1.0) + 1.5));
-    float lightAtmosphere = pow(uv.x, 2.0);
-
-    surfaceColor *= light;
-
-    vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
-
-    // --- френель-атмосфера как в оригинале ---
-    float fresnelIntensity = pow(1.0 - uv.y, 3.0);
-    vec3 fresnel = mix(surfaceColor, atmosphereColor, fresnelIntensity * lightAtmosphere);
-
-    vec3 col = fresnel * (uv.x * 2.0);
-
-    // --- затемнение краёв для глубины ---
-    float edge = pow(1.0 - abs(mnor.z), 2.0);
-    col *= mix(1.0, 0.3, edge);
-
-    // --- итог ---
-    float mf = smoothstep(0.0, 10000.0, md.y - md.x);
-    return vec4(col, mf);
+    vec3 col = vec3(r, g, b);
+    col += vec3(0.5);
+    return col;
 }
 
+vec4 jupiter(vec3 ro, vec3 rd) {
+    // Положение и радиус сферы (замени центр если хочешь сместить)
+    vec4 sph = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
 
+    vec2 hit = raySphere(ro, rd, sph);
+    if (hit.x < 0.0) return vec4(0.0);
+
+    vec3 pos = ro + rd * hit.x;
+    vec3 normal = normalize(pos - sph.xyz);
+    float t = TIME;
+
+    // UV на сфере
+    float u = atan(normal.z, normal.x) / (2.0 * PI) + 0.5;
+    float v = normal.y * 0.5 + 0.5;
+    vec2 uv = vec2(u, v);
+
+    // Генерация текстуры планеты
+    vec3 surface = makeJupiter(uv, t);
+
+    // Освещение
+    vec3 lightDir = normalize(vec3(0.5, 0.2, 1.0));
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 lit = surface * (diff * 2.2 + 0.3);
+
+    // Атмосфера
+    float fresnel = pow(1.0 - max(dot(rd, normal), 0.0), 2.5);
+    vec3 atmosphere = mix(lit, vec3(0.9, 0.8, 0.7), fresnel * 0.8);
+
+    float alpha = smoothstep(0.0, 10000.0, hit.y - hit.x);
+    return vec4(atmosphere, alpha);
+}
 
 
 // main color accumulation: returns rgb and alpha via out param
@@ -226,7 +226,7 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     }
 
     // moon
-    vec4 m = moon(ro, rd);
+    vec4 m = jupiter(ro, rd);
 
     // compose: layers (accum) over transparent black, then moon blended in
     // We'll place moon 'on top' using its alpha as weight
@@ -351,6 +351,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
