@@ -14,10 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // ---------- FRAGMENT SHADER ----------
     const fragSource = `#version 300 es
 precision highp float;
-
 uniform vec3 iResolution;
 uniform float iTime;
-
 out vec4 fragColor;
 
 #define RESOLUTION iResolution
@@ -53,9 +51,12 @@ float tanh_approx(float x) {
 }
 
 // hashes / noise
-float hash(float n) { return fract(sin(n*12.9898)*43758.5453); }
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
-
+float hash(float n) {
+    return fract(sin(n*12.9898)*43758.5453);
+}
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123);
+}
 float vnoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
@@ -68,25 +69,35 @@ float vnoise(vec2 p) {
 }
 
 float hifbm(vec2 p) {
-    float sum = 0.0; float amp = 1.0; float lacunarity = 2.0;
+    float sum = 0.0;
+    float amp = 1.0;
+    float lacunarity = 2.0;
     for (int i=0;i<5;i++){
         sum += amp * vnoise(p);
-        amp *= 0.5; p *= lacunarity;
+        amp *= 0.5;
+        p *= lacunarity;
     }
     return sum;
 }
 
 float lofbm(vec2 p) {
-    float sum = 0.0; float amp = 1.0; float lacunarity = 2.0;
+    float sum = 0.0;
+    float amp = 1.0;
+    float lacunarity = 2.0;
     for (int i=0;i<2;i++){
         sum += amp * vnoise(p);
-        amp *= 0.5; p *= lacunarity;
+        amp *= 0.5;
+        p *= lacunarity;
     }
     return sum;
 }
 
-float hiheight(vec2 p){ return hifbm(p) - 1.8; }
-float loheight(vec2 p){ return lofbm(p) - 2.15; }
+float hiheight(vec2 p){
+    return hifbm(p) - 1.8;
+}
+float loheight(vec2 p){
+    return lofbm(p) - 2.15;
+}
 
 // ray-sphere intersection (returns t0,t1 or -1.0 if miss)
 vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
@@ -97,103 +108,6 @@ vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     if (h < 0.0) return vec2(-1.0);
     h = sqrt(h);
     return vec2(-b - h, -b + h);
-}
-
-// Точная копия функции из оригинального шейдера Юпитера
-float rand(vec2 co, float seed){
-    return fract(sin(dot(co.xy + seed ,vec2(12.9898,78.233))) * 43758.5453);
-}
-
-vec3 makeJupiter(vec2 uv, float time)
-{
-    float timeScale = .5;
-    vec2 zoom = vec2(20.,5.5);
-    vec2 offset = vec2(2.,1.);
-    vec2 point = uv * zoom + offset;
-    float p_x = float(point.x); 
-    float p_y = float(point.y);
-    float a_x = .2;
-    float a_y = .3;
-    for(int i=1; i<10; i++){
-        float float_i = float(i); 
-        point.x+=a_x*sin(float_i*point.y+time*timeScale);
-        point.y+=a_y*cos(float_i*point.x+time*.2);
-    }
-    float r = cos(point.x+point.y+2.)*.5+.5;
-    float g = sin(point.x+point.y+2.2)*.5+.5;
-    float b = (sin(point.x+point.y+1.)+cos(point.x+point.y+1.5))*.5+.5;
-    vec3 col = vec3(r,g,b);
-    col += vec3(.5);
-    return col;
-}
-
-// Полностью переписанная функция moon() на основе оригинального шейдера Юпитера
-vec4 moon(vec3 ro, vec3 rd) {
-    // Параметры сферы для проверки видимости
-    vec4 mdim = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
-    
-    // Проверяем пересечение луча со сферой для определения видимости
-    vec2 md = raySphere(ro, rd, mdim);
-    if (md.x < 0.0) return vec4(0.0); // Луна/Юпитер не виден
-    
-    // Далее используем логику оригинального шейдера Юпитера
-    vec2 resolution = RESOLUTION.xy;
-    
-    // Позиционирование сферы на экране (адаптировано для текущей сцены)
-    vec2 center = vec2(resolution.x * 0.5, resolution.y * 0.58); // Центр сферы
-    float radius = resolution.y * 0.11; // Радиус сферы
-    
-    // Расстояние от текущего фрагмента до центра сферы
-    float dis = distance(center, gl_FragCoord.xy);
-    vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
-    
-    if (dis < radius) {
-        // Находим координаты на планете
-        vec2 posOnPlanet = (gl_FragCoord.xy - (center - vec2(radius, radius)));
-        vec2 planetCoord = posOnPlanet / (radius * 2.0);
-        
-        // Сферификация координат
-        planetCoord = planetCoord * 2.0 - 1.0;
-        float sphereDis = length(planetCoord);
-        if (sphereDis > 1.0) return vec4(0.0); // Вне сферы
-        
-        // Эффект искажения для создания объема
-        sphereDis = 1.0 - pow(1.0 - sphereDis, 0.6);
-        planetCoord = normalize(planetCoord) * sphereDis;
-        planetCoord = (planetCoord + 1.0) / 2.0;
-        
-        // Координаты текстуры (адаптированы для текущей сцены)
-        vec2 uv;
-        uv.x = planetCoord.x;
-        uv.y = planetCoord.y;
-        
-        // Вычисляем освещение (точно как в оригинале)
-        float light = pow(planetCoord.x, 2.0 * (cos(TIME * 0.1 + 1.0) + 1.5));
-        float lightAtmosphere = pow(planetCoord.x, 2.0);
-        
-        // Применяем текстуру Юпитера
-        vec3 surfaceColor = makeJupiter(uv, TIME);
-        surfaceColor *= light;
-        
-        // Эффект атмосферы по краям (Френель)
-        float fresnelIntensity = pow(dis / radius, 3.0);
-        vec3 fresnel = mix(surfaceColor, atmosphereColor, fresnelIntensity * lightAtmosphere);
-        
-        // Затемнение левой части для создания объема и правильного освещения
-        fresnel *= planetCoord.x * 2.0;
-        
-        // Добавляем атмосферу за планетой (эффект контура)
-        float outter = (radius - dis) / radius;
-        outter = pow(outter, 3.0);
-        fresnel += atmosphereColor * outter * 0.3;
-        
-        // Альфа-канал с плавным переходом по краям
-        float alpha = 1.0 - smoothstep(radius * 0.95, radius, dis);
-        
-        return vec4(fresnel, alpha);
-    }
-    
-    return vec4(0.0);
 }
 
 // plane/layer function from original: returns color + alpha
@@ -214,30 +128,85 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     return vec4(col, clamp(t, 0.0, 1.0));
 }
 
+// moon implementation (kept original geometry/signature)
+// заменяет старую moon(vec3 ro, vec3 rd)
+vec4 moon(vec3 ro, vec3 rd) {
+    // Параметры сферы — оставить как у луны
+    vec4 sph = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
+    vec2 t = raySphere(ro, rd, sph);
+    if (t.x < 0.0) return vec4(0.0);
+
+    // Позиция и нормаль
+    vec3 pos = ro + rd * t.x;
+    vec3 nrm = normalize(pos - sph.xyz);
+
+    // Координаты "долгот/широт" для полос Юпитера
+    float theta = atan(nrm.z, nrm.x);
+    float phi = acos(clamp(nrm.y, -1.0, 1.0));
+    vec2 uv = vec2(theta / (2.0 * PI) + 0.5, phi / PI);
+
+    // ==== Процедурная текстура Юпитера (адаптировано из твоего файла) ====
+    float time = iTime * 0.5;
+    vec2 zoom = vec2(20.0, 5.5);
+    vec2 offset = vec2(2.0, 1.0);
+    vec2 point = uv * zoom + offset;
+
+    float a_x = 0.2;
+    float a_y = 0.3;
+
+    for (int i = 1; i < 10; i++) {
+        float fi = float(i);
+        point.x += a_x * sin(fi * point.y + time);
+        point.y += a_y * cos(fi * point.x + time * 0.2);
+    }
+
+    float r = cos(point.x + point.y + 2.0) * 0.5 + 0.5;
+    float g = sin(point.x + point.y + 2.2) * 0.5 + 0.5;
+    float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
+    vec3 jupColor = vec3(r, g, b) + 0.5;
+
+    // ==== Освещение ====
+    vec3 lightDir = normalize(vec3(0.3, 0.1, 0.9));
+    float diff = clamp(dot(nrm, lightDir), 0.0, 1.0);
+    float light = pow(diff, 1.0) * 1.3 + 0.1;
+
+    // Атмосферное осветление по краям (fresnel)
+    float fresnel = pow(1.0 - clamp(dot(nrm, -rd), 0.0, 1.0), 3.0);
+    vec3 atmosphere = mix(jupColor, vec3(0.7, 0.6, 0.5), fresnel * 0.8);
+
+    // Итоговый цвет
+    vec3 col = atmosphere * light;
+    float alpha = smoothstep(0.0, 10000.0, t.y - t.x);
+
+    return vec4(col, alpha);
+}
+
+
 // main color accumulation: returns rgb and alpha via out param
 vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
     vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
-    
+
     const float planeDist = 1.0;
     const int furthest = 30;
     const int fadeFrom = 28;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
-    
+
     float nz = floor(ro.z / planeDist);
     vec4 accum = vec4(0.0); // accumulated color+alpha
-    
+
     for (int i = 1; i <= furthest; ++i) {
         float pz = planeDist * nz + planeDist * float(i);
         float pd = (pz - ro.z) / rd.z;
         vec3 pp = ro + rd * pd;
-        
+
         if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
             vec3 npp = ro + nrd * pd;
             vec3 off = vec3(0.0);
             vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
+
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
             pcol = clamp(pcol, 0.0, 1.0);
@@ -246,19 +215,19 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
             break;
         }
     }
-    
-    // Jupiter moon
+
+    // moon
     vec4 m = moon(ro, rd);
-    
+
     // compose: layers (accum) over transparent black, then moon blended in
+    // We'll place moon 'on top' using its alpha as weight
     vec3 base = accum.xyz;
     float baseA = accum.w;
-    
+
     // blend moon over base
     vec3 finalRGB = mix(base, m.xyz, m.w);
     float finalA = max(baseA, m.w);
     outA = finalA;
-    
     return finalRGB;
 }
 
@@ -269,7 +238,6 @@ vec3 effect(vec2 p, out float outA) {
     vec3 ww = normalize(dro);
     vec3 uu = normalize(cross(normalize(vec3(0.0,1.0,0.0)), ww));
     vec3 vv = normalize(cross(ww, uu));
-    
     return color(ww, uu, vv, ro, p, outA);
 }
 
@@ -277,10 +245,10 @@ void main() {
     vec2 q = gl_FragCoord.xy / RESOLUTION.xy;
     vec2 p = -1.0 + 2.0 * q;
     p.x *= RESOLUTION.x / RESOLUTION.y;
-    
+
     float alpha;
     vec3 col = effect(p, alpha);
-    
+
     // output with correct transparency (transparent outside moon/planes)
     fragColor = vec4(col, alpha);
 }`;
@@ -374,18 +342,3 @@ void main() {
     }
     requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
