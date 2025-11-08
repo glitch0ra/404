@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     float avg = (col.r + col.g + col.b) / 3.0;
     if (avg > 0.0) {
         col /= avg;        // выравниваем
-        col *= 0.8;        // общая целевая яркость
+        col *= 0.3;        // общая целевая яркость
     }
 
     // Доп. ограничение (чтобы не слепило)
@@ -435,5 +435,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
