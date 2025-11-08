@@ -132,56 +132,48 @@ vec4 hash4(vec3 v) {
 }
 
 // ─────────── Пиксельный шрифт 0 и 1 ───────────
-// --- ЦИФРОВОЙ ДОЖДЬ: ЗАМЕНА РУН НА 0/1 (исправлено) ---
-
-// Возвращает яркость пикселя цифры (0 или 1)
-// --- ЦИФРОВОЙ ДОЖДЬ: стабильные 0/1 с редкой сменой ---
-
-// Возвращает яркость пикселя цифры (0 или 1)
 float digit(vec2 uv, int num) {
     uv = floor(uv * vec2(4.0, 6.0));
     uv.y = 5.0 - uv.y;
     uv.x = 3.0 - uv.x;
 
+    // Границы пиксельной сетки
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(4.0, 6.0)))))
         return 0.0;
 
-    int zeroData[24] = int[24](
-        1,1,1,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,1,1,1
-    );
+    // Условные формы 0 и 1 без массивов
+    float x = uv.x;
+    float y = uv.y;
 
-    int oneData[24] = int[24](
-        0,1,0,0,
-        1,1,0,0,
-        0,1,0,0,
-        0,1,0,0,
-        0,1,0,0,
-        1,1,1,0
-    );
+    float px = 0.0;
+    if (num == 0) {
+        // контур нуля
+        px = step(0.5, max(
+            step(0.5, y) * step(y, 4.5) * (
+                step(0.5, x) * step(x, 3.5)
+            ),
+            max(step(y, 5.5 - 0.5), step(0.5 - y, 0.0))
+        ));
+    } else {
+        // форма единицы: вертикальная линия справа + шапка
+        px = step(2.5, x) * step(0.5, y) * step(y, 4.5);
+        px += step(1.5, y) * step(y, 5.5) * step(1.5, x) * step(x, 3.5);
+    }
 
-    int idx = int(uv.y * 4.0 + uv.x);
-    return (num == 0) ? float(zeroData[idx]) : float(oneData[idx]);
+    return clamp(px, 0.0, 1.0);
 }
 
-// Случайный выбор цифры, но смена дискретная и медленная
+// стабильное редкое обновление
 float random_digit(vec2 outer, vec2 inner, float time) {
-    // меняем символ только раз в 50 кадров, при 60fps ≈ каждые 0.8 сек
-    float changeRate = 0.8; // секунда между сменами
+    float changeRate = 0.8; // раз в 0.8 сек
     float tStep = floor(time / changeRate);
-
-    float h = hash(outer + tStep); // стабильный хеш пока tStep не изменится
+    float h = hash(outer + tStep);
     int n = int(floor(h * 2.0));
     float pixel = digit(inner, n);
-
-    // чуть-чуть мигает, не скачет
     float flicker = 0.8 + 0.2 * sin(dot(outer, vec2(37.1, 91.7)) + time * 0.5);
     return pixel * flicker;
 }
+
 
 
 // ─────────── Главная логика дождя ───────────
@@ -422,6 +414,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
