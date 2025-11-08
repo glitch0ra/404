@@ -125,18 +125,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // cheap multi-sample positional blur for a plane: returns averaged pp,npp and an alpha multiplier
   void positionalBlur(inout vec3 pp, inout vec3 npp, float strength, out float alphaMul) {
-    // 3 sample offsets
-    vec3 pp0 = pp;
-    vec3 npp0 = npp;
-    vec3 accumP = pp0;
-    vec3 accumNP = npp0;
+    vec3 accumP = pp;
+    vec3 accumNP = npp;
 
-    // use noise-based offsets, scale by strength and by world depth (pp.z) to keep consistent
     float s = strength;
     vec2 base = pp.xy * 0.5;
-    vec2 off1 = (vnoise(base + 13.1) - 0.5) * s;
-    vec2 off2 = (vnoise(base + 72.3) - 0.5) * s;
-    vec2 off3 = (vnoise(base + 99.7) - 0.5) * s;
+
+    // правильные векторные смещения
+    vec2 off1 = vec2(vnoise(base + 13.1) - 0.5, vnoise(base + 91.7) - 0.5) * s;
+    vec2 off2 = vec2(vnoise(base + 72.3) - 0.5, vnoise(base + 44.9) - 0.5) * s;
+    vec2 off3 = vec2(vnoise(base + 99.7) - 0.5, vnoise(base + 37.4) - 0.5) * s;
 
     accumP += vec3(off1, 0.0);
     accumNP += vec3(off1, 0.0);
@@ -148,9 +146,10 @@ document.addEventListener("DOMContentLoaded", () => {
     pp = accumP / 4.0;
     npp = accumNP / 4.0;
 
-    // alpha multiplier reduces visibility for blurred layers (0.2..1.0)
+    // уменьшение альфы в зависимости от силы размытия
     alphaMul = 1.0 - clamp(strength * 0.9, 0.0, 0.95);
-  }
+}
+
 
   vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
@@ -308,3 +307,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   requestAnimationFrame(render);
 });
+
