@@ -268,35 +268,24 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
 
-    // --- Выравнивание яркости всех рун ---
-    // Нормализуем цвет по средней яркости
-    float avg = (col.r + col.g + col.b) / 1.0;
-    if (avg > 0.0) {
-        col /= avg;        // выравниваем
-        col *= 0.3;        // общая целевая яркость
-    }
+     // --- Мягкое выравнивание яркости ---
+    // измеряем текущую "силу" свечения
+    float luminance = dot(col, vec3(0.299, 0.587, 0.114));
 
-    // Доп. ограничение (чтобы не слепило)
-    col = clamp(col, 0.0, 1.0);
-    
-    // Повышаем насыщенность и контраст цвета
-    float saturation = 1.8; // 1.0 = оригинал, 1.8 = ярко и сочно
-    float contrast = 1.3;   // 1.0 = оригинал, 1.3 = чуть контрастнее
-    float brightnessBoost = 0.15; // легкая подсветка
+    // подгоняем её к целевой средней (0.7)
+    float targetLum = 0.7;
+    float adjust = mix(1.0, targetLum / (luminance + 0.001), 0.4);
+    col *= adjust;
 
-    // Средняя яркость
+    // при этом слегка усиливаем насыщенность и контраст
+    float saturation = 1.7;
+    float contrast = 1.25;
+    float brightnessBoost = 0.1;
+
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-
-    // Увеличение насыщенности
     col = mix(vec3(lum), col, saturation);
-
-    // Контраст
     col = (col - 0.5) * contrast + 0.5;
-
-    // Легкий буст яркости
     col += brightnessBoost;
-
-    // Клип значений
     col = clamp(col, 0.0, 1.0);
 
     float brightness = max(col.r, max(col.g, col.b));
@@ -435,6 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
