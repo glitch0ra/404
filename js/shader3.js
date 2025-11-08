@@ -266,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 ro = vec3(0.5, 0.5, 0.0);
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
-    fragColor = vec4(col, length(col) > 0.001 ? 1.0 : 0.0);
+    fragColor = vec4(col, 1.0);
   }
 
   void main() {
@@ -398,6 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
