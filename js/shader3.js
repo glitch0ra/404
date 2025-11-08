@@ -202,7 +202,15 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
             float target_length = chars_count * STRIP_CHAR_HEIGHT;
             float target_rad = STRIP_CHAR_WIDTH / 2.;
             float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-            vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
+            
+            // делаем равномерные столбцы по оси X и даём небольшой джиттер (чтобы не было слишком механично)
+            float jitterX = (cell_hash.x - 0.5) * XYCELL_SIZE * 0.4; // регулировать: 0.0..0.6
+            float jitterY = (cell_hash.y - 0.5) * XYCELL_SIZE * 0.2; // небольшой вертикальный сдвиг
+            // базовая позиция — центр ячейки (равномерно по X и Y)
+            vec2 basePos = vec2(float(cell.x) * XYCELL_SIZE + XYCELL_SIZE * 0.5,
+                                float(cell.y) * XYCELL_SIZE + XYCELL_SIZE * 0.5);
+            vec2 target = basePos + vec2(jitterX, jitterY);
+
             vec2 s = target - ro2;
             float tmin = dot(s, rd2);
             float dist = tmin / t3_to_t2;
@@ -431,6 +439,7 @@ image.onerror = () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
