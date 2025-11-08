@@ -107,11 +107,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const float BLOCKS_BEFORE_TURN = 3.0;
   const float PI = 3.14159265359;
   
-  // Пиксельный шрифт 5x7 для цифр 0 и 1
-  float getBit(int num, int pos) {
-    return float((num >> pos) & 1);
+  // Функция для получения бита из числа
+  float getBit(float num, float pos) {
+    return floor(mod(floor(num / pow(2.0, pos)), 2.0));
   }
   
+  // Пиксельный шрифт для цифр 0 и 1
   float drawPixelDigit(vec2 uv, int digit) {
     // Конвертируем uv в координаты пикселей (5x7)
     vec2 px = floor(uv * vec2(5.0, 7.0));
@@ -119,40 +120,40 @@ document.addEventListener("DOMContentLoaded", () => {
     // Проверяем выход за границы
     if (px.x < 0.0 || px.x >= 5.0 || px.y < 0.0 || px.y >= 7.0) return 0.0;
     
-    // Маппинг для цифры 0 (5x7)
-    int zeroMap[7] = int[7](
-      0b01110, // 14
-      0b10001, // 17
-      0b10001, // 17
-      0b10001, // 17
-      0b10001, // 17
-      0b10001, // 17
-      0b01110  // 14
+    // Маппинг для цифры 0 (5x7) - десятичные значения вместо бинарных
+    float zeroMap[7] = float[7](
+      14.0, // 01110
+      17.0, // 10001
+      17.0, // 10001
+      17.0, // 10001
+      17.0, // 10001
+      17.0, // 10001
+      14.0  // 01110
     );
     
-    // Маппинг для цифры 1 (5x7)
-    int oneMap[7] = int[7](
-      0b00100, // 4
-      0b01100, // 12
-      0b00100, // 4
-      0b00100, // 4
-      0b00100, // 4
-      0b00100, // 4
-      0b01110  // 14
+    // Маппинг для цифры 1 (5x7) - десятичные значения вместо бинарных
+    float oneMap[7] = float[7](
+      4.0,  // 00100
+      12.0, // 01100
+      4.0,  // 00100
+      4.0,  // 00100
+      4.0,  // 00100
+      4.0,  // 00100
+      14.0  // 01110
     );
     
     // Выбираем маппинг в зависимости от цифры
-    int bit = 0;
+    float bit = 0.0;
     if (digit == 0) {
-      bit = int(getBit(zeroMap[int(px.y)], int(4.0 - px.x)));
+      bit = getBit(zeroMap[int(px.y)], 4.0 - px.x);
     } else {
-      bit = int(getBit(oneMap[int(px.y)], int(4.0 - px.x)));
+      bit = getBit(oneMap[int(px.y)], 4.0 - px.x);
     }
     
     // Рисуем пиксель с небольшим сглаживанием
     vec2 center = (px + 0.5) / vec2(5.0, 7.0);
     float dist = length(uv - center) * 50.0;
-    return smoothstep(0.8, 0.2, dist) * float(bit);
+    return smoothstep(0.8, 0.2, dist) * bit;
   }
   
   float hash(float v) {
