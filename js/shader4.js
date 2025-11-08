@@ -139,8 +139,8 @@ vec4 moon(vec3 ro, vec3 rd)
     vec3 mpos = ro + rd * md.x;
     vec3 mnor = normalize(mpos - mdim.xyz);
 
-    // --- вращение "поверхности" ---
-    float rot = TIME * 0.1;
+    // --- вращение поверхности (в 2 раза медленнее) ---
+    float rot = TIME * 0.05;
     float s = sin(rot), c = cos(rot);
     vec3 mnorR = vec3(
         mnor.x * c - mnor.z * s,
@@ -149,7 +149,7 @@ vec4 moon(vec3 ro, vec3 rd)
     );
 
     // --- источник света ---
-    vec3 ldir = normalize(vec3(0.3, 0.2, 0.9)); // направление света
+    vec3 ldir = normalize(vec3(0.3, 0.2, 0.9));
     float diff = max(dot(ldir, mnorR), 0.0);
 
     // --- текстура кратеров через фрактальный шум ---
@@ -159,22 +159,25 @@ vec4 moon(vec3 ro, vec3 rd)
     float craterShade = mix(1.0, 0.5, crater);
 
     // --- освещение ---
-    float ambient = 0.15;
-    float light = ambient + diff * 0.85;
-    vec3 baseCol = vec3(0.9) * craterShade;     // серо-чёрная база
-    vec3 shaded = baseCol * light;
+    float ambient = 0.12;
+    float light = ambient + diff * 0.75;
+    vec3 baseCol = vec3(0.9) * craterShade;
+
+    // --- в 4 раза темнее ---
+    vec3 shaded = baseCol * light * 0.25;
 
     // --- подчёркивание снизу (рефлекс) ---
     float rim = smoothstep(-0.1, 0.4, -mnorR.y);
-    shaded += vec3(0.15, 0.15, 0.2) * rim;
+    shaded += vec3(0.1, 0.1, 0.15) * rim;
 
-    // --- финальная насыщенность/контраст ---
-    shaded = pow(shaded, vec3(0.7)); // немного контраста
+    // --- контраст ---
+    shaded = pow(shaded, vec3(0.7));
     shaded = clamp(shaded, 0.0, 1.0);
 
     float mf = smoothstep(0.0, 10000.0, md.y - md.x);
     return vec4(shaded, mf);
 }
+
 
 
 // main color accumulation: returns rgb and alpha via out param
@@ -337,6 +340,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
