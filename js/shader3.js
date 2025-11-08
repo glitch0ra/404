@@ -87,27 +87,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision mediump float;
-  out vec4 fragColor;
-  uniform vec3 iResolution;
-  uniform float iTime;
-  uniform vec4 iMouse;
-  uniform float uQuality; // Адаптивный параметр качества
+precision mediump float;
+out vec4 fragColor;
+uniform vec3 iResolution;
+uniform float iTime;
+uniform vec4 iMouse;
+uniform float uQuality;
 
-  const float SPEED = .21;
-  const float STRIP_CHARS_MIN = 7.0;
-  const float STRIP_CHARS_MAX = 40.0;
-  const float STRIP_CHAR_HEIGHT = 0.15;
-  const float STRIP_CHAR_WIDTH = 0.10;
-  const float ZCELL_SIZE = 1.0 * (STRIP_CHAR_HEIGHT * STRIP_CHARS_MAX);
-  const float XYCELL_SIZE = 12.0 * STRIP_CHAR_WIDTH;
-  const int BLOCK_SIZE = 10;
-  const int BLOCK_GAP = 2;
-  const float WALK_SPEED = 1.0 * XYCELL_SIZE;
-  const float BLOCKS_BEFORE_TURN = 3.0;
-  const float PI = 3.14159265359;
+const float SPEED = .21;
+const float STRIP_CHARS_MIN = 7.0;
+const float STRIP_CHARS_MAX = 40.0;
+const float STRIP_CHAR_HEIGHT = 0.15;
+const float STRIP_CHAR_WIDTH = 0.10;
+const float ZCELL_SIZE = 1.0 * (STRIP_CHAR_HEIGHT * STRIP_CHARS_MAX);
+const float XYCELL_SIZE = 12.0 * STRIP_CHAR_WIDTH;
+const int BLOCK_SIZE = 10;
+const int BLOCK_GAP = 2;
+const float WALK_SPEED = 1.0 * XYCELL_SIZE;
+const float BLOCKS_BEFORE_TURN = 3.0;
+const float PI = 3.14159265359;
 
-  vec3 oilMix(vec3 p, float t) {
+vec3 oilMix(vec3 p, float t) {
     vec3 c1 = vec3(1.0, 0.0, 1.0);
     vec3 c2 = vec3(0.0, 1.0, 0.58);
     vec3 c3 = vec3(0.0, 1.0, 1.0);
@@ -121,52 +121,57 @@ document.addEventListener("DOMContentLoaded", () => {
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
-  }
-
-  float hash(float v) { return fract(sin(v) * 43758.5453123); }
-  float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
-  vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
-
-  vec4 hash4(vec2 v) {
-    vec4 p = vec4(v * mat4x2(127.1, 311.7, 269.5, 183.3, 113.5, 271.9, 246.1, 124.6));
-    return fract(sin(p) * 43758.5453123);
-  }
-
-  vec4 hash4(vec3 v) {
-    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 269.5, 183.3, 246.1, 113.5, 271.9, 124.6, 271.9, 269.5, 311.7));
-    return fract(sin(p) * 43758.5453123);
-  }
-
-  float rune_line(vec2 p, vec2 a, vec2 b) {
-    p -= a; b -= a;
-    float h = clamp(dot(p, b) / dot(b, b), 0., 1.);
-    return length(p - b * h);
-  }
-
- float rune(vec2 U, vec2 seed, float highlight) {
-    float d = 1e5;
-    for (int i = 0; i < 4; i++) {
-        vec4 pos = hash4(seed);
-        seed += 1.;
-        if (i == 0) pos.y = 0.0;
-        if (i == 1) pos.x = 0.999;
-        if (i == 2) pos.x = 0.0;
-        if (i == 3) pos.y = 0.999;
-        vec4 snaps = vec4(2, 3, 2, 3);
-        pos = (floor(pos * snaps) + 0.5) / snaps;
-        if (pos.xy != pos.zw) 
-            d = min(d, rune_line(U, pos.xy, pos.zw + 0.001));
-    }
-
-    return smoothstep(0.1, 0., d) + highlight * smoothstep(0.4, 0., d);
 }
 
-  float random_char(vec2 outer, vec2 inner, float highlight) {
-    vec2 seed = vec2(dot(outer, vec2(269.5, 183.3)), dot(outer, vec2(113.5, 271.9)));
-    return rune(inner, seed, highlight);
-  }
+float hash(float v) { return fract(sin(v) * 43758.5453123); }
+float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
+vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
+vec4 hash4(vec3 v) {
+    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 269.5, 183.3, 246.1, 113.5, 271.9, 124.6, 271.9, 269.5, 311.7));
+    return fract(sin(p) * 43758.5453123);
+}
 
-  vec3 rain(vec3 ro3, vec3 rd3, float time) {
+// ─────────── Пиксельный шрифт 0 и 1 ───────────
+float digit(vec2 uv, int num) {
+    uv = floor(uv * vec2(4.0, 6.0)); // 4x6 сетка
+    if (uv.x < 0.0 || uv.x > 3.0 || uv.y < 0.0 || uv.y > 5.0) return 0.0;
+
+    int idx = int(uv.y * 4.0 + uv.x);
+
+    // Паттерн 0
+    int zero[24] = int[24](
+        1,1,1,1,
+        1,0,0,1,
+        1,0,0,1,
+        1,0,0,1,
+        1,0,0,1,
+        1,1,1,1
+    );
+    // Паттерн 1
+    int one[24] = int[24](
+        0,1,0,0,
+        1,1,0,0,
+        0,1,0,0,
+        0,1,0,0,
+        0,1,0,0,
+        1,1,1,0
+    );
+
+    return float(num == 0 ? zero[idx] : one[idx]);
+}
+
+// ─────────── Генерация цифры ───────────
+float random_digit(vec2 outer, vec2 inner, float time) {
+    float h = hash(outer + floor(time * 1.3));
+    int n = int(floor(h * 2.0)); // 0 или 1
+    float px = digit(inner, n);
+    // Случайное мерцание
+    float flicker = step(0.3, fract(sin(dot(outer, vec2(37.1, 91.7)) + time * 2.5)));
+    return px * flicker;
+}
+
+// ─────────── Главная логика дождя ───────────
+vec3 rain(vec3 ro3, vec3 rd3, float time) {
     vec4 result = vec4(0.);
     vec2 ro2 = vec2(ro3);
     vec2 rd2 = normalize(vec2(rd3));
@@ -177,87 +182,78 @@ document.addEventListener("DOMContentLoaded", () => {
     float t2 = 0.;
     vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
     ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
-    float localTime = mod(time, 500.0);
 
-    // Адаптивное количество итераций
     int maxIterations = int(mix(15.0, 25.0, uQuality));
     for (int i = 0; i < 25; i++) {
-      if (i >= maxIterations) break; // Динамический выход при низком качестве
-      
-      ivec2 cell = next_cell;
-      float t2s = t2;
-      vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
-      vec2 t2_side = (side - ro2) / rd2;
-      if (t2_side.x < t2_side.y) {
-        t2 = t2_side.x;
-        next_cell.x += cell_shift.x;
-      } else {
-        t2 = t2_side.y;
-        next_cell.y += cell_shift.y;
-      }
-      vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
-      float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
-      if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
-
-      float t3s = t2s / t3_to_t2;
-      float pos_z = ro3.z + rd3.z * t3s;
-      float xycell_hash = hash(vec2(cell));
-      float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
-      float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
-      z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
-      int zcell = int(floor((pos_z - z_shift) / ZCELL_SIZE));
-
-      for (int j = 0; j < 2; j++) {
-        vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
-        vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
-        float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
-        float target_length = chars_count * STRIP_CHAR_HEIGHT;
-        float target_rad = STRIP_CHAR_WIDTH / 2.;
-        float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-        vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
-        vec2 s = target - ro2;
-        float tmin = dot(s, rd2);
-        float dist = tmin / t3_to_t2;
-        if (dist < 4.0) continue;
-
-        if (tmin >= t2s && tmin <= t2) {
-          float u = s.x * rd2.y - s.y * rd2.x;
-          if (abs(u) < target_rad) {
-            u = (u / target_rad + 1.) / 2.;
-            float z = ro3.z + rd3.z * tmin / t3_to_t2;
-            float v = (z - target_z) / target_length;
-            if (v >= 0.0 && v < 1.0) {
-              float c = floor(v * chars_count);
-              float q = fract(v * chars_count);
-              vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-              if (char_hash.x >= 0.1 || c == 0.) {
-                float time_factor = floor(c == 0. ? time * 14.0 : time * 5.0 * (1.2 * cell_hash2.z + cell_hash2.w * cell_hash2.w * 4.5 * pow(char_hash.y, 3.5)));
-                float a = random_char(vec2(char_hash.x, time_factor), vec2(u, q), max(1., 3. - c / 2.) * 0.2);
-                a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-                a *= smoothstep(4.0, 6.0, dist);
-                if (a > 0.) {
-                  float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                  float colorShift = hash(vec2(cell)) * 6.2831;
-                  vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
-                  float colorSpeed = 0.8 + hash(vec2(cell) + 7.7) * 0.4;
-                  baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 * colorSpeed + colorShift);
-                  vec3 col = baseColor / attenuation;
-                  float a1 = result.a;
-                  result.a = a1 + (1. - a1) * a;
-                  result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                  if (result.a > 0.98) return result.xyz;
-                }
-              }
-            }
-          }
+        if (i >= maxIterations) break;
+        ivec2 cell = next_cell;
+        float t2s = t2;
+        vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
+        vec2 t2_side = (side - ro2) / rd2;
+        if (t2_side.x < t2_side.y) {
+            t2 = t2_side.x;
+            next_cell.x += cell_shift.x;
+        } else {
+            t2 = t2_side.y;
+            next_cell.y += cell_shift.y;
         }
-        zcell += cell_shift.z;
-      }
+        vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
+        float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
+        if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
+
+        float xycell_hash = hash(vec2(cell));
+        float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
+        float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
+        z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
+        int zcell = int(floor((ro3.z - z_shift) / ZCELL_SIZE));
+
+        for (int j = 0; j < 2; j++) {
+            vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
+            vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
+            float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
+            float target_length = chars_count * STRIP_CHAR_HEIGHT;
+            float target_rad = STRIP_CHAR_WIDTH / 2.;
+            float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
+            vec2 target = vec2(cell) * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
+            vec2 s = target - ro2;
+            float tmin = dot(s, rd2);
+            float dist = tmin / t3_to_t2;
+            if (dist < 4.0) continue;
+
+            if (tmin >= t2s && tmin <= t2) {
+                float u = s.x * rd2.y - s.y * rd2.x;
+                if (abs(u) < target_rad) {
+                    u = (u / target_rad + 1.) / 2.;
+                    float z = ro3.z + rd3.z * tmin / t3_to_t2;
+                    float v = (z - target_z) / target_length;
+                    if (v >= 0.0 && v < 1.0) {
+                        float c = floor(v * chars_count);
+                        float q = fract(v * chars_count);
+                        vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
+                        float time_factor = time * 2.0 + char_hash.y * 10.0;
+                        float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
+                        a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
+                        a *= smoothstep(4.0, 6.0, dist);
+                        if (a > 0.) {
+                            float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
+                            float colorShift = hash(vec2(cell)) * 6.2831;
+                            vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
+                            vec3 col = baseColor / attenuation;
+                            float a1 = result.a;
+                            result.a = a1 + (1. - a1) * a;
+                            result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
+                            if (result.a > 0.98) return result.xyz;
+                        }
+                    }
+                }
+            }
+            zcell += cell_shift.z;
+        }
     }
     return result.xyz * result.a;
-  }
+}
 
-  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     uv.x += 60.0 / iResolution.y;
     vec2 mouse = iMouse.xy / iResolution.xy;
@@ -268,39 +264,26 @@ document.addEventListener("DOMContentLoaded", () => {
     vec3 rd = vec3(uv.x, 2.0, uv.y);
     vec3 col = rain(ro, rd, time);
 
-     // Повышаем насыщенность и контраст цвета
-    float saturation = 1.5; // 1.0 = оригинал, 1.8 = ярко и сочно
-    float contrast = 1.3;   // 1.0 = оригинал, 1.3 = чуть контрастнее
-    float brightnessBoost = 0.15; // легкая подсветка
-
-    // Средняя яркость
+    float saturation = 1.5;
+    float contrast = 1.3;
+    float brightnessBoost = 0.15;
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-
-    // Увеличение насыщенности
     col = mix(vec3(lum), col, saturation);
-
-    // Контраст
     col = (col - 0.5) * contrast + 0.5;
-
-    // Легкий буст яркости
     col += brightnessBoost;
-
-    // Клип значений
     col = clamp(col, 0.0, 1.0);
 
     float brightness = max(col.r, max(col.g, col.b));
     float alpha = brightness > 0.1 ? 1.0 : 0.0;
     col *= alpha;
-
     fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
+}
 
-  }
-
-  void main() {
+void main() {
     vec4 c;
     mainImage(c, gl_FragCoord.xy);
     fragColor = c;
-  }`;
+}`;
 
   /*──────────────────── Компиляция ────────────────────*/
   function compileShader(gl, type, src) {
@@ -425,6 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
