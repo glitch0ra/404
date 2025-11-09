@@ -98,15 +98,22 @@ uniform vec4 iMouse;
 uniform sampler2D iChannel0;
 uniform float uQuality;
 
-#define GRID 75.0
+#define GRID 65.0
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    // --- Лёгкий параллакс от мыши ---
-    vec2 uv = fragCoord / iResolution.xy;
+        // --- Реальный параллакс от мыши ---
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.003; // амплитуда эффекта
+
+    // Сдвигаем координаты в зависимости от мыши (эффект глубины)
+    vec2 shifted = fragCoord + mouse * iResolution.xy * 0.02;
+
+    // Теперь считаем сетку с этих сдвинутых координат
+    vec2 grid = floor(shifted / iResolution.y * GRID) / (GRID - 1.0);
+    float t = grid.y;
+    grid += vec2(1.0);
+    
 
     // === Исправлено: нормализуем по высоте, чтобы символы были квадратные ===
     vec2 grid = floor(fragCoord / iResolution.y * GRID) / (GRID - 1.0);
@@ -344,6 +351,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
