@@ -123,8 +123,17 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // === Исправлено: та же нормализация по высоте для локального uv ===
     vec2 localUV = mod(fragCoord / iResolution.y * GRID, vec2(1.0));
 
-    float seed = sin(grid.x * cos(grid.y * 21952.1112 + count * 11.195 + grid.x * 592.111) * 92.221 +
-                     sin(grid.x * 592.5429 * cos(grid.y * 259.6 + count * 23.223))) * 0.5 + 0.5;
+        // --- Генерация псевдослучайного индекса символа с "дрожанием" во времени ---
+    float seedBase = sin(grid.x * cos(grid.y * 21952.1112 + count * 11.195 + grid.x * 592.111) * 92.221 +
+                         sin(grid.x * 592.5429 * cos(grid.y * 259.6 + count * 23.223))) * 0.5 + 0.5;
+    
+    // Добавляем временной шум, чтобы символы изредка менялись
+    float flicker = fract(sin(grid.x * 93.1 + grid.y * 97.7 + floor(iTime * 0.7)) * 43758.5453);
+    
+    // Если flicker > 0.98 — перескакиваем на другой символ
+    float seed = mix(seedBase, fract(seedBase + flicker * 37.0), step(0.98, flicker));
+    
+    // Индекс символа из 16x16 атласа
     float random_letter = min(floor(seed * 256.0), 255.0);
 
     ivec2 atlasSize = textureSize(iChannel0, 0);
@@ -339,3 +348,4 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
