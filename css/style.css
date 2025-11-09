@@ -447,6 +447,7 @@ h2 {
   height: 100%;
   z-index: 3; /* под шапкой (z=5), но над фоновым видео (z=0) */
   pointer-events: none;
+  background: transparent;
 }
 .shader-layer4 {
   position: fixed;
@@ -494,4 +495,5 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
