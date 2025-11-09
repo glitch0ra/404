@@ -102,14 +102,14 @@ uniform float uQuality;
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    // --- Добавлен лёгкий параллакс от мыши ---
+    // --- Лёгкий параллакс от мыши ---
     vec2 uv = fragCoord / iResolution.xy;
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
     uv += mouse * 0.003; // амплитуда эффекта
 
-    // Приводим координаты и сетку
-    vec2 grid = floor(uv * iResolution.x / iResolution.x * GRID) / (GRID - 1.0);
+    // === Исправлено: нормализуем по высоте, чтобы символы были квадратные ===
+    vec2 grid = floor(fragCoord / iResolution.y * GRID) / (GRID - 1.0);
     float t = grid.y;
     grid += vec2(1.0);
 
@@ -117,6 +117,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     speed *= 0.5;
 
     t += sin((grid.x + cos(grid.x * 15.0)) * 22.121) * 123.324;
+    // ускорение падения зелёной подсветки ×6
     t += speed * (iTime * 6.0) / (GRID - 1.0);
     t *= 0.02 * GRID;
     float q = sin(grid.x * 252.249 + cos(grid.x * sin(grid.x * 112.139) * 13.11) * 55.1) * 1.0 + 2.0;
@@ -126,7 +127,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
     vec3 col = mix(vec3(0.235, 0.784, 0.235), vec3(1.0, 1.0, 1.0), pow(1.0 - t, 25.0)) * pow(1.0 - t, 3.0);
 
-    vec2 localUV = mod(uv * iResolution.x / iResolution.x * GRID, vec2(1.0));
+    // === Исправлено: та же нормализация по высоте для локального uv ===
+    vec2 localUV = mod(fragCoord / iResolution.y * GRID, vec2(1.0));
+
     float seed = sin(grid.x * cos(grid.y * 21952.1112 + count * 11.195 + grid.x * 592.111) * 92.221 +
                      sin(grid.x * 592.5429 * cos(grid.y * 259.6 + count * 23.223))) * 0.5 + 0.5;
     float random_letter = min(floor(seed * 256.0), 255.0);
@@ -146,7 +149,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
     float mask = 1.0 - step(0.5, letter_mask.a);
     float f = max(1.0 - 500.0 * t, 0.0) * 0.35;
-    if (mask == 0.0 && f != 0.0) mask += smoothstep(0.5 + f, 0.5, pow(letter_mask.a, 0.5)) * 2.0;
+    if (mask == 0.0 && f != 0.0)
+        mask += smoothstep(0.5 + f, 0.5, pow(letter_mask.a, 0.5)) * 2.0;
     col *= mask;
 
     fragColor = vec4(col, mask);
@@ -340,6 +344,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
