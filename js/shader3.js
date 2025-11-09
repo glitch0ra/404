@@ -101,11 +101,8 @@ uniform float uQuality;
 #define GRID 150.0
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
-{
-    vec2 mouse = iMouse.xy / iResolution.xy;
-    mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.02;
-    
+{ 
+
     // Приводим координаты и сетку
     vec2 grid = floor(fragCoord / iResolution.x * GRID) / (GRID - 1.0);
     float t = grid.y;
@@ -345,6 +342,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
