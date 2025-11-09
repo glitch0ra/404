@@ -117,7 +117,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     speed *= 0.5;
 
     t += sin((grid.x + cos(grid.x * 15.0)) * 22.121) * 123.324;
-    t += speed * iTime / (GRID - 1.0);
+    t += speed * (iTime * 3.0) / (GRID - 1.0);
     t *= 0.02 * GRID;
     float q = sin(grid.x * 252.249 + cos(grid.x * sin(grid.x * 112.139) * 13.11) * 55.1) * 1.0 + 2.0;
     float count = floor(t / q);
@@ -340,5 +340,6 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
