@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
     alpha: true,
+    premultipliedAlpha: false,
     depth: false,
     stencil: false,
     antialias: false,
@@ -342,3 +343,4 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
