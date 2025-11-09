@@ -119,6 +119,7 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
+
     float he = hiheight(vec2(p.x, pp.z) * stp);
     float lohe = loheight(vec2(p.x, pp.z) * stp);
     float d = p.y - he;
@@ -126,11 +127,39 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     float aa = distance(pp, npp)*sqrt(1.0/3.0);
     float t = smoothstep(aa, -aa, d);
     float df = exp(-0.1 * (distance(ro, pp) - 2.0));
+
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
-    vec3 col = acol + 0.5 * gcol;
-    return vec4(col, clamp(t, 0.0, 1.0));
+    vec3 baseCol = acol + 0.5 * gcol;
+
+    // === мощное размытие каждого слоя (≈500%) ===
+    // радиус размытия (масштабируем относительно z-дистанции)
+    float blurRadius = 0.015 * (1.0 + 0.1 * n); // разные слои — чуть разное размытие
+    vec3 blurCol = vec3(0.0);
+    float blurCount = 0.0;
+
+    // 8 направлений вокруг базовой точки (усреднение)
+    for (int xi = -2; xi <= 2; xi++) {
+        for (int yi = -2; yi <= 2; yi++) {
+            vec2 offset = vec2(float(xi), float(yi)) * blurRadius;
+            float he2 = hiheight(vec2(p.x + offset.x, pp.z + offset.y) * stp);
+            float lohe2 = loheight(vec2(p.x + offset.x, pp.z + offset.y) * stp);
+            float d2 = (p.y + offset.y) - he2;
+            float lod2 = (p.y + offset.y) - lohe2;
+            float t2 = smoothstep(aa, -aa, d2);
+            float df2 = exp(-0.1 * (distance(ro, pp + vec3(offset, 0.0)) - 2.0));
+            vec3 acol2 = hsv2rgb(vec3(mix(0.9, 0.6, df2), 0.9, mix(1.0, 0.0, df2)));
+            vec3 gcol2 = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df2) * lod2))));
+            vec3 c2 = acol2 + 0.5 * gcol2;
+            blurCol += c2;
+            blurCount += 1.0;
+        }
+    }
+
+    vec3 finalCol = mix(baseCol, blurCol / blurCount, 0.9); // 90% размытия
+    return vec4(finalCol, clamp(t, 0.0, 1.0));
 }
+
 
 // moon implementation (kept original geometry/signature)
 // === Полная адаптация Юпитера в твой 3D контекст ===
@@ -346,3 +375,4 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
