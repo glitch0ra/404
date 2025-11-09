@@ -1,6 +1,4 @@
 // assets/js/shader3.js
-// Полная замена — шейдер перенесён из "Новый шейдер.txt" и адаптирован под WebGL2.
-// Использует текстуру для iChannel0: "assets/texture.png"
 
 document.addEventListener("DOMContentLoaded", () => {
   const canvas = document.getElementById("shader-canvas3");
@@ -224,6 +222,8 @@ void main() {
     // Заливаем изображение в текстуру
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // Если размеры — степень двойки, можно mipmap; иначе — clamp/no-mipmap
     function isPOT(v) { return (v & (v - 1)) === 0; }
@@ -339,13 +339,3 @@ void main() {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
