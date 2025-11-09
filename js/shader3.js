@@ -190,47 +190,47 @@ document.addEventListener("DOMContentLoaded", () => {
                     - time * (0.6 + xycell_hash * 1.1 + pow(xycell_hash, 8.0) * 2.5);
 
       int zcell = int(floor((ro3.z - z_shift) / ZCELL_SIZE));
-      for (int j = 0; j < 2; j++) {
-        vec4 cell_hash = hash4(vec3(ivec3(cellPos, zcell)));
-        vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
-        float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
-        float target_length = chars_count * STRIP_CHAR_HEIGHT;
-        float target_rad = STRIP_CHAR_WIDTH / 2.;
-        float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-        vec2 target = cellPos * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
-        vec2 s = target - ro2;
-        float tmin = dot(s, rd2);
-        float dist = tmin / t3_to_t2;
-        if (dist < 4.0) continue;
-        if (tmin >= t2s && tmin <= t2) {
-          float u = s.x * rd2.y - s.y * rd2.x;
-          if (abs(u) < target_rad) {
-            u = (u / target_rad + 1.) / 2.;
-            float z = ro3.z + rd3.z * tmin / t3_to_t2;
-            float v = (z - target_z) / target_length;
-            if (v >= 0.0 && v < 1.0) {
-              float c = floor(v * chars_count);
-              float q = fract(v * chars_count);
-              vec2 char_hash = hash2(vec2(c + zcell, cell_hash2.x));
-              float time_factor = time * 0.00001 + char_hash.y * 10.0;
-              float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
-              a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-              a *= smoothstep(4.0, 6.0, dist);
-              if (a > 0.) {
-                float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                float colorShift = hash(vec2(cellPos)) * 6.2831;
-                vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
-                vec3 col = baseColor / attenuation;
-                float a1 = result.a;
-                result.a = a1 + (1. - a1) * a;
-                result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                if (result.a > 0.98) return result.xyz;
-              }
-            }
-          }
+for (int j = 0; j < 2; j++) {
+  vec4 cell_hash = hash4(vec3(cellPos, float(zcell)));
+  vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
+  float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
+  float target_length = chars_count * STRIP_CHAR_HEIGHT;
+  float target_rad = STRIP_CHAR_WIDTH / 2.;
+  float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
+  vec2 target = cellPos * XYCELL_SIZE + target_rad + cell_hash.xy * (XYCELL_SIZE - target_rad * 2.);
+  vec2 s = target - ro2;
+  float tmin = dot(s, rd2);
+  float dist = tmin / t3_to_t2;
+  if (dist < 4.0) continue;
+  if (tmin >= t2s && tmin <= t2) {
+    float u = s.x * rd2.y - s.y * rd2.x;
+    if (abs(u) < target_rad) {
+      u = (u / target_rad + 1.) / 2.;
+      float z = ro3.z + rd3.z * tmin / t3_to_t2;
+      float v = (z - target_z) / target_length;
+      if (v >= 0.0 && v < 1.0) {
+        float c = floor(v * chars_count);
+        float q = fract(v * chars_count);
+        vec2 char_hash = hash2(vec2(c + zcell, cell_hash2.x));
+        float time_factor = time * 0.00001 + char_hash.y * 10.0;
+        float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
+        a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
+        a *= smoothstep(4.0, 6.0, dist);
+        if (a > 0.) {
+          float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
+          float colorShift = hash(vec2(cellPos)) * 6.2831;
+          vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
+          vec3 col = baseColor / attenuation;
+          float a1 = result.a;
+          result.a = a1 + (1. - a1) * a;
+          result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
+          if (result.a > 0.98) return result.xyz;
         }
-        zcell += cell_shift.z;
       }
+    }
+  }
+  zcell += cell_shift.z;
+}
     }
     return result.xyz * result.a;
   }
@@ -355,3 +355,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   requestAnimationFrame(render);
 });
+
