@@ -101,41 +101,46 @@ uniform float uQuality;
 // Возвращает "масляный" цвет (без искусственного увеличения яркости)
 vec3 iridescentColor(vec2 pos, float time, float phase)
 {
-    // Базовые насыщенные цвета
-    vec3 c1 = vec3(0.85, 0.25, 1.00); // фиолетовый
-    vec3 c2 = vec3(0.15, 1.00, 0.45); // зелёный
-    vec3 c3 = vec3(0.25, 0.75, 1.00); // голубой
-    vec3 c4 = vec3(1.00, 0.30, 0.70); // розовый
+    // Твои заданные цвета
+    vec3 c1 = vec3(0.0, 0.898, 1.0);   // #00E5FF — голубой
+    vec3 c2 = vec3(0.451, 0.0, 1.0);   // #7300FF — фиолетовый
+    vec3 c3 = vec3(1.0, 0.0, 0.816);   // #FF00D0 — розовый
+    vec3 c4 = vec3(0.0, 1.0, 0.5);     // #00FF80 — зелёный
 
-    float n1 = sin(pos.x * 0.45 + pos.y * 0.25 + time * 2.8 + phase);
-    float n2 = cos(pos.y * 0.35 - pos.x * 0.40 + time * 3.2 - phase * 0.7);
-    float n3 = sin(pos.x * 0.50 + pos.y * 0.60 - time * 2.6 + phase * 1.3);
-    float n4 = cos(pos.x * 0.30 + pos.y * 0.55 + time * 2.2 - phase * 2.1);
+    // Генерация плавных волн, имитирующих “перелив масла”
+    float n1 = sin(pos.x * 0.35 + pos.y * 0.25 + time * 2.5 + phase * 0.7);
+    float n2 = cos(pos.y * 0.45 - pos.x * 0.30 + time * 2.9 - phase * 1.2);
+    float n3 = sin(pos.x * 0.40 + pos.y * 0.55 - time * 3.1 + phase * 1.7);
+    float n4 = cos(pos.x * 0.50 + pos.y * 0.35 + time * 3.3 - phase * 0.9);
 
     n1 = 0.5 + 0.5 * n1;
     n2 = 0.5 + 0.5 * n2;
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
 
-    vec3 col = normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
+    // Смешиваем цвета в зависимости от волновых паттернов
+    vec3 col = normalize(
+        c1 * n1 +
+        c2 * n2 +
+        c3 * n3 +
+        c4 * n4
+    );
 
-    // === Коррекция яркости (чтобы не выбивало в белый) ===
-    // переводим в "псевдо-HSV": вычисляем яркость (Value)
-    float maxC = max(max(col.r, col.g), col.b);
-    float minC = min(min(col.r, col.g), col.b);
-    float V = maxC;
-    float S = (V <= 0.0) ? 0.0 : (V - minC) / V;
-
-    // ограничиваем Value, чтобы не было белого клипа
-    float targetV = 0.85 + 0.15 * sin(pos.x * 0.3 + pos.y * 0.2 + phase * 2.1);
-    if (V > targetV) col *= targetV / V;
-
-    // лёгкий подъем насыщенности без яркости
+    // === Контроль яркости и насыщенности ===
+    // считаем яркость
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(lum), col, 1.5);
 
-    // финальное ограничение в диапазон
-    return clamp(pow(col, vec3(0.95)), 0.0, 1.0);
+    // повышаем насыщенность без клиппинга
+    vec3 saturated = mix(vec3(lum), col, 1.7); // 1.7 = усиление насыщенности
+
+    // ограничиваем яркость, чтобы не выбивало в белый
+    float maxVal = max(max(saturated.r, saturated.g), saturated.b);
+    if (maxVal > 1.0) saturated /= (maxVal + 0.25 * (maxVal - 1.0)); 
+
+    // плавная гамма для “глубины масла”
+    saturated = pow(saturated, vec3(0.9));
+
+    return clamp(saturated, 0.0, 1.0);
 }
 
 
@@ -402,6 +407,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
