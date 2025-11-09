@@ -269,7 +269,7 @@ void main() {
     const deltaY = currentScroll - lastScrollY;
     lastScrollY = currentScroll;
     scrollSpeed = deltaY / deltaTime;
-    scrollInfluence = scrollSpeed * 0.2;
+    scrollInfluence = scrollSpeed * 0.6;
   });
 
   let isPaused = false;
@@ -340,10 +340,3 @@ void main() {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
