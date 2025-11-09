@@ -32,19 +32,21 @@ document.addEventListener('DOMContentLoaded', () => {
   layout(location = 0) in vec2 a_position;
   void main() { gl_Position = vec4(a_position, 0.0, 1.0); }`;
 
-    const fragmentSrc = `#version 300 es
-  precision mediump float;
+  const fragmentSrc = `#version 300 es
+  precision highp float;
   out vec4 fragColor;
-
+  
   uniform vec3 iResolution;
   uniform float iTime;
-
-  // -------------------- Псевдослучай и шум --------------------
+  
+  /*───────────────────────────────────────────────
+    Вспомогательные шумы и глитч-паттерн
+  ───────────────────────────────────────────────*/
   float rand(vec2 p) {
       float t = floor(iTime * 6.6) / 30.0;
       return fract(sin(dot(p, vec2(t * 12.9898, t * 78.233))) * 43758.5453);
   }
-
+  
   float noise(vec2 uv, float blockiness) {
       vec2 lv = fract(uv);
       vec2 id = floor(uv);
@@ -55,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
       vec2 u = smoothstep(0.0, 1.0 + blockiness, lv);
       return mix(mix(n1, n2, u.x), mix(n3, n4, u.x), u.y);
   }
-
+  
   float fbm(vec2 uv, int count, float blockiness, float complexity) {
       float val = 0.0;
       float amp = 0.5;
@@ -67,19 +69,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return val;
   }
-
-  // -------------------- Бензиновая палитра --------------------
+  
+  /*───────────────────────────────────────────────
+    Иридисцентный цветовой поток
+  ───────────────────────────────────────────────*/
   vec3 iridescentColor(vec2 pos, float time, float phase)
   {
-      vec3 c1 = vec3(0.0, 0.898, 1.0);   // #00E5FF — голубой
-      vec3 c2 = vec3(0.451, 0.0, 1.0);   // #7300FF — фиолетовый
-      vec3 c3 = vec3(1.0, 0.0, 0.816);   // #FF00D0 — розовый
-      vec3 c4 = vec3(0.0, 1.0, 0.5);     // #00FF80 — зелёный
-
-      // равномерная фаза движения
-      float angle = time * 0.5 + pos.x * 0.3 + pos.y * 0.15 + phase * 0.5;
+      // Твои цвета
+      vec3 c1 = vec3(0.0, 0.898, 1.0);   // голубой #00E5FF
+      vec3 c2 = vec3(0.451, 0.0, 1.0);   // фиолетовый #7300FF
+      vec3 c3 = vec3(1.0, 0.0, 0.816);   // розовый #FF00D0
+      vec3 c4 = vec3(0.0, 1.0, 0.5);     // зелёный #00FF80
+  
+      // Равномерное вращение фазы по кругу
+      float angle = time * 0.4 + pos.x * 0.2 + pos.y * 0.15 + phase * 0.8;
       float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
-
+  
       vec3 col;
       if (segment < 1.0)
           col = mix(c1, c2, smoothstep(0.0, 1.0, segment));
@@ -89,59 +94,51 @@ document.addEventListener('DOMContentLoaded', () => {
           col = mix(c3, c4, smoothstep(2.0, 3.0, segment));
       else
           col = mix(c4, c1, smoothstep(3.0, 4.0, segment));
-
-      // микроколебания масла
-      float flow = sin(pos.x * 0.7 + pos.y * 0.9 + time * 1.5 + phase) * 0.06;
+  
+      // Масляный шум
+      float flow = sin(pos.x * 1.1 + pos.y * 0.9 + time * 1.7 + phase) * 0.08;
       col += flow;
-
-      // коррекция насыщенности
+  
+      // Сохраняем насыщенность, контролируем яркость
       float lum = dot(col, vec3(0.299, 0.587, 0.114));
-      col = mix(vec3(lum), col, 1.4);
-
-      // ограничение яркости
+      col = mix(vec3(lum), col, 1.5);
       float maxVal = max(max(col.r, col.g), col.b);
       if (maxVal > 1.0) col /= (maxVal + 0.1);
       col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
+  
       return col;
   }
-
-  // -------------------- Основной шейдер --------------------
+  
+  /*───────────────────────────────────────────────
+    Основная визуализация
+  ───────────────────────────────────────────────*/
   void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       vec2 uv = fragCoord / iResolution.xy;
-      vec2 uv2 = uv;
-
+  
       uv *= 3.5;
       uv.x *= fbm(uv, 2, 2.5, 1.0);
       float n = fbm(uv, 2, 2.0, 1.4);
       float glitch = smoothstep(0.55, 0.8, n);
-
+  
       float pulse = sin(iTime * 0.8 + uv.x * 8.0) * 0.5 + 0.5;
       glitch *= pow(pulse, 0.6);
-
-      // --- масляная динамика цвета ---
-      float phase = sin(uv.x * 6.0 + uv.y * 3.0);
-      vec3 oil = iridescentColor(uv * 1.2, iTime * 0.6, phase);
-
-      // применяем "иридисцентный" цвет вместо фиксированного randomColor
-      vec3 color = oil;
-
-      // случайное затухание отдельных блоков
-      float fade = rand(floor(uv * 12.0 + iTime));
-      float alpha = glitch * smoothstep(0.2, 0.8, fade);
-
-      // лёгкий контроль яркости
-      color *= 1.25;
-      alpha *= 1.15;
-
+  
+      // === Новый цвет: вместо randomColor — живой бензиновый поток ===
+      float phase = rand(floor(uv * 8.0)); // индивидуальная фаза для блоков
+      vec3 color = iridescentColor(uv * 2.0, iTime, phase);
+  
+      // усиление интенсивности глитча
+      float alpha = glitch * 1.4;
+      color *= 1.3;
+  
       fragColor = vec4(color * alpha, clamp(alpha, 0.0, 1.0));
   }
-
+  
   void main() {
       vec4 c;
       mainImage(c, gl_FragCoord.xy);
       fragColor = c;
   }`;
-
 
   function compileShader(gl, type, src) {
     const s = gl.createShader(type);
@@ -215,4 +212,3 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
-
