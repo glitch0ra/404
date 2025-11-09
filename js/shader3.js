@@ -76,7 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
   resizeCanvas();
 
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
 
   /* ---------------- GLSL (vertex + fragment) ---------------- */
   const vertexSrc = `#version 300 es
@@ -84,8 +85,7 @@ precision highp float;
 layout(location = 0) in vec2 a_position;
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
-}
-`;
+}`;
 
   // Адаптирован фрагментный шейдер из "Новый шейдер.txt" (с исправлениями для texelFetch и size)
   const fragmentSrc = `#version 300 es
@@ -159,8 +159,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 void main() {
     mainImage(fragColor, gl_FragCoord.xy);
-}
-`;
+}`;
 
   /* ---------------- Shader compile/link helpers ---------------- */
   function compileShader(gl, type, src) {
@@ -322,7 +321,6 @@ void main() {
 
     const t = (now - startTime) * 0.001 + timeOffset;
 
-    gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Обновляем uniform'ы
@@ -347,5 +345,6 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
