@@ -100,41 +100,53 @@ uniform float uQuality;
 
 vec3 iridescentColor(vec2 pos, float time, float phase)
 {
-    // 4 заданных цвета
+    // Твои цвета (HEX → RGB)
     vec3 c1 = vec3(0.0, 0.898, 1.0);   // голубой #00E5FF
     vec3 c2 = vec3(0.451, 0.0, 1.0);   // фиолетовый #7300FF
     vec3 c3 = vec3(1.0, 0.0, 0.816);   // розовый #FF00D0
     vec3 c4 = vec3(0.0, 1.0, 0.5);     // зелёный #00FF80
 
-    // Координаты с фазой (медленное движение волн)
+    // --- Генерация равномерного фазового потока ---
+    // волновая фаза "масла"
     float wave = sin(pos.x * 0.3 + pos.y * 0.2 + time * 0.8 + phase * 1.5);
     float swirl = cos(pos.x * 0.25 - pos.y * 0.35 + time * 0.9 - phase * 1.1);
-    float t = 0.5 + 0.5 * (wave * 0.6 + swirl * 0.4);
 
-    // Плавный градиент между 4 цветами по t
-    vec3 col;
-    if (t < 0.33)
-        col = mix(c1, c2, smoothstep(0.0, 0.33, t));
-    else if (t < 0.66)
-        col = mix(c2, c3, smoothstep(0.33, 0.66, t));
+    // равномерное распределение 0..1 (не смещённое к центру)
+    float t = fract(0.5 + 0.5 * (wave + swirl) * 0.5);
+
+    // растягиваем диапазон так, чтобы все цвета были равновероятны
+    if (t < 0.25)
+        t = smoothstep(0.0, 0.25, t);
+    else if (t < 0.5)
+        t = 0.25 + smoothstep(0.25, 0.5, t - 0.25) * 0.25;
+    else if (t < 0.75)
+        t = 0.5 + smoothstep(0.5, 0.75, t - 0.5) * 0.25;
     else
-        col = mix(c3, c4, smoothstep(0.66, 1.0, t));
+        t = 0.75 + smoothstep(0.75, 1.0, t - 0.75) * 0.25;
 
-    // Лёгкий “масляный шум”, чтобы цвета текли
-    float shimmer = sin(pos.x * 3.1 + pos.y * 2.3 + time * 1.8 + phase * 2.2) * 0.08;
+    // --- Равномерное смешение между четырьмя цветами ---
+    vec3 col;
+    if (t < 0.25)
+        col = mix(c1, c2, smoothstep(0.0, 0.25, t));
+    else if (t < 0.5)
+        col = mix(c2, c3, smoothstep(0.25, 0.5, t));
+    else if (t < 0.75)
+        col = mix(c3, c4, smoothstep(0.5, 0.75, t));
+    else
+        col = mix(c4, c1, smoothstep(0.75, 1.0, t));
+
+    // --- Масляные искажения ---
+    float shimmer = sin(pos.x * 3.1 + pos.y * 2.3 + time * 1.8 + phase * 2.2) * 0.07;
     col += shimmer;
 
-    // Усиление насыщенности без клиппинга
+    // --- Коррекция насыщенности и яркости ---
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(lum), col, 1.5); // больше = насыщеннее
+    col = mix(vec3(lum), col, 1.6);
 
-    // Ограничиваем яркость, чтобы не выгорало
     float maxVal = max(max(col.r, col.g), col.b);
-    if (maxVal > 1.0) col /= (maxVal + 0.15);
+    if (maxVal > 1.0) col /= (maxVal + 0.1);
 
-    // Гамма-коррекция для мягкого свечения
     col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
-
     return col;
 }
 
@@ -403,18 +415,3 @@ void main() {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
