@@ -106,7 +106,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = fragCoord / iResolution.xy;
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.004; // амплитуда эффекта
+    uv += mouse * 0.003; // амплитуда эффекта
 
     // Приводим координаты и сетку
     vec2 grid = floor(uv * iResolution.x / iResolution.x * GRID) / (GRID - 1.0);
@@ -269,7 +269,7 @@ void main() {
     const deltaY = currentScroll - lastScrollY;
     lastScrollY = currentScroll;
     scrollSpeed = deltaY / deltaTime;
-    scrollInfluence = scrollSpeed * 0.6;
+    scrollInfluence = scrollSpeed * 0.9;
   });
 
   let isPaused = false;
@@ -340,3 +340,4 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
