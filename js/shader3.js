@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
   layout(location = 0) in vec2 a_position;
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
-  }`;
+  };`;
 
   const fragmentSrc = `#version 300 es
   precision mediump float;
@@ -247,7 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vec4 c;
     mainImage(c, gl_FragCoord.xy);
     fragColor = c;
-  }`;
+  };`;
 
   /*──────────────────── Компиляция ────────────────────*/
   function compileShader(gl, type, src) {
