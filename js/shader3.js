@@ -98,31 +98,40 @@ uniform float uQuality;
 
 #define GRID 60.0
 
+// Возвращает "масляный" цвет (без искусственного увеличения яркости)
 vec3 iridescentColor(vec2 pos, float time, float phase)
 {
-    // --- насыщенные базовые тона ---
+    // насыщенные базовые тона (оставляем значения в 0..1)
     vec3 c1 = vec3(0.85, 0.25, 1.00); // фиолетовый
     vec3 c2 = vec3(0.20, 1.00, 0.45); // зелёный
     vec3 c3 = vec3(0.25, 0.80, 1.00); // голубой
     vec3 c4 = vec3(1.00, 0.35, 0.70); // розовый
 
-    // Интерференция — создаём волну с фазовым сдвигом
     float n1 = sin(pos.x * 0.45 + pos.y * 0.25 + time * 2.8 + phase);
     float n2 = cos(pos.y * 0.35 - pos.x * 0.40 + time * 3.2 - phase * 0.7);
     float n3 = sin(pos.x * 0.50 + pos.y * 0.60 - time * 2.6 + phase * 1.3);
     float n4 = cos(pos.x * 0.30 + pos.y * 0.55 + time * 2.2 - phase * 2.1);
 
-    // от 0..1
     n1 = 0.5 + 0.5 * n1;
     n2 = 0.5 + 0.5 * n2;
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
 
-    // Смешиваем цвета с насыщением и контрастом
-    vec3 col = (c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4) * 0.7;
-    col = pow(col, vec3(0.8));  // усиливаем контраст
-    col = mix(col, vec3(1.0), 0.15); // немного подмешиваем белого света
-    return clamp(col, 0.0, 1.0);
+    // Смешиваем волны
+    vec3 raw = c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4;
+
+    // Увеличиваем насыщенность (S) без подъёма яркости (V)
+    // Приём: перевод к яркости (luminance), затем миксуем
+    float lum = dot(raw, vec3(0.299, 0.587, 0.114));
+    float saturationBoost = 1.5; // 1.0 = исходная, 1.5 = сильнее насыщение
+    vec3 saturated = mix(vec3(lum), raw, saturationBoost);
+
+    // Лёгкая тональная компрессия чтобы предотвратить клиппинг
+    // (сглаживаем пиковые значения, чтобы не уходили в белый)
+    saturated = saturated / (1.0 + 0.25 * pow(saturated, vec3(2.0)));
+
+    // Небольшая гамма-коррекция (делает цвета живее без клипа)
+    return pow(clamp(saturated, 0.0, 1.0), vec3(0.95));
 }
 
 
@@ -146,13 +155,19 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     t = mod(t, q);
     if (t > 1.0 || t < 0.0) t = 1.0;
 
-        // --- Иридисцентная подсветка с индивидуальной фазой для каждой "строки" ---
-float phase = sin(grid.x * 12.731 + grid.y * 3.91); // уникальный фазовый сдвиг на столбец/строку
+        float phase = sin(grid.x * 12.731 + grid.y * 3.91);
 vec3 oil = iridescentColor(grid * 0.7, iTime * 0.5, phase);
 
-// усиление яркости и контраста
+// контролируемая насыщенность и итоговая яркость (без клиппинга)
 float fade = pow(1.0 - t, 3.0);
-vec3 col = oil * fade * 1.6; // ← яркость ×1.6
+
+// Доп. усилитель насыщенности (не яркости) — 1.0..2.0
+float finalSaturation = 1.25;
+float lumOil = dot(oil, vec3(0.299, 0.587, 0.114));
+vec3 oilSat = mix(vec3(lumOil), oil, finalSaturation);
+
+// Итоговый цвет строки (без умножения >1.0 яркости)
+vec3 col = clamp(oilSat * fade, 0.0, 1.0);
 
 
     // === Исправлено: та же нормализация по высоте для локального uv ===
@@ -383,6 +398,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
