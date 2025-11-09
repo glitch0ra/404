@@ -168,22 +168,14 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
     ivec3 cell_side = ivec3(step(0., rd3));
     ivec3 cell_shift = ivec3(sign(rd3));
     float t2 = 0.;
-    vec2 adjustedRo2 = ro2 + vec2(XYCELL_SIZE * 0.5);
-    ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
-
-    int maxIterations = int(mix(15.0, 25.0, uQuality));
-
+    
     // --- Выровненное распределение координат по X ---
 vec2 ro2_fixed = ro2;
-
-// растягиваем пространство по X, чтобы убрать сгущение строк в центре
-// коэффициент 1.25 регулирует степень компенсации (можно 1.1..1.4)
 ro2_fixed.x = (ro2_fixed.x - 0.5) * 1.25 + 0.5;
-
-// используем скорректированные координаты вместо исходных
 ivec2 next_cell = ivec2(floor((ro2_fixed + vec2(XYCELL_SIZE * 0.5)) / XYCELL_SIZE));
 
-    
+
+    int maxIterations = int(mix(15.0, 25.0, uQuality));
     for (int i = 0; i < 25; i++) {
         if (i >= maxIterations) break;
         ivec2 cell = next_cell;
@@ -197,6 +189,7 @@ ivec2 next_cell = ivec2(floor((ro2_fixed + vec2(XYCELL_SIZE * 0.5)) / XYCELL_SIZ
             t2 = t2_side.y;
             next_cell.y += cell_shift.y;
         }
+        
         vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
         float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
         if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
@@ -450,6 +443,7 @@ image.onerror = () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
