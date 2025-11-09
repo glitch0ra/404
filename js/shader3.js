@@ -101,10 +101,15 @@ uniform float uQuality;
 #define GRID 150.0
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
-{ 
+{
+    // --- Добавлен лёгкий параллакс от мыши ---
+    vec2 uv = fragCoord / iResolution.xy;
+    vec2 mouse = iMouse.xy / iResolution.xy;
+    mouse = (mouse - 0.5) * 2.0;
+    uv += mouse * 0.02; // амплитуда эффекта
 
     // Приводим координаты и сетку
-    vec2 grid = floor(fragCoord / iResolution.x * GRID) / (GRID - 1.0);
+    vec2 grid = floor(uv * iResolution.x / iResolution.x * GRID) / (GRID - 1.0);
     float t = grid.y;
     grid += vec2(1.0);
 
@@ -121,27 +126,20 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
     vec3 col = mix(vec3(0.235, 0.784, 0.235), vec3(1.0, 1.0, 1.0), pow(1.0 - t, 25.0)) * pow(1.0 - t, 3.0);
 
-    vec2 uv = mod(fragCoord / iResolution.x * GRID, vec2(1.0));
+    vec2 localUV = mod(uv * iResolution.x / iResolution.x * GRID, vec2(1.0));
     float seed = sin(grid.x * cos(grid.y * 21952.1112 + count * 11.195 + grid.x * 592.111) * 92.221 +
                      sin(grid.x * 592.5429 * cos(grid.y * 259.6 + count * 23.223))) * 0.5 + 0.5;
     float random_letter = min(floor(seed * 256.0), 255.0);
 
-    // Адаптация для атласа текстуры (предполагаем 16x16 шрифтовых клеток)
-    // Размер атласа (пиксели) и размер ячейки динамические:
     ivec2 atlasSize = textureSize(iChannel0, 0);
     vec2 atlasSizeF = vec2(atlasSize);
     vec2 cell = atlasSizeF / vec2(16.0, 16.0);
 
-    // Индекс символа в сетке 16x16
     float idxX = floor(random_letter / 16.0);
     float idxY = mod(random_letter, 16.0);
 
-    // Точное пиксельное смещение внутри атласа:
-    // uv - локальные координаты внутри клетки (0..1)
-    vec2 charUVpx = (vec2(idxX, idxY) + uv) * cell;
+    vec2 charUVpx = (vec2(idxX, idxY) + localUV) * cell;
     ivec2 texCoord = ivec2(floor(charUVpx));
-
-    // Безопасность: clamp coords в границы атласа
     texCoord = clamp(texCoord, ivec2(0), atlasSize - ivec2(1));
 
     vec4 letter_mask = texelFetch(iChannel0, texCoord, 0);
@@ -151,7 +149,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     if (mask == 0.0 && f != 0.0) mask += smoothstep(0.5 + f, 0.5, pow(letter_mask.a, 0.5)) * 2.0;
     col *= mask;
 
-    fragColor = vec4(col, 1.0);
+    fragColor = vec4(col, mask);
 }
 
 void main() {
@@ -342,6 +340,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
