@@ -128,9 +128,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                          sin(grid.x * 592.5429 * cos(grid.y * 259.6 + count * 23.223))) * 0.5 + 0.5;
     
     // Добавляем временной шум, чтобы символы изредка менялись
-    float flicker = fract(sin(grid.x * 93.1 + grid.y * 97.7 + floor(iTime * 1.5)) * 43758.5453);
+    float flicker = fract(sin(grid.x * 93.1 + grid.y * 97.7 + floor(iTime * 5.5)) * 43758.5453);
     
-    // Если flicker > 0.9 — перескакиваем на другой символ
+    // Если flicker > 0.5 — перескакиваем на другой символ
     float seed = mix(seedBase, fract(seedBase + flicker * 37.0), step(0.98, flicker));
     
     // Индекс символа из 16x16 атласа
@@ -348,6 +348,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
