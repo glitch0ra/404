@@ -1,4 +1,4 @@
-// s/shader4.js
+//js/shader4.js
 document.addEventListener("DOMContentLoaded", () => {
     const canvas4 = document.getElementById("shader-canvas4");
     if (!canvas4) return console.error("Canvas #shader-canvas4 не найден!");
@@ -371,6 +371,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
