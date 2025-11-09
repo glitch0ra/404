@@ -12,7 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!gl) return console.error("WebGL2 не поддерживается");
 
     // ---------- FRAGMENT SHADER ----------
-    const fragSource = `#version 300 es
+   const fragSource = `
+#version 300 es
 precision highp float;
 uniform vec3 iResolution;
 uniform float iTime;
@@ -23,18 +24,25 @@ out vec4 fragColor;
 #define PI 3.141592654
 #define TAU (2.0*PI)
 
-// hsv -> rgb 
+// hsv -> rgb (safe, no const-assignment issues)
 vec3 hsv2rgb(vec3 c) {
     vec3 K = vec3(1.0, 2.0/3.0, 1.0/3.0);
     vec3 p = abs(fract(c.xxx + K) * 6.0 - vec3(3.0));
     return c.z * mix(vec3(1.0), clamp(p - vec3(1.0), 0.0, 1.0), c.y);
 }
 
-// alpha blend: back(vec4), front(vec4) 
+// alpha blend: back(vec4), front(vec4)
 vec4 alphaBlendVec4(vec4 back, vec4 front) {
     float outA = front.w + back.w * (1.0 - front.w);
     if (outA <= 0.0) return vec4(0.0);
     vec3 outRGB = (front.xyz * front.w + back.xyz * back.w * (1.0 - front.w)) / outA;
+    return vec4(outRGB, outA);
+}
+
+// alpha blend: back(vec3), front(vec4) -> returns vec4
+vec4 alphaBlendVec3Vec4(vec3 back, vec4 front) {
+    vec3 outRGB = mix(back, front.xyz, front.w);
+    float outA = front.w + 0.0 * (1.0 - front.w);
     return vec4(outRGB, outA);
 }
 
@@ -85,7 +93,7 @@ float lofbm(vec2 p) {
 float hiheight(vec2 p){ return hifbm(p) - 1.8; }
 float loheight(vec2 p){ return lofbm(p) - 2.15; }
 
-// ray-sphere intersection
+// ray-sphere intersection (returns t0,t1 or -1.0 if miss)
 vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     vec3 oc = ro - sph.xyz;
     float b = dot(oc, rd);
@@ -96,67 +104,72 @@ vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     return vec2(-b - h, -b + h);
 }
 
-// === FORWARD DECLARATION ===
-vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n);
-
-// === KERNEL FOR 500% BLUR ===
-const vec2 poissonDisk[12] = vec2[](
-    vec2(-0.326212, -0.40581), vec2(-0.840144, -0.07358),
-    vec2(-0.695914, 0.457137), vec2(-0.203345, 0.620716),
-    vec2(0.96234, -0.194983), vec2(0.473434, -0.480026),
-    vec2(0.519456, 0.767022), vec2(0.185461, -0.893124),
-    vec2(0.507431, 0.064425), vec2(0.89642, 0.412458),
-    vec2(-0.32194, -0.932615), vec2(-0.791559, -0.59771)
-);
-
-// === BLURRED LAYER FUNCTION ===
-vec4 planeBlurred(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, 
-                  vec3 uu, vec3 vv, float blurRadius) {
-    const int sampleCount = 12;
-    vec4 sum = vec4(0.0);
-    
-    for (int s = 0; s < sampleCount; ++s) {
-        vec2 offset = poissonDisk[s] * blurRadius;
-        vec3 worldOffset = uu * offset.x + vv * offset.y;
-        vec3 offsetPP = pp + worldOffset;
-        vec3 offsetNPP = npp + worldOffset;
-        
-        vec4 sampleColor = plane(ro, rd, offsetPP, offsetNPP, off, n);
-        sum = alphaBlendVec4(sum, sampleColor);
-    }
-    
-    return sum / float(sampleCount);
-}
-
-// Оригинальная функция plane (без изменений)
+// ==== МОДИФИЦИРОВАННАЯ ФУНКЦИЯ С РАЗМЫТИЕМ ====
 vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n) {
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
-    float he = hiheight(vec2(p.x, pp.z) * stp);
-    float lohe = loheight(vec2(p.x, pp.z) * stp);
-    float d = p.y - he;
-    float lod = p.y - lohe;
-    float aa = distance(pp, npp)*sqrt(1.0/3.0);
-    float t = smoothstep(aa, -aa, d);
-    float df = exp(-0.1 * (distance(ro, pp) - 2.0));
-    vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
-    vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
-    vec3 col = acol + 0.5 * gcol;
-    return vec4(col, clamp(t, 0.0, 1.0));
+    
+    // Параметры размытия (500%)
+    const float blurStrength = 5.0;
+    const int samples = 9; // Количество сэмплов для размытия
+    vec4 total = vec4(0.0);
+    
+    // Мульти-сэмплинг для имитации размытия
+    for (int i = 0; i < samples; i++) {
+        // Генерация смещений для размытия
+        float angle = float(i) * (TAU / float(samples));
+        float dist = float(i) * blurStrength * 0.3;
+        vec2 offset = vec2(cos(angle), sin(angle)) * dist;
+        
+        // Вычисление смещенной позиции
+        vec2 jitteredP = p + offset;
+        vec3 jitteredPP = vec3(jitteredP.x, jitteredP.y, pp.z);
+        
+        // Вычисление высот с шумом
+        float he = hiheight(vec2(jitteredP.x, pp.z) * stp);
+        float lohe = loheight(vec2(jitteredP.x, pp.z) * stp);
+        
+        // Расстояние до поверхности
+        float d = jitteredP.y - he;
+        float lod = jitteredP.y - lohe;
+        
+        // Anti-aliasing (сохранен оригинальный алгоритм)
+        float aa = distance(jitteredPP, npp) * sqrt(1.0/3.0);
+        float t = smoothstep(aa, -aa, d);
+        
+        // Дистанция для цветовых эффектов
+        float df = exp(-0.1 * (distance(ro, jitteredPP) - 2.0));
+        
+        // Цветовые градиенты (полностью сохранены)
+        vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
+        vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
+        vec3 col = acol + 0.5 * gcol;
+        
+        // Накопление результатов
+        total += vec4(col, clamp(t, 0.0, 1.0));
+    }
+    
+    // Усреднение сэмплов для размытия
+    total /= float(samples);
+    
+    return total;
 }
 
-// moon/jupiter (без изменений)
+// moon implementation (без изменений)
 vec4 moon(vec3 ro, vec3 rd) {
     vec4 sph = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
     vec2 hit = raySphere(ro, rd, sph);
     if (hit.x < 0.0) return vec4(0.0);
+    
     vec3 pos = ro + rd * hit.x;
     vec3 nrm = normalize(pos - sph.xyz);
+    
     float lon = atan(nrm.z, nrm.x);
     float lat = asin(nrm.y);
     vec2 uv = vec2(lon / (2.0 * PI) + 0.5, lat / PI + 0.5);
     uv = vec2(uv.y, 1.0 - uv.x);
+    
     float time = iTime;
     float timeScale = 0.5;
     vec2 zoom = vec2(20.0, 5.5);
@@ -169,10 +182,12 @@ vec4 moon(vec3 ro, vec3 rd) {
         point.x += a_x * sin(fi * point.y + time * timeScale);
         point.y += a_y * cos(fi * point.x + time * 0.2);
     }
+    
     float r = cos(point.x + point.y + 2.0) * 0.5 + 0.5;
     float g = sin(point.x + point.y + 2.2) * 0.5 + 0.5;
     float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
     vec3 jupColor = vec3(r, g, b) + 0.5;
+    
     float lightBase = clamp(nrm.x * 0.6 + 0.4, 0.0, 1.0);
     float light = pow(lightBase, 1.7) * 0.5 + 0.1;
     float lightAtmos = pow(clamp(nrm.x, 0.0, 1.0), 2.0);
@@ -180,21 +195,24 @@ vec4 moon(vec3 ro, vec3 rd) {
     vec3 atmosphereColor = vec3(0.7, 0.6, 0.5);
     float fresnel = pow(1.0 - clamp(dot(nrm, -rd), 0.0, 1.0), 3.0);
     vec3 fresnelMix = mix(surfaceColor, atmosphereColor, fresnel * lightAtmos * 0.8);
+    
     vec3 col = fresnelMix * 1.5;
     float alpha = smoothstep(0.0, 10000.0, hit.y - hit.x);
     return vec4(col, alpha);
 }
 
-// main color accumulation
+// main color accumulation (без изменений)
 vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
     vec2 np = p + 2.0 / RESOLUTION.y;
     vec3 rd = normalize(p.x*uu + p.y*vv + 2.0*ww);
     vec3 nrd = normalize(np.x*uu + np.y*vv + 2.0*ww);
+    
     const float planeDist = 1.0;
     const int furthest = 30;
     const int fadeFrom = 28;
     const float fadeDist = planeDist * float(fadeFrom);
     const float maxDist = planeDist * float(furthest);
+    
     float nz = floor(ro.z / planeDist);
     vec4 accum = vec4(0.0);
     
@@ -205,14 +223,7 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
         if (pp.y < 0.0 && pd > 0.0 && accum.w < 0.95) {
             vec3 npp = ro + nrd * pd;
             vec3 off = vec3(0.0);
-            
-            // ==== ВЫЧИСЛЯЕМ РАДИУС 500% РАЗМЫТИЯ ====
-            float aa = distance(pp, npp) * sqrt(1.0/3.0);
-            float blurRadius = aa * 5.0 * 3.0; // 500% + усиление
-            
-            // ==== РАЗМЫТЫЙ СЛОЙ ====
-            vec4 pcol = planeBlurred(ro, rd, pp, npp, off, nz + float(i), uu, vv, blurRadius);
-            
+            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i));
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
             pcol = clamp(pcol, 0.0, 1.0);
@@ -222,9 +233,12 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
         }
     }
     
+    // moon
     vec4 m = moon(ro, rd);
-    vec3 finalRGB = mix(accum.xyz, m.xyz, m.w);
-    float finalA = max(accum.w, m.w);
+    vec3 base = accum.xyz;
+    float baseA = accum.w;
+    vec3 finalRGB = mix(base, m.xyz, m.w);
+    float finalA = max(baseA, m.w);
     outA = finalA;
     return finalRGB;
 }
@@ -243,6 +257,7 @@ void main() {
     vec2 q = gl_FragCoord.xy / RESOLUTION.xy;
     vec2 p = -1.0 + 2.0 * q;
     p.x *= RESOLUTION.x / RESOLUTION.y;
+    
     float alpha;
     vec3 col = effect(p, alpha);
     fragColor = vec4(col, alpha);
@@ -336,6 +351,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
