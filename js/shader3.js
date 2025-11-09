@@ -102,19 +102,7 @@ uniform float uQuality;
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-        // --- Реальный параллакс от мыши ---
-    vec2 mouse = iMouse.xy / iResolution.xy;
-    mouse = (mouse - 0.5) * 2.0;
-
-    // Сдвигаем координаты в зависимости от мыши (эффект глубины)
-    vec2 shifted = fragCoord + mouse * iResolution.xy * 0.02;
-
-    // Теперь считаем сетку с этих сдвинутых координат
-    vec2 grid = floor(shifted / iResolution.y * GRID) / (GRID - 1.0);
-    float t = grid.y;
-    grid += vec2(1.0);
-    
-
+  
     // === Исправлено: нормализуем по высоте, чтобы символы были квадратные ===
     vec2 grid = floor(fragCoord / iResolution.y * GRID) / (GRID - 1.0);
     float t = grid.y;
@@ -351,6 +339,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
