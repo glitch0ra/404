@@ -86,27 +86,49 @@ document.addEventListener("DOMContentLoaded", () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
+  // ---------- Полный фрагментный шейдер (готовый к использованию) ----------
   const fragmentSrc = `#version 300 es
-precision mediump float;
+precision highp float;
 out vec4 fragColor;
-uniform vec3 iResolution;
+
+uniform vec3 iResolution; // x = width, y = height, z = 1.0
 uniform float iTime;
 uniform vec4 iMouse;
 uniform float uQuality;
 uniform sampler2D uFontAtlas;
 
-const float SPEED = .21;
-const float STRIP_CHARS_MIN = 7.0;
-const float STRIP_CHARS_MAX = 40.0;
-const float STRIP_CHAR_HEIGHT = 0.15;
-const float STRIP_CHAR_WIDTH = 0.10;
-const float ZCELL_SIZE = 1.0 * (STRIP_CHAR_HEIGHT * STRIP_CHARS_MAX);
-const float XYCELL_SIZE = 12.0 * STRIP_CHAR_WIDTH;
-const int BLOCK_SIZE = 10;
-const int BLOCK_GAP = 2;
-const float WALK_SPEED = 1.0 * XYCELL_SIZE;
-const float BLOCKS_BEFORE_TURN = 3.0;
-const float PI = 3.14159265359;
+const float PI = 3.141592653589793;
+const float CHAR_SCALE = 1.2; // масштаб символа (1.2 как ты просил)
+const int COLUMNS = 60; // количество колонн (регулируй для плотности)
+const int ROWS = 80;   // сколько символов по вертикали логически
+
+// быстрые хэши
+float hash13(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+float hash21(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123);
+}
+vec2 hash22(vec2 p) {
+    vec2 q = vec2(dot(p, vec2(127.1,311.7)), dot(p, vec2(269.5,183.3)));
+    return fract(sin(q) * 43758.5453123);
+}
+
+// берём пиксель из атласа: слева '1', справа '0' (каждый занимает половину по X)
+float sampleGlyphAlpha(vec2 innerUV, int digit) {
+    // innerUV: локальные координаты символа 0..1 (x,y)
+    // увеличиваем область выборки, чтобы символы были крупнее
+    innerUV = (innerUV - 0.5) / CHAR_SCALE + 0.5;
+
+    // отражаем по X, если нужно (развернуть символы)
+    innerUV.x = 1.0 - innerUV.x;
+
+    float xOffset = (digit == 1) ? 0.0 : 0.5; // слева 1, справа 0
+    vec2 atlasUV = vec2(xOffset + innerUV.x * 0.5, 1.0 - innerUV.y);
+    vec4 t = texture(uFontAtlas, atlasUV);
+    // используем альфу как маску (предполагаем прозрачный фон)
+    return t.a;
+}
 
 vec3 oilMix(vec3 p, float t) {
     vec3 c1 = vec3(1.0, 0.0, 1.0);
@@ -124,166 +146,104 @@ vec3 oilMix(vec3 p, float t) {
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
 }
 
-float hash(float v) { return fract(sin(v) * 43758.5453123); }
-float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
-vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
-vec4 hash4(vec3 v) {
-    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 269.5, 183.3, 246.1, 113.5, 271.9, 124.6, 271.9, 269.5, 311.7));
-    return fract(sin(p) * 43758.5453123);
-}
+void mainImage(out vec4 outColor, in vec2 fragCoord) {
+    vec2 res = iResolution.xy;
+    vec2 uv = fragCoord.xy / res; // 0..1
+    // flip Y to match texture orientation if needed
+    uv.y = 1.0 - uv.y;
 
-// --- выборка символа из атласа ---
-// Твоя текстура: ширина 128, высота 64. Слева '1', справа '0'.
-// Каждая цифра занимает половину по X.
-float digitTex(vec2 uv, int n) {
-    // Увеличиваем цифры (масштаб ×1.2 визуально)
-    uv = (uv - 0.5) / 1.2 + 0.5;  // делим, чтобы увеличить символ
-    
-    uv.x = 1.0 - uv.x;            // отражаем по горизонтали
+    // сохраняем aspect для корректного расположения по X
+    float aspect = res.x / res.y;
+    vec2 uvA = vec2(uv.x * aspect, uv.y);
 
-    // если слева "1", справа "0"
-    float xOffset = (n == 0) ? 0.5 : 0.0;
-    vec2 atlasUV = vec2(xOffset + uv.x * 0.5, 1.0 - uv.y);
-    vec4 texColor = texture(uFontAtlas, atlasUV);
-    return texColor.a;
-}
+    // базовый цвет
+    vec3 accum = vec3(0.0);
 
-// Случайный выбор цифры без мерцания, с крайне медленной сменой
-float random_digit(vec2 outer, vec2 inner, float time) {
-    // time очень медленный (ты просил extreme slowdown)
-    float h = hash(outer + floor(time * 0.0000005)); // ещё замедлил относительно предыдущего
-    int n = int(floor(h * 2.0)); // 0 или 1
-    // inner — локальные координаты в пределах символа: ожидается 0..1
-    float pixel = digitTex(inner, n);
-    return pixel;
-}
+    // параметры контролируемые
+    float speedGlobal = 0.00001; // сверхмедленное изменение символов/смещение
+    float dropSpeed = 0.05; // скорость падения (модифицируй при необходимости)
 
-// ─────────── Главная логика дождя ───────────
-vec3 rain(vec3 ro3, vec3 rd3, float time) {
-    vec4 result = vec4(0.);
-    vec2 ro2 = vec2(ro3);
-    vec2 rd2 = normalize(vec2(rd3));
-    bool prefer_dx = abs(rd2.x) > abs(rd2.y);
-    float t3_to_t2 = prefer_dx ? rd3.x / rd2.x : rd3.y / rd2.y;
-    ivec3 cell_side = ivec3(step(0., rd3));
-    ivec3 cell_shift = ivec3(sign(rd3));
-    float t2 = 0.;
-    
-    // --- Выровненное распределение координат по X ---
-vec2 ro2_fixed = ro2;
-ro2_fixed.x = (ro2_fixed.x - 0.5) * 1.25 + 0.5;
-ivec2 next_cell = ivec2(floor((ro2_fixed + vec2(XYCELL_SIZE * 0.5)) / XYCELL_SIZE));
+    // loop по колонкам — распределяем равномерно по ширине
+    for (int ci = 0; ci < COLUMNS; ci++) {
+        float idx = float(ci);
 
+        // равномерная базовая позиция X (0..1)
+        float colWidth = 1.0 / float(COLUMNS);
+        float baseX = (idx + 0.5) * colWidth;
 
-    int maxIterations = int(mix(15.0, 25.0, uQuality));
-    for (int i = 0; i < 25; i++) {
-        if (i >= maxIterations) break;
-        ivec2 cell = next_cell;
-        float t2s = t2;
-        vec2 side = vec2(next_cell + cell_side.xy) * XYCELL_SIZE;
-        vec2 t2_side = (side - ro2) / rd2;
-        if (t2_side.x < t2_side.y) {
-            t2 = t2_side.x;
-            next_cell.x += cell_shift.x;
-        } else {
-            t2 = t2_side.y;
-            next_cell.y += cell_shift.y;
-        }
-        
-        vec2 cell_in_block = fract(vec2(cell) / float(BLOCK_SIZE));
-        float gap = float(BLOCK_GAP) / float(BLOCK_SIZE);
-        if (cell_in_block.x < gap || cell_in_block.y < gap) continue;
+        // небольшой детерминированный джиттер (без bias'а в центр)
+        float jitter = (hash21(vec2(idx, 12.34)) - 0.5) * colWidth * 0.4;
+        float colX = baseX + jitter;
 
-        float xycell_hash = hash(vec2(cell));
-        float z_shift = xycell_hash * 11. - time * (0.5 + xycell_hash * 1.0 + xycell_hash * xycell_hash + pow(xycell_hash, 16.) * 3.0);
-        float char_z_shift = floor(z_shift / STRIP_CHAR_HEIGHT);
-        z_shift = char_z_shift * STRIP_CHAR_HEIGHT;
-        int zcell = int(floor((ro3.z - z_shift) / ZCELL_SIZE));
+        // если пиксель далеко по X — пропускаем
+        float dx = abs(uv.x - colX);
+        if (dx > colWidth * 0.6) continue;
 
-        for (int j = 0; j < 2; j++) {
-            vec4 cell_hash = hash4(vec3(ivec3(cell, zcell)));
-            vec4 cell_hash2 = fract(cell_hash * vec4(127.1, 311.7, 271.9, 124.6));
-            float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
-            float target_length = chars_count * STRIP_CHAR_HEIGHT;
-            float target_rad = STRIP_CHAR_WIDTH / 2.;
-            float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
-            
-                        // --- Ровная сетка столбцов с небольшим джиттером для случайности ---
-            float jitterX = (cell_hash.x - 0.5) * XYCELL_SIZE * 0.25; // горизонтальный разброс
-            float jitterY = (cell_hash.y - 0.5) * XYCELL_SIZE * 0.15; // вертикальный разброс
-            vec2 basePos = vec2(float(cell.x) * XYCELL_SIZE + XYCELL_SIZE * 0.5,
-                                float(cell.y) * XYCELL_SIZE + XYCELL_SIZE * 0.5);
-            vec2 target = basePos + vec2(jitterX, jitterY);
+        // вертикальный оффсет для этой колонки — равномерный, с зависимостью от iTime
+        // используем детерминированный базовый оффсет per-column
+        float baseOffset = hash21(vec2(idx, 56.78));
+        // движение вниз: iTime влияет, но сильно замедленно для редких смен
+        float scroll = fract(baseOffset + iTime * dropSpeed);
 
-            vec2 s = target - ro2;
-            float tmin = dot(s, rd2);
-            float dist = tmin / t3_to_t2;
-            if (dist < 4.0) continue;
+        // каждая колонка содержит логически ROWS символов по Y
+        // вычислим, в какую строку попадает текущий пиксель относительно этой колонки
+        float localY = fract((uv.y + scroll) * float(ROWS));
 
-            if (tmin >= t2s && tmin <= t2) {
-                float u = s.x * rd2.y - s.y * rd2.x;
-                if (abs(u) < target_rad) {
-                    u = (u / target_rad + 1.) / 2.;
-                    float z = ro3.z + rd3.z * tmin / t3_to_t2;
-                    float v = (z - target_z) / target_length;
-                    if (v >= 0.0 && v < 1.0) {
-                        float c = floor(v * chars_count);
-                        float q = fract(v * chars_count);
-                        vec2 char_hash = hash2(vec2(c + char_z_shift, cell_hash2.x));
-                        // time_factor здесь используется в генерации внешнего hash — сделано очень медленным
-                        float time_factor = time * 0.00001 + char_hash.y * 10.0;
-                        float a = random_digit(vec2(char_hash.x, time_factor), vec2(u, q), time);
-                        a *= clamp((chars_count - 0.5 - c) / 2., 0., 1.);
-                        a *= smoothstep(4.0, 6.0, dist);
-                        if (a > 0.) {
-                            float attenuation = 1. + pow(0.06 * tmin / t3_to_t2, 2.);
-                            float colorShift = hash(vec2(cell)) * 6.2831;
-                            vec3 baseColor = oilMix(vec3(target.xy * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
-                            vec3 col = baseColor / attenuation;
-                            float a1 = result.a;
-                            result.a = a1 + (1. - a1) * a;
-                            result.xyz = (result.xyz * a1 + col * (1. - a1) * a) / result.a;
-                            if (result.a > 0.98) return result.xyz;
-                        }
-                    }
-                }
-            }
-            zcell += cell_shift.z;
-        }
+        // высота символа в UV-координатах
+        float symHeight = 1.0 / float(ROWS);
+        // расстояние в Y от центра символа в данной колонке
+        float centerY = floor((uv.y + scroll) * float(ROWS)) * symHeight + symHeight * 0.5;
+        float dy = abs(uv.y - centerY);
+
+        // ограничитель по Y — только если близко к центру символа, иначе пропускаем
+        if (dy > symHeight * 0.6) continue;
+
+        // определяем индекс символа (строка внутри столбца)
+        float rowIndex = floor((uv.y + scroll) * float(ROWS));
+
+        // выбор цифры 0/1 детерминировано от столбца и строки, но очень медленно меняется со временем
+        float slowTime = floor(iTime * speedGlobal); // change in huge intervals
+        float pickHash = hash21(vec2(idx * 12.989, rowIndex * 78.233 + slowTime));
+        int digit = (pickHash < 0.5) ? 0 : 1;
+
+        // innerUV внутри символа 0..1
+        // innerX — нормализуем по ширине колонки: uv.x в пределах [colX - colWidth/2, colX + colWidth/2]
+        float innerX = (uv.x - (colX - colWidth * 0.5)) / (colWidth);
+        float innerY = fract((uv.y + scroll) * float(ROWS));
+
+        // sample alpha из атласа
+        float glyphA = sampleGlyphAlpha(vec2(innerX, innerY), digit);
+
+        if (glyphA <= 0.003) continue;
+
+        // цвет колонки (производим oilMix для вариативности)
+        float colorShift = hash21(vec2(idx, rowIndex)) * 6.28318;
+        vec3 baseColor = oilMix(vec3(colX * 0.05, rowIndex * 0.02, scroll), iTime * 0.6 + colorShift);
+        // делаем более зеленый тон
+        vec3 glyphColor = mix(vec3(0.1, 0.8, 0.45), baseColor, 0.6);
+
+        // attenuation по расстоянию от центра символа (чтобы края мягче)
+        float att = smoothstep(0.6, 0.0, dx / (colWidth * 0.5)) * smoothstep(0.6, 0.0, dy / (symHeight * 0.5));
+
+        accum += glyphColor * glyphA * att;
     }
-    return result.xyz * result.a;
-}
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-    vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-    uv.x += 60.0 / iResolution.y;
-    vec2 mouse = iMouse.xy / iResolution.xy;
-    mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.02;
-    float time = mod(iTime, 240.0) * SPEED;
-    vec3 ro = vec3(0.5, 0.5, 0.0);
-    vec3 rd = vec3(uv.x, 2.0, uv.y);
-    vec3 col = rain(ro, rd, time);
+    // post processing: contrast/brightness
+    float saturation = 1.4;
+    float contrast = 1.2;
+    float brightnessBoost = 0.05;
+    float lum = dot(accum, vec3(0.299, 0.587, 0.114));
+    accum = mix(vec3(lum), accum, saturation);
+    accum = (accum - 0.5) * contrast + 0.5;
+    accum += brightnessBoost;
+    accum = clamp(accum, 0.0, 1.0);
 
-    float saturation = 1.5;
-    float contrast = 1.3;
-    float brightnessBoost = 0.15;
-    float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(lum), col, saturation);
-    col = (col - 0.5) * contrast + 0.5;
-    col += brightnessBoost;
-    col = clamp(col, 0.0, 1.0);
-
-    float brightness = max(col.r, max(col.g, col.b));
-    float alpha = brightness > 0.1 ? 1.0 : 0.0;
-    col *= alpha;
-    fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
+    float alpha = max(accum.r, max(accum.g, accum.b)) > 0.01 ? 1.0 : 0.0;
+    outColor = vec4(pow(accum, vec3(0.9)) * 1.1, alpha);
 }
 
 void main() {
-    vec4 c;
-    mainImage(c, gl_FragCoord.xy);
-    fragColor = c;
+    mainImage(fragColor, gl_FragCoord.xy);
 }`;
 
   /*──────────────────── Компиляция ────────────────────*/
@@ -300,6 +260,8 @@ void main() {
 
   const vs = compileShader(gl3, gl3.VERTEX_SHADER, vertexSrc);
   const fs = compileShader(gl3, gl3.FRAGMENT_SHADER, fragmentSrc);
+  if (!vs || !fs) return; // если компиляция упала — выходим
+
   const prog = gl3.createProgram();
   gl3.attachShader(prog, vs);
   gl3.attachShader(prog, fs);
@@ -331,19 +293,19 @@ void main() {
   image.onload = () => {
     gl3.bindTexture(gl3.TEXTURE_2D, texture01);
     gl3.texImage2D(gl3.TEXTURE_2D, 0, gl3.RGBA, gl3.RGBA, gl3.UNSIGNED_BYTE, image);
-    // для пиксельного шрифта предпочтительнее NEAREST, чтобы сохранить жесткие края
+    // для пиксельного шрифта NEAREST предпочтительно
     gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MIN_FILTER, gl3.NEAREST);
     gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_MAG_FILTER, gl3.NEAREST);
     gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_WRAP_S, gl3.CLAMP_TO_EDGE);
     gl3.texParameteri(gl3.TEXTURE_2D, gl3.TEXTURE_WRAP_T, gl3.CLAMP_TO_EDGE);
 
-    // назначаем uniform единично (texture unit 0)
+    // назначаем uniform один раз
     gl3.useProgram(prog);
     gl3.activeTexture(gl3.TEXTURE0);
     gl3.bindTexture(gl3.TEXTURE_2D, texture01);
     if (uFontAtlasLoc) gl3.uniform1i(uFontAtlasLoc, 0);
   };
-// если картинка не загрузится — можно подать 1x1 белый пиксель, чтобы шейдер не ломался:
+// fallback если картинка не загрузилась
 image.onerror = () => {
   const whitePixel = new Uint8Array([255, 255, 255, 255]);
   gl3.bindTexture(gl3.TEXTURE_2D, texture01);
@@ -425,7 +387,7 @@ image.onerror = () => {
     gl3.clearColor(0, 0, 0, 0);
     gl3.clear(gl3.COLOR_BUFFER_BIT);
 
-    // каждый кадр биндим текстуру на unit 0 и подтверждаем uniform (безопасно)
+    // биндим текстуру и шейдерные униформы
     gl3.activeTexture(gl3.TEXTURE0);
     gl3.bindTexture(gl3.TEXTURE_2D, texture01);
     if (uFontAtlasLoc) gl3.uniform1i(uFontAtlasLoc, 0);
@@ -443,9 +405,3 @@ image.onerror = () => {
 
   requestAnimationFrame(render);
 });
-
-
-
-
-
-
