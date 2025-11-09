@@ -172,6 +172,18 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
     ivec2 next_cell = ivec2(floor(adjustedRo2 / XYCELL_SIZE));
 
     int maxIterations = int(mix(15.0, 25.0, uQuality));
+
+    // --- Выровненное распределение координат по X ---
+vec2 ro2_fixed = ro2;
+
+// растягиваем пространство по X, чтобы убрать сгущение строк в центре
+// коэффициент 1.25 регулирует степень компенсации (можно 1.1..1.4)
+ro2_fixed.x = (ro2_fixed.x - 0.5) * 1.25 + 0.5;
+
+// используем скорректированные координаты вместо исходных
+ivec2 next_cell = ivec2(floor((ro2_fixed + vec2(XYCELL_SIZE * 0.5)) / XYCELL_SIZE));
+
+    
     for (int i = 0; i < 25; i++) {
         if (i >= maxIterations) break;
         ivec2 cell = next_cell;
@@ -203,10 +215,9 @@ vec3 rain(vec3 ro3, vec3 rd3, float time) {
             float target_rad = STRIP_CHAR_WIDTH / 2.;
             float target_z = (float(zcell) * ZCELL_SIZE + z_shift) + cell_hash.z * (ZCELL_SIZE - target_length);
             
-            // делаем равномерные столбцы по оси X и даём небольшой джиттер (чтобы не было слишком механично)
-            float jitterX = (cell_hash.x - 0.5) * XYCELL_SIZE * 0.4; // регулировать: 0.0..0.6
-            float jitterY = (cell_hash.y - 0.5) * XYCELL_SIZE * 0.2; // небольшой вертикальный сдвиг
-            // базовая позиция — центр ячейки (равномерно по X и Y)
+                        // --- Ровная сетка столбцов с небольшим джиттером для случайности ---
+            float jitterX = (cell_hash.x - 0.5) * XYCELL_SIZE * 0.25; // горизонтальный разброс
+            float jitterY = (cell_hash.y - 0.5) * XYCELL_SIZE * 0.15; // вертикальный разброс
             vec2 basePos = vec2(float(cell.x) * XYCELL_SIZE + XYCELL_SIZE * 0.5,
                                 float(cell.y) * XYCELL_SIZE + XYCELL_SIZE * 0.5);
             vec2 target = basePos + vec2(jitterX, jitterY);
@@ -439,6 +450,7 @@ image.onerror = () => {
 
   requestAnimationFrame(render);
 });
+
 
 
 
