@@ -283,7 +283,7 @@ void main() {
   observer.observe(canvas);
 
   /* ---------------- Render loop ---------------- */
-  const TARGET_FPS = 25;
+  const TARGET_FPS = 30;
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
   let lastRenderTime = performance.now();
   let startTime = performance.now();
@@ -340,4 +340,5 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
