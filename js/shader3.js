@@ -101,11 +101,11 @@ uniform float uQuality;
 // Возвращает "масляный" цвет (без искусственного увеличения яркости)
 vec3 iridescentColor(vec2 pos, float time, float phase)
 {
-    // насыщенные базовые тона (оставляем значения в 0..1)
+    // Базовые насыщенные цвета
     vec3 c1 = vec3(0.85, 0.25, 1.00); // фиолетовый
-    vec3 c2 = vec3(0.20, 1.00, 0.45); // зелёный
-    vec3 c3 = vec3(0.25, 0.80, 1.00); // голубой
-    vec3 c4 = vec3(1.00, 0.35, 0.70); // розовый
+    vec3 c2 = vec3(0.15, 1.00, 0.45); // зелёный
+    vec3 c3 = vec3(0.25, 0.75, 1.00); // голубой
+    vec3 c4 = vec3(1.00, 0.30, 0.70); // розовый
 
     float n1 = sin(pos.x * 0.45 + pos.y * 0.25 + time * 2.8 + phase);
     float n2 = cos(pos.y * 0.35 - pos.x * 0.40 + time * 3.2 - phase * 0.7);
@@ -117,21 +117,25 @@ vec3 iridescentColor(vec2 pos, float time, float phase)
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
 
-    // Смешиваем волны
-    vec3 raw = c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4;
+    vec3 col = normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
 
-    // Увеличиваем насыщенность (S) без подъёма яркости (V)
-    // Приём: перевод к яркости (luminance), затем миксуем
-    float lum = dot(raw, vec3(0.299, 0.587, 0.114));
-    float saturationBoost = 1.5; // 1.0 = исходная, 1.5 = сильнее насыщение
-    vec3 saturated = mix(vec3(lum), raw, saturationBoost);
+    // === Коррекция яркости (чтобы не выбивало в белый) ===
+    // переводим в "псевдо-HSV": вычисляем яркость (Value)
+    float maxC = max(max(col.r, col.g), col.b);
+    float minC = min(min(col.r, col.g), col.b);
+    float V = maxC;
+    float S = (V <= 0.0) ? 0.0 : (V - minC) / V;
 
-    // Лёгкая тональная компрессия чтобы предотвратить клиппинг
-    // (сглаживаем пиковые значения, чтобы не уходили в белый)
-    saturated = saturated / (1.0 + 0.25 * pow(saturated, vec3(2.0)));
+    // ограничиваем Value, чтобы не было белого клипа
+    float targetV = 0.85 + 0.15 * sin(pos.x * 0.3 + pos.y * 0.2 + phase * 2.1);
+    if (V > targetV) col *= targetV / V;
 
-    // Небольшая гамма-коррекция (делает цвета живее без клипа)
-    return pow(clamp(saturated, 0.0, 1.0), vec3(0.95));
+    // лёгкий подъем насыщенности без яркости
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(lum), col, 1.5);
+
+    // финальное ограничение в диапазон
+    return clamp(pow(col, vec3(0.95)), 0.0, 1.0);
 }
 
 
@@ -398,6 +402,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
