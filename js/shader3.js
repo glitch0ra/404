@@ -98,7 +98,7 @@ uniform vec4 iMouse;
 uniform sampler2D iChannel0;
 uniform float uQuality;
 
-#define GRID 150.0
+#define GRID 60.0
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
@@ -344,6 +344,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
