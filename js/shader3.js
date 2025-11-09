@@ -106,7 +106,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = fragCoord / iResolution.xy;
     vec2 mouse = iMouse.xy / iResolution.xy;
     mouse = (mouse - 0.5) * 2.0;
-    uv += mouse * 0.002; // амплитуда эффекта
+    uv += mouse * 0.004; // амплитуда эффекта
 
     // Приводим координаты и сетку
     vec2 grid = floor(uv * iResolution.x / iResolution.x * GRID) / (GRID - 1.0);
@@ -340,6 +340,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
