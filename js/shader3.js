@@ -88,39 +88,35 @@ document.addEventListener("DOMContentLoaded", () => {
   }`;
 
   const fragmentSrc = `#version 300 es
-  precision mediump float;
-  out vec4 fragColor;
-  uniform vec3 iResolution;
-  uniform float iTime;
-  uniform vec4 iMouse;
-  uniform float uQuality;
-  uniform sampler2D uFontAtlas;
+precision mediump float;
+out vec4 fragColor;
+uniform vec3 iResolution;
+uniform float iTime;
+uniform vec4 iMouse;
+uniform float uQuality;
+uniform sampler2D uFontAtlas;
 
-  const float SPEED = .21;
-  const float STRIP_CHARS_MIN = 7.0;
-  const float STRIP_CHARS_MAX = 40.0;
-  const float STRIP_CHAR_HEIGHT = 0.15;
-  const float STRIP_CHAR_WIDTH = 0.10;
-  const float CELL_SIZE = 1.2;
-  const float MAX_DISTANCE = 40.0;
+const float SPEED = .21;
+const float STRIP_CHARS_MIN = 7.0;
+const float STRIP_CHARS_MAX = 40.0;
+const float STRIP_CHAR_HEIGHT = 0.15;
+const float STRIP_CHAR_WIDTH = 0.10;
+const float CELL_SIZE = 1.2; // Оптимальный размер ячейки
+const float MAX_DISTANCE = 40.0; // Максимальная дистанция для строчек
 
-  const float PI = 3.14159265359;
+const float PI = 3.14159265359;
 
-  float hash(float v) { return fract(sin(v) * 43758.5453123); }
-  float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
-  vec2 hash2(vec2 v) { 
-    v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); 
-    return fract(sin(v) * 43758.5453123); 
-  }
-  vec4 hash4(vec3 v) { 
-    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 
-                           269.5, 183.3, 246.1,
-                           113.5, 271.9, 124.6,
-                           271.9, 269.5, 311.7));
+// Хеш-функции для случайных значений
+float hash(float v) { return fract(sin(v) * 43758.5453123); }
+float hash(vec2 v) { return hash(dot(v, vec2(5.3983, 5.4427))); }
+vec2 hash2(vec2 v) { v = vec2(v * mat2(127.1, 311.7, 269.5, 183.3)); return fract(sin(v) * 43758.5453123); }
+vec4 hash4(vec3 v) { 
+    vec4 p = vec4(v * mat4x3(127.1, 311.7, 74.7, 269.5, 183.3, 246.1, 113.5, 271.9, 124.6, 271.9, 269.5, 311.7));
     return fract(sin(p) * 43758.5453123);
-  }
+}
 
-  vec3 oilMix(vec3 p, float t) {
+// Цветовая палитра
+vec3 oilMix(vec3 p, float t) {
     vec3 c1 = vec3(1.0, 0.0, 1.0);
     vec3 c2 = vec3(0.0, 1.0, 0.58);
     vec3 c3 = vec3(0.0, 1.0, 1.0);
@@ -134,52 +130,63 @@ document.addEventListener("DOMContentLoaded", () => {
     n3 = 0.5 + 0.5 * n3;
     n4 = 0.5 + 0.5 * n4;
     return normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
-  }
+}
 
-  float digitTex(vec2 uv, int n) {
+// Выбор символа из атласа
+float digitTex(vec2 uv, int n) {
     uv = (uv - 0.5) / 1.2 + 0.5;
     uv.x = 1.0 - uv.x;
     float xOffset = (n == 0) ? 0.5 : 0.0;
     vec2 atlasUV = vec2(xOffset + uv.x * 0.5, 1.0 - uv.y);
     return texture(uFontAtlas, atlasUV).a;
-  }
+}
 
-  float random_digit(vec2 outer, vec2 inner, float time) {
+// Генерация цифры с минимальным мерцанием
+float random_digit(vec2 outer, vec2 inner, float time) {
     float h = hash(outer + floor(time * 0.0000005));
     int n = int(floor(h * 2.0));
     return digitTex(inner, n);
-  }
+}
 
-  vec3 rain(vec3 ro, vec3 rd, float time) {
+// Основная логика дождя с равномерным распределением
+vec3 rain(vec3 ro, vec3 rd, float time) {
     vec4 result = vec4(0.0);
     vec2 uv = gl_FragCoord.xy / iResolution.xy;
     float aspect = iResolution.x / iResolution.y;
     
+    // Базовое количество строчек в зависимости от качества
     int baseCount = int(mix(20.0, 40.0, uQuality));
     
     for (int i = 0; i < 50; i++) {
         if (i >= baseCount) break;
         
+        // Генерируем случайную позицию по всему экрану
         vec2 seed = vec2(i) + uv + time * 0.01;
         vec2 rand = hash2(seed);
         
+        // Позиция ячейки в мировых координатах
         vec2 cellPos = (rand * 2.0 - 1.0) * vec2(aspect, 1.0) * 10.0;
         
+        // Глубина строчки
         float zOffset = hash(cellPos + time * 0.1) * 100.0;
         float target_z = -time * 0.3 + zOffset;
         
+        // Проверяем видимость строчки
         vec3 toCell = vec3(cellPos, target_z) - ro;
         float dist = dot(toCell, rd);
         if (dist < 1.0 || dist > MAX_DISTANCE) continue;
         
+        // Вычисляем позицию на луче
         vec3 hitPos = ro + rd * dist;
         vec2 offset = hitPos.xy - cellPos;
         
+        // Параметры строчки
         vec4 cell_hash = hash4(vec3(cellPos, time));
         float chars_count = cell_hash.w * (STRIP_CHARS_MAX - STRIP_CHARS_MIN) + STRIP_CHARS_MIN;
         float target_length = chars_count * STRIP_CHAR_HEIGHT;
         float target_rad = STRIP_CHAR_WIDTH * 0.7;
         
+        // Проверяем попадание в строчку
         if (length(offset) > target_rad) continue;
         
         float u = (length(offset) / target_rad);
@@ -197,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (a > 0.0) {
                 float attenuation = 1.0 + pow(0.03 * dist, 2.0);
                 float colorShift = hash(cellPos) * 6.2831;
-                vec3 baseColor = oilMix(vec3(cellPos * 0.05, target_z * 0.1), time * 0.6 + colorShift);
+                vec3 baseColor = oilMix(vec3(cellPos * 0.05, target_z * 0.1), iTime * 0.6 + colorShift);
                 vec3 col = baseColor / attenuation;
                 
                 float a1 = result.a;
@@ -210,9 +217,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     return result.xyz * result.a;
-  }
+}
 
-  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (fragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
     uv.x += 60.0 / iResolution.y;
     
@@ -222,10 +229,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     float time = mod(iTime, 240.0) * SPEED;
     vec3 ro = vec3(0.5, 0.5, 0.0);
-    vec3 rd = normalize(vec3(uv.x, 2.0, uv.y));
+    vec3 rd = normalize(vec3(uv.x, 2.0, uv.y)); // Важно: нормализуем направление
     
     vec3 col = rain(ro, rd, time);
     
+    // Пост-обработка цвета
     float saturation = 1.5;
     float contrast = 1.3;
     float brightnessBoost = 0.15;
@@ -241,13 +249,13 @@ document.addEventListener("DOMContentLoaded", () => {
     col *= alpha;
     
     fragColor = vec4(pow(col, vec3(0.8)) * 1.2, alpha);
-  }
+}
 
-  void main() {
+void main() {
     vec4 c;
     mainImage(c, gl_FragCoord.xy);
     fragColor = c;
-  }`;
+}`;
 
   /*──────────────────── Компиляция ────────────────────*/
   function compileShader(gl, type, src) {
@@ -410,4 +418,5 @@ document.addEventListener("DOMContentLoaded", () => {
   
   requestAnimationFrame(render);
 });
+
 
