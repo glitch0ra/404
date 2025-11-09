@@ -100,57 +100,45 @@ uniform float uQuality;
 
 vec3 iridescentColor(vec2 pos, float time, float phase)
 {
-    // Твои цвета (HEX → RGB)
+    // Твои цвета
     vec3 c1 = vec3(0.0, 0.898, 1.0);   // голубой #00E5FF
     vec3 c2 = vec3(0.451, 0.0, 1.0);   // фиолетовый #7300FF
     vec3 c3 = vec3(1.0, 0.0, 0.816);   // розовый #FF00D0
     vec3 c4 = vec3(0.0, 1.0, 0.5);     // зелёный #00FF80
 
-    // --- Генерация равномерного фазового потока ---
-    // волновая фаза "масла"
-    float wave = sin(pos.x * 0.3 + pos.y * 0.2 + time * 0.8 + phase * 1.5);
-    float swirl = cos(pos.x * 0.25 - pos.y * 0.35 + time * 0.9 - phase * 1.1);
+    // ---- равномерная фаза движения ----
+    float angle = time * 0.5 + pos.x * 0.1 + pos.y * 0.05 + phase * 0.3;
 
-    // равномерное распределение 0..1 (не смещённое к центру)
-    float t = fract(0.5 + 0.5 * (wave + swirl) * 0.5);
+    // Переводим в циклический индекс 0..4
+    float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
 
-    // растягиваем диапазон так, чтобы все цвета были равновероятны
-    if (t < 0.25)
-        t = smoothstep(0.0, 0.25, t);
-    else if (t < 0.5)
-        t = 0.25 + smoothstep(0.25, 0.5, t - 0.25) * 0.25;
-    else if (t < 0.75)
-        t = 0.5 + smoothstep(0.5, 0.75, t - 0.5) * 0.25;
-    else
-        t = 0.75 + smoothstep(0.75, 1.0, t - 0.75) * 0.25;
-
-    // --- Равномерное смешение между четырьмя цветами ---
     vec3 col;
-    if (t < 0.25)
-        col = mix(c1, c2, smoothstep(0.0, 0.25, t));
-    else if (t < 0.5)
-        col = mix(c2, c3, smoothstep(0.25, 0.5, t));
-    else if (t < 0.75)
-        col = mix(c3, c4, smoothstep(0.5, 0.75, t));
+    if (segment < 1.0)
+        col = mix(c1, c2, smoothstep(0.0, 1.0, segment));
+    else if (segment < 2.0)
+        col = mix(c2, c3, smoothstep(1.0, 2.0, segment));
+    else if (segment < 3.0)
+        col = mix(c3, c4, smoothstep(2.0, 3.0, segment));
     else
-        col = mix(c4, c1, smoothstep(0.75, 1.0, t));
+        col = mix(c4, c1, smoothstep(3.0, 4.0, segment));
 
-    // --- Масляные искажения ---
-    float shimmer = sin(pos.x * 3.1 + pos.y * 2.3 + time * 1.8 + phase * 2.2) * 0.07;
-    col += shimmer;
+    // мягкий иридисцентный шум (масляная текучесть)
+    float flow = sin(pos.x * 0.7 + pos.y * 0.9 + time * 1.5 + phase) * 0.06;
+    col += flow;
 
-    // --- Коррекция насыщенности и яркости ---
+    // увеличение насыщенности без поднятия яркости
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(lum), col, 1.6);
+    col = mix(vec3(lum), col, 1.4);
 
+    // ограничение Value (чтобы не выгорало)
     float maxVal = max(max(col.r, col.g), col.b);
     if (maxVal > 1.0) col /= (maxVal + 0.1);
 
+    // лёгкая гамма для “глубины”
     col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
+
     return col;
 }
-
-
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
@@ -415,3 +403,4 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
