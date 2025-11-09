@@ -231,7 +231,7 @@ for (int j = 0; j < 2; j++) {
   }
   zcell += cell_shift.z;
 }
-    }
+    
     return result.xyz * result.a;
   }
 
@@ -355,4 +355,5 @@ for (int j = 0; j < 2; j++) {
 
   requestAnimationFrame(render);
 });
+
 
