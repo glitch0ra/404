@@ -98,6 +98,30 @@ uniform float uQuality;
 
 #define GRID 60.0
 
+vec3 iridescentColor(vec2 pos, float time) {
+    // Базовые 4 цвета
+    vec3 c1 = vec3(0.70, 0.30, 0.90); // фиолетовый
+    vec3 c2 = vec3(0.20, 1.00, 0.50); // зелёный
+    vec3 c3 = vec3(0.30, 0.80, 1.00); // голубой
+    vec3 c4 = vec3(1.00, 0.40, 0.75); // розовый
+
+    // создаём интерференцию с разными фазами
+    float n1 = sin(pos.x * 0.35 + pos.y * 0.25 + time * 2.8);
+    float n2 = cos(pos.y * 0.40 - pos.x * 0.30 + time * 3.2);
+    float n3 = sin(pos.x * 0.45 + pos.y * 0.50 - time * 2.6);
+    float n4 = cos(pos.x * 0.25 + pos.y * 0.60 + time * 2.2);
+
+    // нормализуем в 0..1
+    n1 = 0.5 + 0.5 * n1;
+    n2 = 0.5 + 0.5 * n2;
+    n3 = 0.5 + 0.5 * n3;
+    n4 = 0.5 + 0.5 * n4;
+
+    // смешиваем волны как "масло"
+    vec3 col = normalize(c1 * n1 + c2 * n2 + c3 * n3 + c4 * n4);
+    return pow(col, vec3(1.2)); // чуть усиливаем яркость
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
   
@@ -118,7 +142,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     t = mod(t, q);
     if (t > 1.0 || t < 0.0) t = 1.0;
 
-    vec3 col = mix(vec3(0.235, 0.784, 0.235), vec3(1.0, 1.0, 1.0), pow(1.0 - t, 25.0)) * pow(1.0 - t, 3.0);
+        // --- Иридисцентная подсветка (эффект масла) ---
+    vec3 oil = iridescentColor(grid * 0.6, iTime * 0.4);
+    float fade = pow(1.0 - t, 3.0);
+    vec3 col = oil * fade;
+
 
     // === Исправлено: та же нормализация по высоте для локального uv ===
     vec2 localUV = mod(fragCoord / iResolution.y * GRID, vec2(1.0));
@@ -348,6 +376,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
