@@ -98,7 +98,7 @@ uniform vec4 iMouse;
 uniform sampler2D iChannel0;
 uniform float uQuality;
 
-#define GRID 60.0
+#define GRID 75.0
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
@@ -273,7 +273,7 @@ void main() {
     const deltaY = currentScroll - lastScrollY;
     lastScrollY = currentScroll;
     scrollSpeed = deltaY / deltaTime;
-    scrollInfluence = scrollSpeed * 0.26;
+    scrollInfluence = scrollSpeed * 0.2;
   });
 
   let isPaused = false;
@@ -344,6 +344,7 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
 
 
