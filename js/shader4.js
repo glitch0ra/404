@@ -12,8 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!gl) return console.error("WebGL2 не поддерживается");
 
     // ---------- FRAGMENT SHADER ----------
-   const fragSource = `
-#version 300 es
+   const fragSource = `#version 300 es
 precision highp float;
 uniform vec3 iResolution;
 uniform float iTime;
@@ -351,6 +350,7 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
 
