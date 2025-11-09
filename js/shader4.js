@@ -96,6 +96,9 @@ vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     return vec2(-b - h, -b + h);
 }
 
+// === FORWARD DECLARATION ===
+vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n);
+
 // === KERNEL FOR 500% BLUR ===
 const vec2 poissonDisk[12] = vec2[](
     vec2(-0.326212, -0.40581), vec2(-0.840144, -0.07358),
@@ -113,24 +116,15 @@ vec4 planeBlurred(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n,
     vec4 sum = vec4(0.0);
     
     for (int s = 0; s < sampleCount; ++s) {
-        // Смещение в экранном пространстве, масштабированное радиусом размытия
         vec2 offset = poissonDisk[s] * blurRadius;
-        
-        // Преобразуем в мировые координаты (вдоль плоскости слоя)
         vec3 worldOffset = uu * offset.x + vv * offset.y;
-        
-        // Смещенные точки
         vec3 offsetPP = pp + worldOffset;
         vec3 offsetNPP = npp + worldOffset;
         
-        // Сэмпл цвета с сохранением ВСЕХ эффектов
         vec4 sampleColor = plane(ro, rd, offsetPP, offsetNPP, off, n);
-        
-        // Аккумуляция с учетом альфы
         sum = alphaBlendVec4(sum, sampleColor);
     }
     
-    // Нормализация (усреднение)
     return sum / float(sampleCount);
 }
 
@@ -213,12 +207,10 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
             vec3 off = vec3(0.0);
             
             // ==== ВЫЧИСЛЯЕМ РАДИУС 500% РАЗМЫТИЯ ====
-            // Базовый размер пикселя в мировых координатах
             float aa = distance(pp, npp) * sqrt(1.0/3.0);
-            // 500% размытие = радиус в 5 раз больше обычного + доп. множитель для визуальной мощности
-            float blurRadius = aa * 5.0 * 3.0; // 3.0 - усиление эффекта
+            float blurRadius = aa * 5.0 * 3.0; // 500% + усиление
             
-            // ==== РАЗМЫТЫЙ СЛОЙ ВМЕСТО ОБЫЧНОГО ====
+            // ==== РАЗМЫТЫЙ СЛОЙ ====
             vec4 pcol = planeBlurred(ro, rd, pp, npp, off, nz + float(i), uu, vv, blurRadius);
             
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
@@ -344,5 +336,6 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
 
 
