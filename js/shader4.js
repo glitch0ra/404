@@ -36,12 +36,6 @@ vec4 alphaBlendVec4(vec4 back, vec4 front) {
     return vec4(outRGB, outA);
 }
 
-vec4 alphaBlendVec3Vec4(vec3 back, vec4 front) {
-    vec3 outRGB = mix(back, front.xyz, front.w);
-    float outA = front.w + 0.0 * (1.0 - front.w);
-    return vec4(outRGB, outA);
-}
-
 float tanh_approx(float x) {
     float x2 = x*x;
     return clamp(x*(27.0 + x2)/(27.0 + 9.0*x2), -1.0, 1.0);
@@ -105,8 +99,8 @@ vec2 raySphere(vec3 ro, vec3 rd, vec4 sph) {
     return vec2(-b - h, -b + h);
 }
 
-// === МОДИФИЦИРОВАННАЯ ФУНКЦИЯ plane() с эффектом тумана ===
-vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float layerIndex) {
+// === ИСПРАВЛЕННАЯ ФУНКЦИЯ plane() с параметром maxLayers ===
+vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float layerIndex, int maxLayers) {
     float h = hash(n);
     vec2 p = (pp - off*2.0*vec3(1.0,1.0,0.0)).xy;
     const vec2 stp = vec2(0.5, 0.33);
@@ -116,7 +110,7 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float layerIn
     const float fogBlurStrength = 3.0;
     
     // 1. Коэффициент тумана (0.0 = чисто, 1.0 = туман)
-    float fogFactor = smoothstep(float(fogStart), float(furthest), layerIndex);
+    float fogFactor = smoothstep(float(fogStart), float(maxLayers), layerIndex);
     
     // 2. РАЗМЫТИЕ: увеличиваем масштаб шума + дитеринг
     float blurScale = 1.0 + fogFactor * fogBlurStrength;
@@ -137,7 +131,7 @@ vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 npp, vec3 off, float n, float layerIn
     float t = smoothstep(aa, -aa, d);
     float df = exp(-0.1 * (distance(ro, pp) - 2.0));
     
-    // Цвета и освещение ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ
+    // Цвета и освещение БЕЗ ИЗМЕНЕНИЙ
     vec3 acol = hsv2rgb(vec3(mix(0.9, 0.6, df), 0.9, mix(1.0, 0.0, df)));
     vec3 gcol = hsv2rgb(vec3(0.6, 0.5, tanh_approx(exp(-mix(2.0, 8.0, df) * lod))));
     vec3 col = acol + 0.5 * gcol;
@@ -152,34 +146,28 @@ vec4 moon(vec3 ro, vec3 rd) {
     vec4 sph = vec4(1.0e5 * vec3(0.0, 0.4, 1.0), 20000.0);
     vec2 hit = raySphere(ro, rd, sph);
     if (hit.x < 0.0) return vec4(0.0);
-
     vec3 pos = ro + rd * hit.x;
     vec3 nrm = normalize(pos - sph.xyz);
     float lon = atan(nrm.z, nrm.x);
     float lat = asin(nrm.y);
     vec2 uv = vec2(lon / (2.0 * PI) + 0.5, lat / PI + 0.5);
     uv = vec2(uv.y, 1.0 - uv.x);
-
     float time = iTime;
     float timeScale = 0.5;
     vec2 zoom = vec2(20.0, 5.5);
     vec2 offset = vec2(2.0, 1.0);
     vec2 point = uv * zoom + offset;
-
     float a_x = 0.2;
     float a_y = 0.3;
-
     for (int i = 1; i < 10; i++) {
         float fi = float(i);
         point.x += a_x * sin(fi * point.y + time * timeScale);
         point.y += a_y * cos(fi * point.x + time * 0.2);
     }
-
     float r = cos(point.x + point.y + 2.0) * 0.5 + 0.5;
     float g = sin(point.x + point.y + 2.2) * 0.5 + 0.5;
     float b = (sin(point.x + point.y + 1.0) + cos(point.x + point.y + 1.5)) * 0.5 + 0.5;
     vec3 jupColor = vec3(r, g, b) + 0.5;
-
     float lightBase = clamp(nrm.x * 0.6 + 0.4, 0.0, 1.0);
     float light = pow(lightBase, 1.7) * 0.5 + 0.1;
     float lightAtmos = pow(clamp(nrm.x, 0.0, 1.0), 2.0);
@@ -189,7 +177,6 @@ vec4 moon(vec3 ro, vec3 rd) {
     vec3 fresnelMix = mix(surfaceColor, atmosphereColor, fresnel * lightAtmos * 0.8);
     vec3 col = fresnelMix * 1.5;
     float alpha = smoothstep(0.0, 10000.0, hit.y - hit.x);
-
     return vec4(col, alpha);
 }
 
@@ -216,8 +203,8 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p, out float outA) {
             vec3 npp = ro + nrd * pd;
             vec3 off = vec3(0.0);
             
-            // === Передаём индекс слоя для тумана ===
-            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i), float(i));
+            // === ИСПРАВЛЕНО: передаём furthest как параметр ===
+            vec4 pcol = plane(ro, rd, pp, npp, off, nz + float(i), float(i), furthest);
             
             float fadeIn = smoothstep(maxDist, fadeDist, pd);
             pcol.xyz = mix(vec3(0.0), pcol.xyz, fadeIn);
@@ -346,3 +333,4 @@ void main() {
     }
     requestAnimationFrame(render);
 });
+
