@@ -109,25 +109,17 @@ document.addEventListener('DOMContentLoaded', () => {
   vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
   vec3 ro = vec3(0.0, 0.0, -8.0);
   vec3 rd = normalize(vec3(uv, 1.0));
-
-  // Получаем цвет и тип попадания
+  
   vec4 col = rayMarch(ro, rd);
 
-  // Примерное определение позиции пересечения вдоль луча
-  // (используем яркость как глубинную "маску", просто для эффекта)
-  float brightness = dot(col.rgb, vec3(0.333));
+  // --- определяем тип попадания: если альфа == 1.0 → вода или сфера ---
+  float fade = smoothstep(0.5, 0.6, gl_FragCoord.y / iResolution.y);
 
-  // --- fade только для воды ---
-  // если пиксель тёмный и находится не слишком высоко — это вода
-  float fade = smoothstep(0.4, 0.6, gl_FragCoord.y / iResolution.y);
-  if (brightness < 0.55) {
-    col.a *= 1.0 - fade; // вода растворяется у горизонта
-  }
-
-  // --- защита для сферы ---
-  // верхняя зона кадра не трогается
-  if (gl_FragCoord.y > iResolution.y * 0.85) {
-    col.a = 1.0;
+  // fade только для воды (вода в твоей логике — это hitType == 1)
+  // так как ты возвращаешь только цвет без типа, мы определим "воду" по яркости:
+  float brightness = dot(col.rgb, vec3(0.333)); // средняя яркость
+  if (brightness < 0.6) { // вода обычно темнее сферы — эмпирический порог
+    col.a *= 1.0 - fade;
   }
 
   fragColor = col;
@@ -239,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
