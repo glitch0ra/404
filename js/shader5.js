@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     vec4 col = rayMarch(ro, rd);
   
     // ==== мягкий fade по высоте пикселя ====
-    float fade = smoothstep(0.6, 0.9, gl_FragCoord.y / iResolution.y);
+    float fade = smoothstep(0.1, 0.3, gl_FragCoord.y / iResolution.y);
     col.a *= 1.0 - fade;  // чем выше, тем прозрачнее
   
     fragColor = col;
@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
