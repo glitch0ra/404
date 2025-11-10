@@ -77,8 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   float mapWater(vec3 p) {
   // та же структура, просто волны выше
-  float wave = octaves((p.xz / 30.0) + (iTime / 20.0) + sin(length(p.xz * 2.0)) * 0.04);
+  float wave = octaves((p.xz / 30.0) + (iTime / 18.0) + sin(length(p.xz * 2.0)) * 0.04);
   return p.y + 8.0 + wave * 5.0; // было *1.0, теперь *5.0 — волны выше, динамика та же
+
+  // Мягкое "затухание" к горизонту
+  float horizon = smoothstep(0.25, 0.45, wave + 0.3); 
+  water = mix(water, water + 3.0, horizon); // поднимает и размазывает дальний край
+
+  return water;
 }
   
   vec3 shade(vec3 p, float t) {
@@ -219,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
