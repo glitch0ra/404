@@ -33,8 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
-  // Fragment shader (изменён для возврата типа попадания и прозрачности)
-   const fragmentSrc = `#version 300 es
+  
+  // Fragment shader
+  const fragmentSrc = `#version 300 es
   precision highp float;
   out vec4 fragColor;
   
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const int MAX_DIST = 300;
   const float EPSI = 0.009;
   
+  // ==== Вспомогательные функции шума ====
   float random(vec2 p) {
     return fract(sin(p.x * 431.0 + p.y * 707.0) * 7443.0);
   }
@@ -58,57 +60,69 @@ document.addEventListener('DOMContentLoaded', () => {
     return mix(mix(a, b, lc.x), mix(c, d, lc.x), lc.y);
   }
   
-  float octaves(vec2 uv) {
-    float amp = 0.5;
-    float f = 0.0;
-    for(int i = 0; i < 4; i++) {
-      f += noise(uv) * amp;
-      uv *= 2.0;
-      amp *= 0.5;
-    }
-    return f;
-  }
-  
-  vec3 spherePos = vec3(8.0, 6.0, 25.0);
-  
-  float mapSphere(vec3 p) {
-    return length(p - spherePos) - 1.0;
-  }
-  
-  float mapWater(vec3 p) {
-    return p.y + 8.0 + octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
-  }
-  
-  vec3 shade(vec3 p, float t) {
-    // Простая подсветка (можно улучшить)
-    return vec3(t);
-  }
-  
-  vec4 rayMarch(vec3 ro, vec3 rd) {
+  // ==== Функция волн из примера, адаптированная под твой океан ====
+  float getWaves(vec2 pos) {
     float total = 0.0;
-    float hitType = 0.0; // 0=ничего, 1=вода, 2=сфера
-    for(int i = 0; i < MAX_DIST; i++) {
-      vec3 p = ro + rd * total;
-      float dSphere = mapSphere(p);
-      float dWater  = mapWater(p);
-      float d = min(dSphere, dWater);
-      total += d;
-      if (d < EPSI) {
-        hitType = (dSphere < dWater) ? 2.0 : 1.0;
-        return vec4(shade(p, float(i)/float(MAX_DIST)), 1.0);
-      }
-      if (total > float(MAX_DIST)) break;
+    float amp = 1.0;
+    float freq = 1.0;
+    float timeMul = 2.0;
+    for (int i = 0; i < 6; i++) {
+      vec2 dir = vec2(sin(float(i) * 1232.399963), cos(float(i) * 1232.399963));
+      float x = dot(dir, pos * freq) + iTime * timeMul;
+      float wave = exp(sin(x) - 1.0);
+      total += wave * amp;
+      freq *= 1.18;
+      timeMul *= 1.07;
+      amp *= 0.6;
     }
-    // ничего не попало → полностью прозрачный
-    return vec4(0.0, 0.0, 0.0, 0.0);
+    return total / 3.5; // нормализация амплитуды волн
   }
   
+  // ==== SDF ====
+  float SDF(vec3 p) {
+    vec3 spherePos = vec3(8.0, 6.0, 25.0);
+    float sphere = length(p - spherePos) - 1.0;
+    
+    // заменили старый octaves() на новую динамическую воду:
+    float waterHeight = getWaves(p.xz / 15.0) * 2.0; // масштаб 15, высота x2
+    float water = p.y + 8.0 + waterHeight;
+    
+    return min(water, sphere);
+  }
+  
+  // ==== Реймарчер ====
+  vec2 rayMarcher(vec3 ro, vec3 rd) {
+    float tot = 0.0;
+    vec3 spherePos = vec3(8.0, 6.0, 25.0);
+    for(int i = 0; i < MAX_DIST; i++) {
+      vec3 p = ro + rd * tot;
+      float sd_s = length(p - spherePos) - 1.0;
+      float sd_w = p.y + 8.0 + getWaves(p.xz / 15.0) * 2.0;
+      float diff = min(sd_s, sd_w);
+      diff = max(diff, 0.0001);
+      tot += diff;
+      if(diff < EPSI || tot > float(MAX_DIST)) {
+        float hitNorm = float(i) / float(MAX_DIST);
+        float hitType = (sd_s < sd_w) ? 2.0 : 1.0;
+        return vec2(hitNorm, hitType);
+      }
+    }
+    return vec2(1.0, 0.0);
+  }
+  
+  // ==== Основной вывод ====
   void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
     vec3 ro = vec3(0.0, 0.0, -8.0);
     vec3 rd = normalize(vec3(uv, 1.0));
-    vec4 col = rayMarch(ro, rd);
-    fragColor = col;
+    vec2 res = rayMarcher(ro, rd);
+    float hit = res.x;
+    float type = res.y;
+  
+    vec3 col = vec3(hit);
+    float alpha = (type > 0.5) ? 1.0 : 0.0;
+  
+    fragColor = vec4(col, alpha);
   }`;
 
   // Shader compilation
@@ -217,5 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
