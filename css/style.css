@@ -427,7 +427,7 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 3; /* под шапкой (z=5), но над фоновым видео (z=0) */
+  z-index: 3; /* под шапкой (z=6), но над фоновым видео (z=0) */
   pointer-events: none;
 }
 .shader-layer2 {
@@ -436,7 +436,7 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1; /* под шапкой (z=5), но над фоновым видео (z=0) */
+  z-index: 1; /* под шапкой (z=6), но над фоновым видео (z=0) */
   pointer-events: none;
 }
 .shader-layer3 {
@@ -445,7 +445,7 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2; /* под шапкой (z=5), но над фоновым видео (z=0) */
+  z-index: 2; /* под шапкой (z=6), но над фоновым видео (z=0) */
   pointer-events: none;
   background: transparent;
 }
@@ -455,7 +455,17 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 4; /* под шапкой (z=5), но над фоновым видео (z=0) */
+  z-index: 4; /* под шапкой (z=6), но над фоновым видео (z=0) */
+  pointer-events: none;
+}
+
+.shader-layer4 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5; /* под шапкой (z=6), но над фоновым видео (z=0) */
   pointer-events: none;
 }
 
@@ -463,7 +473,7 @@ h2 {
   max-width: 1400px;
   height: 430px;
   position: relative; 
-  z-index: 5; 
+  z-index: 6; 
   margin: 0 auto;
   overflow: hidden;
 }
@@ -495,6 +505,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
