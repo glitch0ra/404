@@ -57,23 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
     float d = random(id + vec2(1.0, 1.0));
     return mix(mix(a, b, lc.x), mix(c, d, lc.x), lc.y);
   }
-
-  float getWaves(vec2 pos) {
-  float total = 0.0;
-  float amp = 1.0;
-  float freq = 1.0;
-  float timeMul = 2.0;
-  for (int i = 0; i < 6; i++) {
-    vec2 dir = vec2(sin(float(i) * 1232.399963), cos(float(i) * 1232.399963));
-    float x = dot(dir, pos * freq) + iTime * timeMul;
-    float wave = exp(sin(x) - 1.0);
-    total += wave * amp;
-    freq *= 1.18;
-    timeMul *= 1.07;
-    amp *= 0.6;
-  }
-  return total / 3.5; // 3.5 — подобранный нормализатор, чтобы не было клиппинга
-}
   
   float octaves(vec2 uv) {
     float amp = 0.5;
@@ -95,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
   float mapWater(vec3 p) {
   // та же структура, просто волны выше
   float wave = octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
-  return p.y + 8.0 + wave * 3.5; // было *1.0, теперь *3.5 — волны выше, динамика та же
+  return p.y + 8.0 + wave * 5.0; // было *1.0, теперь *5.0 — волны выше, динамика та же
 }
   
   vec3 shade(vec3 p, float t) {
@@ -236,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
