@@ -6,9 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // убедитесь, что canvas в CSS прозрачный: canvas { background: transparent; }
-  canvas.style.background = 'transparent';
-
   const gl = canvas.getContext('webgl2', {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
@@ -227,3 +224,4 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
