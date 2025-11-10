@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const gl = canvas.getContext('webgl2', {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
+    alpha: true,
     premultipliedAlpha: false,
     depth: false,
     stencil: false,
@@ -203,4 +204,5 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
