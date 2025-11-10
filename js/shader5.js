@@ -37,83 +37,16 @@ out vec4 fragColor;
 uniform vec3 iResolution;
 uniform float iTime;
 
-// === настройки ===
-#define _Speed 2.0
-#define _Steps 12.0
-#define _Size 2.0 // ВРЕМЕННО УВЕЛИЧЕННО для теста
-
-float hash(float x){ return fract(sin(x)*15.0); }
-float hash(vec2 x){ return hash(x.x + hash(x.y)); }
-
-float value(vec2 p, float f) {
-  float bl = hash(floor(p*f + vec2(0.,0.)));
-  float br = hash(floor(p*f + vec2(1.,0.)));
-  float tl = hash(floor(p*f + vec2(0.,1.)));
-  float tr = hash(floor(p*f + vec2(1.,1.)));
-  vec2 fr = fract(p*f);
-  fr = (3. - 2.*fr)*fr*fr;
-  float b = mix(bl, br, fr.x);
-  float t = mix(tl, tr, fr.x);
-  return mix(b,t, fr.y);
-}
-
-void Rotate(inout vec3 v, vec2 a) {
-  v.yz = cos(a.y)*v.yz + sin(a.y)*vec2(-1.,1.)*v.zy;
-  v.xz = cos(a.x)*v.xz + sin(a.x)*vec2(-1.,1.)*v.zx;
-}
-
-vec4 raymarchDisk(vec3 ray, vec3 pos, float time) {
-  float lenPos = length(pos.xz);
-  float dist = min(1., lenPos*(1./_Size)*0.5) * _Size*0.4*(1./_Steps)/(abs(ray.y)+1e-3);
-  pos += dist*_Steps*ray*0.5;
-
-  vec4 o = vec4(0.);
-  for (float i=0.; i<_Steps; i++) {
-    pos -= dist * ray;
-    float intensity = clamp(1. - abs((i-0.8)*(1./_Steps)*2.), 0., 1.);
-    float lenPos2 = length(pos.xz);
-    float distMult = clamp((lenPos2 - _Size*0.75)*(1./_Size)*1.5,0.,1.);
-    distMult *= clamp((_Size*10.-lenPos2)*(1./_Size)*0.20,0.,1.);
-    distMult *= distMult;
-    float u = lenPos2 + time*_Size*0.3 + intensity*_Size*0.2;
-    vec2 xy;
-    float rot = mod(time*_Speed,8192.);
-    xy.x = -pos.z*sin(rot) + pos.x*cos(rot);
-    xy.y = pos.x*sin(rot) + pos.z*cos(rot);
-    float x = abs(xy.x/(xy.y+1e-3));
-    float angle = 0.02*atan(x);
-    const float f = 70.;
-    float noise = value(vec2(angle,u*(1./_Size)*0.05),f);
-    noise = noise*0.66 + 0.33*value(vec2(angle,u*(1./_Size)*0.05),f*2.);
-    float extra = noise*(1.-clamp(i*(1./_Steps)*2.-1.,0.,1.));
-    float alpha = clamp(noise*(intensity+extra)*((1./_Size)*10.+0.01)*dist*distMult,0.,1.);
-    vec3 insideCol = mix(vec3(1.,0.8,0.), vec3(0.5,0.13,0.02)*0.2, clamp((lenPos2 - _Size*2.)*(1./_Size)*0.24,0.,1.));
-    insideCol *= mix(vec3(0.4,0.2,0.1), vec3(1.6,2.4,4.0), clamp(intensity,0.,1.));
-    insideCol *= 1.4;
-    vec3 col = 2.*mix(vec3(0.3,0.2,0.15)*insideCol, insideCol, min(1.,intensity*2.));
-    o = clamp(vec4(col*alpha + o.rgb*(1.-alpha), o.a*(1.-alpha)+alpha), vec4(0.), vec4(1.));
-  }
-  o.rgb = clamp(o.rgb - 0.005, 0., 1.);
-  return o;
-}
-
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5*iResolution.xy) / iResolution.x;
+  vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.y;
 
-  // Камера по центру
-  vec3 ro = vec3(0.,0.,-6.);
-  vec3 rd = normalize(vec3(uv,1.));
+  // Отладка: сетка и центр
+  vec3 col = vec3(0.0);
+  if (abs(uv.x) < 0.002 || abs(uv.y) < 0.002) col = vec3(1.0, 0.2, 0.2); // крест по центру
+  if (mod(gl_FragCoord.x, 100.0) < 1.0 || mod(gl_FragCoord.y, 100.0) < 1.0)
+      col += vec3(0.2, 0.3, 0.4); // сетка
 
-  vec2 ang = vec2(0.03*iTime, 0.12);
-  Rotate(rd, ang);
-
-  vec4 disk = raymarchDisk(rd, vec3(0.,0.,0.), iTime);
-
-  // Чёрный центр
-  float r = length(uv);
-  float mask = smoothstep(0.02, 0.018, r);
-  vec3 col = mix(vec3(0.), disk.rgb, mask);
-  fragColor = vec4(col, disk.a);
+  fragColor = vec4(col, 1.0);
 }`;
 
   // === Shader compile ===
@@ -205,4 +138,5 @@ void main() {
 
   requestAnimationFrame(render);
 });
+
 
