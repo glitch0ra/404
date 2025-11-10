@@ -132,12 +132,16 @@ document.addEventListener('DOMContentLoaded', () => {
       o.rgb += redShift*(intensity*1.0 + 0.5) * (1.0/float(_Steps)) * 100.0 * distMult / (lengthPos2*lengthPos2 + 1e-6);
     }
 
-          // Прозрачные края диска (убираем чёрную обводку)
-      float fade = smoothstep(0.0, 0.2, o.a);
-      o.a *= fade;
+       // --- прозрачные края и чистка чёрной обводки ---
+      float fade = smoothstep(0.05, 0.25, o.a); // плавное затухание прозрачности по краю
+      o.rgb = mix(vec3(0.0), o.rgb, fade);      // цвет гасим вместе с альфой
+      o.a *= fade * 0.9;                        // чуть уменьшаем плотность по краю
       
-      // убираем лишнее затемнение краёв
-      o.rgb = clamp(o.rgb, 0.0, 1.0);
+      // убираем любые "грязные" почти-чёрные области
+      if (o.a < 0.05) {
+        o.rgb = vec3(0.0);
+        o.a = 0.0;
+      }
       
       return o;
   }
@@ -190,10 +194,17 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
       } else if (abs(pos.y) <= sphereR * 0.002) { // столкновение с диском
       
-                // --- лёгкий наклон чёрной дыры ---
-        // Наклон в сторону камеры (по X) и чуть влево (по Z)
-        float tiltX = radians(10.0);  // наклон вперёд (к камере)
-        float tiltZ = radians(-10.0); // поворот влево
+        // --- коррекция ориентации чёрной дыры и её наклон ---
+        // Сначала переворачиваем систему, чтобы ось совпала с визуальной камерой
+        mat3 flipY = mat3(
+          1.0, 0.0, 0.0,
+          0.0, -1.0, 0.0,
+          0.0, 0.0, 1.0
+        );
+        
+        // Наклон вперёд (к камере) и влево
+        float tiltX = radians(-25.0);  // наклон к камере
+        float tiltZ = radians(15.0);   // лёгкий поворот влево
         
         mat3 rotX = mat3(
           1.0, 0.0, 0.0,
@@ -207,12 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
           0.0, 0.0, 1.0
         );
         
+        // Общая матрица поворота с переворотом
+        mat3 orient = rotZ * rotX * flipY;
+        
         // применяем вращение к позиции и направлению луча
-        vec3 posTilt = rotZ * rotX * pos;
-        vec3 rayTilt = rotZ * rotX * ray;
+        vec3 posTilt = orient * pos;
+        vec3 rayTilt = orient * ray;
         
         // теперь используем наклонённые posTilt/rayTilt
         vec4 diskCol = raymarchDisk(rayTilt, posTilt);
+
 
         // advance немного чтобы не залипать
         pos.y = 0.0;
@@ -336,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
