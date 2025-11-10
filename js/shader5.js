@@ -106,17 +106,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
     void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-    vec3 ro = vec3(0.0, 0.0, -8.0);
-    vec3 rd = normalize(vec3(uv, 1.0));
-    vec4 col = rayMarch(ro, rd);
+  vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
+  vec3 ro = vec3(0.0, 0.0, -8.0);
+  vec3 rd = normalize(vec3(uv, 1.0));
   
-    // ==== мягкий fade по высоте пикселя ====
-    float fade = smoothstep(0.1, 0.3, gl_FragCoord.y / iResolution.y);
-    col.a *= 1.0 - fade;  // чем выше, тем прозрачнее
-  
-    fragColor = col;
-  }`;
+  vec2 res = rayMarcher(ro, rd);
+  float hit = res.x;
+  float type = res.y;
+
+  vec3 col = vec3(hit);
+  float alpha = (type > 0.5) ? 1.0 : 0.0;
+
+  // --- fade по высоте только для воды (type == 1.0) ---
+  float fade = smoothstep(0.3, 0.6, gl_FragCoord.y / iResolution.y);
+  if (type < 1.5) { // значит это вода, не сфера
+    alpha *= 1.0 - fade;
+  }
+
+  fragColor = vec4(col, alpha);
+}`;
 
   // Shader compilation
   function compileShader(gl, type, src) {
@@ -224,6 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
