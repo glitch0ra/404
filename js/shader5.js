@@ -192,8 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
                 // --- лёгкий наклон чёрной дыры ---
         // Наклон в сторону камеры (по X) и чуть влево (по Z)
-        float tiltX = radians(20.0);  // наклон вперёд (к камере)
-        float tiltZ = radians(-10.0); // поворот влево
+        float tiltX = radians(50.0);  // наклон вперёд (к камере)
+        float tiltZ = radians(-50.0); // поворот влево
         
         mat3 rotX = mat3(
           1.0, 0.0, 0.0,
@@ -336,5 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
