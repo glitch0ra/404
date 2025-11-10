@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   float mapWater(vec3 p) {
   // та же структура, просто волны выше
-  float wave = octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
+  float wave = octaves((p.xz / 30.0) + (iTime / 20.0) + sin(length(p.xz * 2.0)) * 0.04);
   return p.y + 8.0 + wave * 5.0; // было *1.0, теперь *5.0 — волны выше, динамика та же
 }
   
@@ -219,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
