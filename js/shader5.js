@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
         uniform vec3 iResolution;
         uniform float iTime;
 
-        // --- Параметры черной дыры (адаптированы под размер вашей сферы) ---
+        // --- Параметры черной дыры ---
         #define _Speed 2.0
         #define _Steps 12.0
-        #define _Size 0.9  // Масштаб для корректного отображения на вашем расстоянии
+        #define _Size 0.9
 
-        // --- Функции шума (для текстуры диска) ---
+        // --- Функции шума ---
         float hash(float x) { 
             return fract(sin(x) * 15.0); 
         }
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return mix(b, t, fr.y);
         }
 
-        // --- Поворот вектора (для анимации) ---
+        // --- Поворот вектора ---
         void Rotate(inout vec3 vector, vec2 angle) {
             vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
@@ -141,24 +141,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return o;
         }
 
-        // --- Позиция исходной сферы (заменяем на черную дыру) ---
+        // --- Позиция черной дыры ---
         vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
-        // --- Основной рэймаршинг черной дыры ---
+        // --- Основной рэймаршинг ---
         vec4 rayMarch(vec3 ro, vec3 rd) {
+            // Смещаем в систему координат черной дыры
+            vec3 bhPos = spherePos;
+            ro -= bhPos;
+            
+            // Применяем поворот к камере и лучу
+            vec2 angleRot = vec2(0.03 * iTime, 0.12);
+            Rotate(ro, angleRot);
+            Rotate(rd, angleRot);
+            
             vec3 pos = ro;
             vec4 col = vec4(0.0);
             vec4 glow = vec4(0.0);
-            vec3 bhPos = spherePos;
-            bool hasDisk = false;
-
-            // Преобразование в систему координат черной дыры
-            pos -= bhPos;
-
-            // Легкое вращение камеры для динамики (опционально, можно закомментировать)
-            vec2 angle = vec2(0.03 * iTime, 0.12);
-            Rotate(pos, angle);
-            Rotate(rd, angle);
 
             for(int disks = 0; disks < 32; disks++) {
                 for(int h = 0; h < 6; h++) {
@@ -193,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Попали в диск
                 else if(abs(pos.y) <= _Size * 0.002) {
-                    hasDisk = true;
                     vec4 diskCol = raymarchDisk(rd, pos);
                     pos.y = 0.0;
                     pos += abs(_Size * 0.001 / (rd.y + 0.0001)) * rd;
@@ -202,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Если ничего не зацепили - прозрачный пиксель
+            // Прозрачный фон, если ничего не зацепили
             if(col.a == 0.0 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
@@ -211,7 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         void main() {
+            // Инвертируем Y чтобы исправить переворот
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
+            uv.y = -uv.y;
+            
             vec3 ro = vec3(0.0, 0.0, -8.0);
             vec3 rd = normalize(vec3(uv, 1.0));
             
