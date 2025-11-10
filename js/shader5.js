@@ -81,10 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
   return p.y + 8.0 + wave * 5.0; // было *1.0, теперь *5.0 — волны выше, динамика та же
 
   // Мягкое "затухание" к горизонту
-  float horizon = smoothstep(0.25, 0.45, wave + 0.3); 
-  water = mix(water, water + 3.0, horizon); // поднимает и размазывает дальний край
+  float horizon = smoothstep(0.25, 0.45, wave + 0.3);
+  w = mix(w, w + 1.5, horizon);
 
-  return water;
+  return w;
 }
   
   vec3 shade(vec3 p, float t) {
@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
