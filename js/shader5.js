@@ -72,20 +72,30 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
         }
 
-        // --- Рендеринг аккреционного диска ---
+        // --- Рендеринг аккреционного диска (с поворотом плоскости) ---
         vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
-            vec3 position = zeroPos;
-            float lengthPos = length(position.xz);
-            float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
+            // Поворачиваем систему координат диска на 90 градусов по оси X
+            // чтобы плоскость была горизонтальной относительно камеры
+            vec3 posLocal = zeroPos;
+            vec3 rayLocal = ray;
             
-            position += dist * _Steps * ray * 0.5;
+            // Поворот на -90 градусов (чтобы устранить "вид снизу")
+            vec2 diskAngle = vec2(-1.5708, 0.0); // -90 градусов по X
+            Rotate(posLocal, diskAngle);
+            Rotate(rayLocal, diskAngle);
+
+            vec3 position = posLocal;
+            float lengthPos = length(position.xz);
+            float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(rayLocal.y) + 0.0001);
+            
+            position += dist * _Steps * rayLocal * 0.5;
 
             vec2 deltaPos;
-            deltaPos.x = -zeroPos.z * 0.01 + zeroPos.x;
-            deltaPos.y = zeroPos.x * 0.01 + zeroPos.z;
-            deltaPos = normalize(deltaPos - zeroPos.xz);
+            deltaPos.x = -posLocal.z * 0.01 + posLocal.x;
+            deltaPos.y = posLocal.x * 0.01 + posLocal.z;
+            deltaPos = normalize(deltaPos - posLocal.xz);
             
-            float parallel = dot(ray.xz, deltaPos);
+            float parallel = dot(rayLocal.xz, deltaPos);
             parallel /= sqrt(lengthPos + 0.0001);
             parallel *= 0.6;
             float redShift = parallel + 0.4;
@@ -102,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             vec4 o = vec4(0.0);
 
             for(float i = 0.0; i < _Steps; i++) {
-                position -= dist * ray;
+                position -= dist * rayLocal;
                 
                 float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
                 lengthPos = length(position.xz);
@@ -141,15 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return o;
         }
 
-        // --- Позиция черной дыры (инвертирован Y, чтобы компенсировать UV-инверсию) ---
-        vec3 spherePos = vec3(8.0, -6.0, 25.0);
+        // --- Позиция черной дыры (исходная позиция) ---
+        vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
         // --- Основной рэймаршинг ---
         vec4 rayMarch(vec3 ro, vec3 rd) {
-            // Смещаем в систему координат черной дыры
             ro -= spherePos;
             
-            // Применяем поворот к камере и лучу
+            // Применяем поворот к камере и лучу (опциональная анимация)
             vec2 angleRot = vec2(0.03 * iTime, 0.12);
             Rotate(ro, angleRot);
             Rotate(rd, angleRot);
@@ -208,9 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         void main() {
-            // Инвертируем Y чтобы исправить переворот черной дыры
+            // УБРАНА инверсия UV
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-            uv.y = -uv.y;
             
             vec3 ro = vec3(0.0, 0.0, -8.0);
             vec3 rd = normalize(vec3(uv, 1.0));
@@ -323,3 +331,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
