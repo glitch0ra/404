@@ -221,7 +221,7 @@ float mapSphere(vec3 p) {
 
 float mapWater(vec3 p) {
     // та же структура, просто волны выше (как в примере)
-    float wave = octaves((p.xz / 30.0) + (iTime / 19.0) + sin(length(p.xz * 2.0)) * 0.04);
+    float wave = octaves2D((p.xz / 30.0) + (iTime / 19.0) + sin(length(p.xz * 2.0)) * 0.04);
     return p.y + 8.0 + wave * 5.0;
 }
 
@@ -240,7 +240,7 @@ float noise(vec2 uv) {
     return mix(mix(a, b, lc.x), mix(c, d, lc.x), lc.y);
 }
 
-float octaves(vec2 uv) {
+float octaves2D(vec2 uv) {
     float amp = 0.5;
     float f = 0.0;
     for (int i = 0; i < 4; i++) {
@@ -465,6 +465,7 @@ void main() {
   
   requestAnimationFrame(render);
 });
+
 
 
 
