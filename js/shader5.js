@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Optimized WebGL context setup matching reference
   const gl = canvas.getContext('webgl2', {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
@@ -23,11 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Enable blending as in reference example
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-  // Vertex shader - simplified to match reference structure
+  // Vertex shader
   const vertexSrc = `#version 300 es
   precision mediump float;
   layout(location = 0) in vec2 a_position;
@@ -35,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
-  // Fragment shader - optimized and cleaned up
+  // Fragment shader
   const fragmentSrc = `#version 300 es
   precision highp float;
   out vec4 fragColor;
@@ -99,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fragColor = vec4(vec3(hit), 1.0);
   }`;
 
-  // Shader compilation with error handling
+  // Shader compilation
   function compileShader(gl, type, src) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, src);
@@ -112,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return shader;
   }
 
-  // Program setup
   const vs = compileShader(gl, gl.VERTEX_SHADER, vertexSrc);
   const fs = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
   
@@ -132,9 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
   gl.deleteShader(vs);
   gl.deleteShader(fs);
 
-  // Fullscreen quad setup (matches reference structure)
+  // Fullscreen quad setup (CORRECTED)
   const quadBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ATTRIB_BUFFER, quadBuffer);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer); // FIXED: use ARRAY_BUFFER not ATTRIB_BUFFER
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
     -1, -1, 1, -1, -1, 1,
     -1, 1, 1, -1, 1, 1
@@ -148,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
   const iTimeLoc = gl.getUniformLocation(program, 'iTime');
 
-  // Resize handling with DPR
+  // Resize handling
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = canvas.clientWidth * dpr;
@@ -159,26 +156,24 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', resize);
   resize();
 
-  // Visibility and pausing logic
+  // Visibility handling
   let isPaused = false;
   let lastRenderTime = 0;
   const FPS = 50;
   const FRAME_INTERVAL = 1000 / FPS;
   const startTime = performance.now();
 
-  // Page visibility handling
   document.addEventListener('visibilitychange', () => {
     isPaused = document.hidden;
   });
 
-  // Canvas visibility observer
   const observer = new IntersectionObserver((entries) => {
     isPaused = !entries[0].isIntersecting;
   }, { threshold: 0.05 });
   
   observer.observe(canvas);
 
-  // Fixed FPS render loop
+  // Render loop
   function render(now) {
     if (isPaused) {
       requestAnimationFrame(render);
@@ -204,5 +199,3 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
-
-
