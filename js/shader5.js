@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }`;
 
   // Fragment shader (изменён для возврата типа попадания и прозрачности)
-  const fragmentSrc = `#version 300 es
+   const fragmentSrc = `#version 300 es
   precision highp float;
   out vec4 fragColor;
   
@@ -69,53 +69,46 @@ document.addEventListener('DOMContentLoaded', () => {
     return f;
   }
   
-  // Возвращаем только SDF объединённый (можно оставить, но ниже мы отдельно считаем оба поля)
-  float SDF(vec3 p) {
-    vec3 spherePos = vec3(8.0, 6.0, 25.0);
-    float sphere = length(p - spherePos) - 1.0;
-    float water = p.y + 8.0 + octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
-    return min(water, sphere);
+  vec3 spherePos = vec3(8.0, 6.0, 25.0);
+  
+  float mapSphere(vec3 p) {
+    return length(p - spherePos) - 1.0;
   }
   
-  // Ray marcher теперь возвращает vec2: x = hitNormalized, y = hitType (0=none,1=water,2=sphere)
-  vec2 rayMarcher(vec3 ro, vec3 rd) {
-    float tot = 0.0;
-    vec3 spherePos = vec3(8.0, 6.0, 25.0);
+  float mapWater(vec3 p) {
+    return p.y + 8.0 + octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
+  }
+  
+  vec3 shade(vec3 p, float t) {
+    // Простая подсветка (можно улучшить)
+    return vec3(t);
+  }
+  
+  vec4 rayMarch(vec3 ro, vec3 rd) {
+    float total = 0.0;
+    float hitType = 0.0; // 0=ничего, 1=вода, 2=сфера
     for(int i = 0; i < MAX_DIST; i++) {
-      vec3 p = ro + rd * tot;
-      float sd_s = length(p - spherePos) - 1.0; // sphere SDF
-      float sd_w = p.y + 8.0 + octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04); // water SDF
-      float diff = min(sd_s, sd_w);
-      // safety: если diff отрицательное очень большое — ограничим шаг
-      diff = max(diff, 0.0001);
-      tot += diff;
-      if(diff < EPSI || tot > float(MAX_DIST)) {
-        float hitNorm = float(i) / float(MAX_DIST);
-        float hitType = 0.0;
-        if(sd_s < sd_w) hitType = 2.0; else hitType = 1.0;
-        return vec2(hitNorm, hitType);
+      vec3 p = ro + rd * total;
+      float dSphere = mapSphere(p);
+      float dWater  = mapWater(p);
+      float d = min(dSphere, dWater);
+      total += d;
+      if (d < EPSI) {
+        hitType = (dSphere < dWater) ? 2.0 : 1.0;
+        return vec4(shade(p, float(i)/float(MAX_DIST)), 1.0);
       }
+      if (total > float(MAX_DIST)) break;
     }
-    return vec2(1.0, 0.0); // ничего не попало
+    // ничего не попало → полностью прозрачный
+    return vec4(0.0, 0.0, 0.0, 0.0);
   }
   
   void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
     vec3 ro = vec3(0.0, 0.0, -8.0);
     vec3 rd = normalize(vec3(uv, 1.0));
-    vec2 res = rayMarcher(ro, rd);
-    float hit = res.x;
-    float type = res.y;
-    
-    // Оставляем визуализацию прежней (оттенок по hit), но делаем фон полностью прозрачным
-    vec3 col = vec3(hit);
-
-    // Если нужно, можно сделать отдельную подсветку для сферы:
-    // if(type > 1.5) col = vec3(1.0 - hit); // пример (закомментирован — не трогаю визуал)
-    
-    float alpha = (type > 0.5) ? 1.0 : 0.0; // 0 = фон (прозрачно), 1 = объекты (непрозрачно)
-    
-    fragColor = vec4(col, alpha);
+    vec4 col = rayMarch(ro, rd);
+    fragColor = col;
   }`;
 
   // Shader compilation
@@ -224,4 +217,5 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
