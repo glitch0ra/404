@@ -93,11 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   float mapWater(vec3 p) {
-  // усиление и ускорение волн
-  float wave = octaves((p.xz / 18.0) + (iTime / 7.0) + sin(length(p.xz * 1.5)) * 0.1);
-  // добавим немного дополнительной мелкой ряби для живости
-  wave += 0.35 * octaves((p.xz / 5.0) + (iTime / 2.5));
-  return p.y + 8.0 + wave * 2.8; // ← амплитуда увеличена (было ~1.0)
+  // та же структура, просто волны выше
+  float wave = octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04);
+  return p.y + 8.0 + wave * 3.5; // было *1.0, теперь *3.5 — волны выше, динамика та же
 }
   
   vec3 shade(vec3 p, float t) {
@@ -238,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
