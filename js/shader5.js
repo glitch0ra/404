@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- параметры чёрной сферы (используются те же координаты/размер как в твоём коде) ---
   const vec3 spherePos = vec3(8.0, 6.0, 25.0);
-  const float sphereR = 1.0;
+  const float sphereR = 0.33;
 
   // noise / helpers (из твоего файла)
   float hash(float x){ return fract(sin(x)*15.0); }
@@ -132,8 +132,14 @@ document.addEventListener('DOMContentLoaded', () => {
       o.rgb += redShift*(intensity*1.0 + 0.5) * (1.0/float(_Steps)) * 100.0 * distMult / (lengthPos2*lengthPos2 + 1e-6);
     }
 
-    o.rgb = clamp(o.rgb - 0.005, 0.0, 1.0);
-    return o;
+          // Прозрачные края диска (убираем чёрную обводку)
+      float fade = smoothstep(0.0, 0.2, o.a);
+      o.a *= fade;
+      
+      // убираем лишнее затемнение краёв
+      o.rgb = clamp(o.rgb, 0.0, 1.0);
+      
+      return o;
   }
 
   void main() {
@@ -183,7 +189,31 @@ document.addEventListener('DOMContentLoaded', () => {
         outCol = vec4(0.0, 0.0, 0.0, 0.0);
         break;
       } else if (abs(pos.y) <= sphereR * 0.002) { // столкновение с диском
-        vec4 diskCol = raymarchDisk(ray, pos); // рендер диска в локальных координатах
+      
+                // --- лёгкий наклон чёрной дыры ---
+        // Наклон в сторону камеры (по X) и чуть влево (по Z)
+        float tiltX = radians(20.0);  // наклон вперёд (к камере)
+        float tiltZ = radians(-10.0); // поворот влево
+        
+        mat3 rotX = mat3(
+          1.0, 0.0, 0.0,
+          0.0, cos(tiltX), -sin(tiltX),
+          0.0, sin(tiltX), cos(tiltX)
+        );
+        
+        mat3 rotZ = mat3(
+          cos(tiltZ), -sin(tiltZ), 0.0,
+          sin(tiltZ), cos(tiltZ), 0.0,
+          0.0, 0.0, 1.0
+        );
+        
+        // применяем вращение к позиции и направлению луча
+        vec3 posTilt = rotZ * rotX * pos;
+        vec3 rayTilt = rotZ * rotX * ray;
+        
+        // теперь используем наклонённые posTilt/rayTilt
+        vec4 diskCol = raymarchDisk(rayTilt, posTilt);
+
         // advance немного чтобы не залипать
         pos.y = 0.0;
         pos += abs(sphereR * 0.001 / (ray.y + 1e-6)) * ray;
@@ -306,4 +336,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
 
