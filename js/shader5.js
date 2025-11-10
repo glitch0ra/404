@@ -203,8 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         
         // Наклон вперёд (к камере) и влево
-        float tiltX = radians(-25.0);  // наклон к камере
-        float tiltZ = radians(15.0);   // лёгкий поворот влево
+        float tiltX = radians(1.0);  // наклон к камере
+        float tiltZ = radians(360.0);   // лёгкий поворот влево 
         
         mat3 rotX = mat3(
           1.0, 0.0, 0.0,
@@ -351,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
 
 
 
