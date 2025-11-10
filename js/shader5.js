@@ -110,20 +110,19 @@ document.addEventListener('DOMContentLoaded', () => {
   vec3 ro = vec3(0.0, 0.0, -8.0);
   vec3 rd = normalize(vec3(uv, 1.0));
   
-  vec2 res = rayMarcher(ro, rd);
-  float hit = res.x;
-  float type = res.y;
+  vec4 col = rayMarch(ro, rd);
 
-  vec3 col = vec3(hit);
-  float alpha = (type > 0.5) ? 1.0 : 0.0;
-
-  // --- fade по высоте только для воды (type == 1.0) ---
+  // --- определяем тип попадания: если альфа == 1.0 → вода или сфера ---
   float fade = smoothstep(0.3, 0.6, gl_FragCoord.y / iResolution.y);
-  if (type < 1.5) { // значит это вода, не сфера
-    alpha *= 1.0 - fade;
+
+  // fade только для воды (вода в твоей логике — это hitType == 1)
+  // так как ты возвращаешь только цвет без типа, мы определим "воду" по яркости:
+  float brightness = dot(col.rgb, vec3(0.333)); // средняя яркость
+  if (brightness < 0.6) { // вода обычно темнее сферы — эмпирический порог
+    col.a *= 1.0 - fade;
   }
 
-  fragColor = vec4(col, alpha);
+  fragColor = col;
 }`;
 
   // Shader compilation
@@ -232,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
