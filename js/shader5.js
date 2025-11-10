@@ -141,14 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return o;
         }
 
-        // --- Позиция черной дыры ---
-        vec3 spherePos = vec3(8.0, 6.0, 25.0);
+        // --- Позиция черной дыры (инвертирован Y, чтобы компенсировать UV-инверсию) ---
+        vec3 spherePos = vec3(8.0, -6.0, 25.0);
 
         // --- Основной рэймаршинг ---
         vec4 rayMarch(vec3 ro, vec3 rd) {
             // Смещаем в систему координат черной дыры
-            vec3 bhPos = spherePos;
-            ro -= bhPos;
+            ro -= spherePos;
             
             // Применяем поворот к камере и лучу
             vec2 angleRot = vec2(0.03 * iTime, 0.12);
@@ -209,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         void main() {
-            // Инвертируем Y чтобы исправить переворот
+            // Инвертируем Y чтобы исправить переворот черной дыры
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
             uv.y = -uv.y;
             
@@ -221,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
 
-    // Shader compilation function
+    // Shader compilation function (осталось без изменений)
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
@@ -279,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resize);
     resize();
 
-    // Visibility handling
+    // Visibility handling (осталось без изменений)
     let isPaused = false;
     let lastRenderTime = 0;
     const FPS = 50;
