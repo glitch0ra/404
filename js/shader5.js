@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   vec4 col = rayMarch(ro, rd);
 
   // --- определяем тип попадания: если альфа == 1.0 → вода или сфера ---
-  float fade = smoothstep(0.33, 0.45, gl_FragCoord.y / iResolution.y);
+  float fade = smoothstep(0.33, 0.5, gl_FragCoord.y / iResolution.y);
 
   // fade только для воды (вода в твоей логике — это hitType == 1)
   // так как ты возвращаешь только цвет без типа, мы определим "воду" по яркости:
@@ -231,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
