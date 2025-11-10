@@ -44,11 +44,8 @@ uniform float iTime;
 const int MAX_DIST = 300;
 const float EPSI = 0.009;
 
-// ======================================================
-// Вспомогательные функции шума
-// ======================================================
 float random(vec2 p) {
-  return fract(sin(dot(p, vec2(431.0, 707.0))) * 7443.0);
+  return fract(sin(p.x * 431.0 + p.y * 707.0) * 7443.0);
 }
 
 float noise(vec2 uv) {
@@ -64,7 +61,7 @@ float noise(vec2 uv) {
 float octaves(vec2 uv) {
   float amp = 0.5;
   float f = 0.0;
-  for(int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
     f += noise(uv) * amp;
     uv *= 2.0;
     amp *= 0.5;
@@ -72,9 +69,6 @@ float octaves(vec2 uv) {
   return f;
 }
 
-// ======================================================
-// Геометрия сцены
-// ======================================================
 vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
 float mapSphere(vec3 p) {
@@ -86,61 +80,53 @@ float mapWater(vec3 p) {
   return p.y + 8.0 + wave * 5.0;
 }
 
-// ======================================================
-// Цвет воды с бензиновым эффектом
-// ======================================================
-vec3 oilIridescence(vec2 uv, float t) {
-  // создаём интерференционный шум — бензиновая текстура
-  float n = octaves(uv * 2.5 + sin(t * 0.3) * 0.2);
-  n += 0.25 * sin(uv.x * 5.0 + t * 0.6);
-  n += 0.25 * sin(uv.y * 3.0 - t * 0.5);
-  n = fract(n * 2.5); // дробный повтор для узора
+// === бензиновая иридисценция поверх воды ===
+vec3 iridescent(vec2 uv, float t) {
+  // лёгкий многочастотный шум для переливов
+  float n = octaves(uv * 1.5 + t * 0.05);
+  float angle = sin(uv.x * 4.0 + n * 6.283 + t * 0.2)
+              + cos(uv.y * 3.0 - n * 3.141 + t * 0.3);
+  angle = fract(angle * 0.25 + n * 0.75);
 
-  // 4 цвета: голубой, розовый, фиолетовый, зелёный
-  vec3 c1 = vec3(0.0, 0.9, 1.0);  // #00e5ff
-  vec3 c2 = vec3(1.0, 0.0, 0.82); // #ff00d0
-  vec3 c3 = vec3(0.45, 0.0, 1.0); // #7300ff
-  vec3 c4 = vec3(0.0, 1.0, 0.5);  // #00ff80
+  // базовая палитра бензина
+  vec3 c1 = vec3(0.0, 0.9, 1.0);   // #00e5ff
+  vec3 c2 = vec3(1.0, 0.0, 0.82);  // #ff00d0
+  vec3 c3 = vec3(0.45, 0.0, 1.0);  // #7300ff
+  vec3 c4 = vec3(0.0, 1.0, 0.5);   // #00ff80
 
-  // чередуем цвета с мягким шумовым переходом
-  vec3 oil = mix(c1, c2, smoothstep(0.0, 0.25, n));
-  oil = mix(oil, c3, smoothstep(0.25, 0.5, n));
-  oil = mix(oil, c4, smoothstep(0.5, 0.75, n));
-  oil = mix(oil, c1, smoothstep(0.75, 1.0, n));
+  // локальное чередование в зависимости от угла
+  vec3 col;
+  if (angle < 0.25) col = mix(c1, c2, smoothstep(0.0, 0.25, angle));
+  else if (angle < 0.5) col = mix(c2, c3, smoothstep(0.25, 0.5, angle));
+  else if (angle < 0.75) col = mix(c3, c4, smoothstep(0.5, 0.75, angle));
+  else col = mix(c4, c1, smoothstep(0.75, 1.0, angle));
 
-  // легкое движение цвета
-  oil *= 0.5 + 0.5 * sin(t * 0.5 + n * 6.283);
-
-  return oil;
+  // насыщенность низкая, эффект поверх чёрной воды
+  return col * 0.25;
 }
 
-// ======================================================
-// Основное освещение (простое)
-// ======================================================
 vec3 shade(vec3 p, float t) {
-  // базовый цвет по глубине — почти чёрный
-  vec3 base = vec3(t * 0.5);
-  // добавляем бензиновый эффект
-  vec3 oil = oilIridescence(p.xz * 0.1, iTime);
-  // смешиваем с чёрной основой, чтобы цвет не был ярким
-  return mix(base, oil, 0.4);
+  // чёрная база по глубине
+  vec3 base = vec3(pow(1.0 - t, 2.0));
+  // добавляем мягкий бензиновый слой
+  vec3 oil = iridescent(p.xz * 0.15, iTime);
+  return base + oil;
 }
 
-// ======================================================
 vec4 rayMarch(vec3 ro, vec3 rd) {
   float total = 0.0;
   float hitType = 0.0;
-  for(int i = 0; i < MAX_DIST; i++) {
+  for (int i = 0; i < MAX_DIST; i++) {
     vec3 p = ro + rd * total;
     float dSphere = mapSphere(p);
-    float dWater  = mapWater(p);
+    float dWater = mapWater(p);
     float d = min(dSphere, dWater);
     total += d;
     if (d < EPSI) {
       hitType = (dSphere < dWater) ? 2.0 : 1.0;
-      vec3 col = shade(p, float(i)/float(MAX_DIST));
-      // если это сфера — оставляем чистый цвет без бензинового эффекта
-      if (hitType > 1.5) col = vec3(float(i)/float(MAX_DIST));
+      vec3 col = shade(p, float(i) / float(MAX_DIST));
+      // если сфера — чистая без перелива
+      if (hitType > 1.5) col = vec3(float(i) / float(MAX_DIST));
       return vec4(col, 1.0);
     }
     if (total > float(MAX_DIST)) break;
@@ -148,23 +134,19 @@ vec4 rayMarch(vec3 ro, vec3 rd) {
   return vec4(0.0, 0.0, 0.0, 0.0);
 }
 
-// ======================================================
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
   vec3 ro = vec3(0.0, 0.0, -8.0);
   vec3 rd = normalize(vec3(uv, 1.0));
-
   vec4 col = rayMarch(ro, rd);
 
-  // fade по высоте — только вода (тёмные области)
   float fade = smoothstep(0.235, 0.52, gl_FragCoord.y / iResolution.y);
   float brightness = dot(col.rgb, vec3(0.333));
-  if (brightness < 0.6) {
-    col.a *= 1.0 - fade;
-  }
+  if (brightness < 0.6) col.a *= 1.0 - fade;
 
   fragColor = col;
 }`;
+
 
 
   // Shader compilation
@@ -273,6 +255,7 @@ void main() {
   
   requestAnimationFrame(render);
 });
+
 
 
 
