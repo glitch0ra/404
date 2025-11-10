@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  // убедитесь, что canvas в CSS прозрачный: canvas { background: transparent; }
+  canvas.style.background = 'transparent';
+
   const gl = canvas.getContext('webgl2', {
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false,
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gl_Position = vec4(a_position, 0.0, 1.0);
   }`;
 
-  // Fragment shader
+  // Fragment shader (изменён для возврата типа попадания и прозрачности)
   const fragmentSrc = `#version 300 es
   precision highp float;
   out vec4 fragColor;
@@ -69,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return f;
   }
   
+  // Возвращаем только SDF объединённый (можно оставить, но ниже мы отдельно считаем оба поля)
   float SDF(vec3 p) {
     vec3 spherePos = vec3(8.0, 6.0, 25.0);
     float sphere = length(p - spherePos) - 1.0;
@@ -76,25 +80,45 @@ document.addEventListener('DOMContentLoaded', () => {
     return min(water, sphere);
   }
   
-  float rayMarcher(vec3 ro, vec3 rd) {
+  // Ray marcher теперь возвращает vec2: x = hitNormalized, y = hitType (0=none,1=water,2=sphere)
+  vec2 rayMarcher(vec3 ro, vec3 rd) {
     float tot = 0.0;
+    vec3 spherePos = vec3(8.0, 6.0, 25.0);
     for(int i = 0; i < MAX_DIST; i++) {
       vec3 p = ro + rd * tot;
-      float diff = SDF(p);
+      float sd_s = length(p - spherePos) - 1.0; // sphere SDF
+      float sd_w = p.y + 8.0 + octaves((p.xz / 30.0) + (iTime / 10.0) + sin(length(p.xz * 2.0)) * 0.04); // water SDF
+      float diff = min(sd_s, sd_w);
+      // safety: если diff отрицательное очень большое — ограничим шаг
+      diff = max(diff, 0.0001);
       tot += diff;
       if(diff < EPSI || tot > float(MAX_DIST)) {
-        return float(i) / float(MAX_DIST);
+        float hitNorm = float(i) / float(MAX_DIST);
+        float hitType = 0.0;
+        if(sd_s < sd_w) hitType = 2.0; else hitType = 1.0;
+        return vec2(hitNorm, hitType);
       }
     }
-    return 1.0;
+    return vec2(1.0, 0.0); // ничего не попало
   }
   
   void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
     vec3 ro = vec3(0.0, 0.0, -8.0);
     vec3 rd = normalize(vec3(uv, 1.0));
-    float hit = rayMarcher(ro, rd);
-    fragColor = vec4(vec3(hit), 1.0);
+    vec2 res = rayMarcher(ro, rd);
+    float hit = res.x;
+    float type = res.y;
+    
+    // Оставляем визуализацию прежней (оттенок по hit), но делаем фон полностью прозрачным
+    vec3 col = vec3(hit);
+
+    // Если нужно, можно сделать отдельную подсветку для сферы:
+    // if(type > 1.5) col = vec3(1.0 - hit); // пример (закомментирован — не трогаю визуал)
+    
+    float alpha = (type > 0.5) ? 1.0 : 0.0; // 0 = фон (прозрачно), 1 = объекты (непрозрачно)
+    
+    fragColor = vec4(col, alpha);
   }`;
 
   // Shader compilation
@@ -148,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Resize handling
   function resize() {
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
+    canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+    canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
   
@@ -193,6 +217,10 @@ document.addEventListener('DOMContentLoaded', () => {
     gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
     gl.uniform1f(iTimeLoc, t);
     
+    // Очистка с прозрачным фоном
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
   }
