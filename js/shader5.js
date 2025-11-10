@@ -118,11 +118,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return vec4(0.0, 0.0, 0.0, 0.0);
   }
   
-  void main() {
+    void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
     vec3 ro = vec3(0.0, 0.0, -8.0);
     vec3 rd = normalize(vec3(uv, 1.0));
     vec4 col = rayMarch(ro, rd);
+  
+    // ==== мягкий fade по высоте пикселя ====
+    float fade = smoothstep(0.6, 0.9, gl_FragCoord.y / iResolution.y);
+    col.a *= 1.0 - fade;  // чем выше, тем прозрачнее
+  
     fragColor = col;
   }`;
 
@@ -232,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
