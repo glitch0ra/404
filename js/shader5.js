@@ -44,147 +44,162 @@ uniform float iTime;
 const int MAX_DIST = 300;
 const float EPSI = 0.009;
 
+// -------------------- noise / fbm (использует твой пример) --------------------
 float random(vec2 p) {
-  return fract(sin(dot(p, vec2(431.0, 707.0))) * 7443.0);
+    return fract(sin(p.x * 431.0 + p.y * 707.0) * 7443.0);
 }
 
 float noise(vec2 uv) {
-  vec2 id = floor(uv * 10.0);
-  vec2 lc = smoothstep(0.0, 1.0, fract(uv * 10.0));
-  float a = random(id);
-  float b = random(id + vec2(1.0, 0.0));
-  float c = random(id + vec2(0.0, 1.0));
-  float d = random(id + vec2(1.0, 1.0));
-  return mix(mix(a, b, lc.x), mix(c, d, lc.x), lc.y);
+    vec2 id = floor(uv * 10.0);
+    vec2 lc = smoothstep(0.0, 1.0, fract(uv * 10.0));
+    float a = random(id);
+    float b = random(id + vec2(1.0, 0.0));
+    float c = random(id + vec2(0.0, 1.0));
+    float d = random(id + vec2(1.0, 1.0));
+    return mix(mix(a, b, lc.x), mix(c, d, lc.x), lc.y);
 }
 
 float octaves(vec2 uv) {
-  float amp = 0.5;
-  float f = 0.0;
-  for (int i = 0; i < 4; i++) {
-    f += noise(uv) * amp;
-    uv *= 2.0;
-    amp *= 0.5;
-  }
-  return f;
+    float amp = 0.5;
+    float f = 0.0;
+    for (int i = 0; i < 4; i++) {
+        f += noise(uv) * amp;
+        uv *= 2.0;
+        amp *= 0.5;
+    }
+    return f;
 }
 
-// ===== бензиновый fbm noise =====
-float snoise(vec3 v) {
-  vec3 i = floor(v + dot(v, vec3(1.0/3.0)));
-  vec3 x0 = v - i + dot(i, vec3(1.0/6.0));
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min(g, l.zxy);
-  vec3 i2 = max(g, l.zxy);
-  vec3 x1 = x0 - i1 + 1.0/6.0;
-  vec3 x2 = x0 - i2 + 2.0/6.0;
-  vec3 x3 = x0 - 1.0 + 3.0/6.0;
-  i = mod(i, 289.0);
-  vec4 p = (i.z + vec4(0.0, i1.z, i2.z, 1.0)) +
-           (i.y + vec4(0.0, i1.y, i2.y, 1.0)) * 57.0 +
-           (i.x + vec4(0.0, i1.x, i2.x, 1.0)) * 113.0;
-  vec4 x_ = fract(p * 0.0243902439);
-  vec4 y_ = fract(floor(p * 0.0243902439) * 0.142857);
-  vec4 h = 1.0 - abs(x_) - abs(y_);
-  vec4 b0 = vec4(x_.xy, y_.xy);
-  vec4 b1 = vec4(x_.zw, y_.zw);
-  vec4 s0 = floor(b0)*2.0 + 1.0;
-  vec4 s1 = floor(b1)*2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
-  vec3 p0 = vec3(a0.xy, h.x);
-  vec3 p1 = vec3(a0.zw, h.y);
-  vec3 p2 = vec3(a1.xy, h.z);
-  vec3 p3 = vec3(a1.zw, h.w);
-  vec4 norm = inversesqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-  p0 *= norm.x;
-  p1 *= norm.y;
-  p2 *= norm.z;
-  p3 *= norm.w;
-  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-  m = m*m;
-  return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-}
-
-// бензиновая текстура
-float fbm(vec3 p) {
-  float f = 0.0;
-  float a = 0.5;
-  for (int i = 0; i < 5; i++) {
-    f += a * snoise(p);
-    p *= 2.1;
-    a *= 0.5;
-  }
-  return f;
-}
-
+// -------------------- scene mapping --------------------
 vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
 float mapSphere(vec3 p) {
-  return length(p - spherePos) - 1.0;
+    return length(p - spherePos) - 1.0;
 }
 
 float mapWater(vec3 p) {
-  float wave = octaves((p.xz / 30.0) + (iTime / 19.0) + sin(length(p.xz * 2.0)) * 0.04);
-  return p.y + 8.0 + wave * 5.0;
+    // та же структура, просто волны выше (как в примере)
+    float wave = octaves((p.xz / 30.0) + (iTime / 19.0) + sin(length(p.xz * 2.0)) * 0.04);
+    return p.y + 8.0 + wave * 5.0;
 }
 
-// ===== бензиновый слой =====
-vec3 oilPattern(vec3 pos) {
-  vec3 p = vec3(pos.x * 0.08, pos.y * 0.08, iTime * 0.1);
-  float f = fbm(p + fbm(p * 0.7));
-  vec3 c1 = vec3(0.0, 0.9, 1.0);
-  vec3 c2 = vec3(1.0, 0.0, 0.82);
-  vec3 c3 = vec3(0.45, 0.0, 1.0);
-  vec3 c4 = vec3(0.0, 1.0, 0.5);
-  vec3 color = mix(c1, c2, smoothstep(0.0, 0.25, f));
-  color = mix(color, c3, smoothstep(0.25, 0.5, f));
-  color = mix(color, c4, smoothstep(0.5, 0.75, f));
-  color = mix(color, c1, smoothstep(0.75, 1.0, f));
-  return color * 0.15; // тёмная бензиновая плёнка
+// -------------------- normals (для простого освещения) --------------------
+vec3 getNormalWater(vec3 p) {
+    // численная производная карты воды
+    float h = 0.02;
+    float cx = mapWater(vec3(p.x + h, p.y, p.z)) - mapWater(vec3(p.x - h, p.y, p.z));
+    float cz = mapWater(vec3(p.x, p.y, p.z + h)) - mapWater(vec3(p.x, p.y, p.z - h));
+    vec3 n = normalize(vec3(cx, 2.0 * h, cz));
+    return n;
 }
 
-vec3 shade(vec3 p, float t) {
-  vec3 base = vec3(pow(1.0 - t, 2.0)); // сохраняем чёрный океан
-  vec3 oil = oilPattern(p);
-  return base + oil;
+// -------------------- бензиновый (oil-slick) эффект --------------------
+vec3 benzineShade(vec3 p, float t) {
+    // 1) UV для паттерна
+    vec2 uv = p.xz * 0.12;
+
+    // 2) слои фрактала
+    float q = octaves(uv + vec2(0.0, t * 0.03));
+    float r = octaves(uv + vec2(5.2, -t * 0.015));
+    float f = octaves(uv + r + q);
+
+    // 3) палитра (подгоняй, если надо)
+    vec3 spectrum0 = vec3(0.94, 0.02, 0.03);
+    vec3 spectrum1 = vec3(0.04, 0.04, 0.22);
+    vec3 spectrum2 = vec3(1.00, 0.80, 1.00);
+    vec3 spectrum3 = vec3(0.20, 0.40, 0.50);
+
+    // 4) микс цветов
+    vec3 oil = mix(spectrum1, spectrum3, pow(abs(q), 4.0));
+    oil = mix(oil, spectrum0, pow(abs(r), 1.4));
+    oil = mix(oil, spectrum2, clamp(f, 0.0, 1.0));
+    oil = pow(oil, vec3(2.0));
+
+    // 5) маска покрытия (чтобы не заливать всю поверхность)
+    float slickMask = smoothstep(0.05, 0.6, f + 0.5 * q);
+    slickMask *= smoothstep(0.1, 0.65, r);
+
+    // 6) базовый цвет воды
+    vec3 baseWater = vec3(0.02, 0.04, 0.12);
+
+    // 7) простая аппрокс. fresnel по высоте (плоские участки сильнее)
+    float fresnel = pow(clamp(1.0 - (p.y + 8.0) / 6.0, 0.0, 1.0), 1.3);
+
+    // 8) итоговый микс
+    float mixFactor = clamp(slickMask * (0.6 + 0.4 * fresnel), 0.0, 1.0);
+    vec3 color = mix(baseWater, oil, mixFactor);
+
+    // 9) тонкий specular для мокрого блеска
+    float spec = pow(clamp(1.0 - abs(q * 0.8 + f * 0.2), 0.0, 1.0), 6.0) * 0.12;
+    color += spec;
+
+    return color;
 }
 
+// -------------------- простая шейдинг-сфера --------------------
+vec3 shadeSphere(vec3 p) {
+    vec3 lightDir = normalize(vec3(-0.5, 0.6, -0.7));
+    vec3 n = normalize(p - spherePos);
+    float diff = max(dot(n, lightDir), 0.0);
+
+    vec3 base = vec3(0.9, 0.75, 0.6);
+    vec3 rim = vec3(0.2, 0.25, 0.35) * pow(1.0 - diff, 3.0);
+    vec3 color = base * (0.2 + 0.8 * diff) + rim;
+
+    // небольшой ambient
+    color *= 0.9;
+    return color;
+}
+
+// -------------------- raymarch --------------------
 vec4 rayMarch(vec3 ro, vec3 rd) {
-  float total = 0.0;
-  float hitType = 0.0;
-  for (int i = 0; i < MAX_DIST; i++) {
-    vec3 p = ro + rd * total;
-    float dSphere = mapSphere(p);
-    float dWater = mapWater(p);
-    float d = min(dSphere, dWater);
-    total += d;
-    if (d < EPSI) {
-      hitType = (dSphere < dWater) ? 2.0 : 1.0;
-      vec3 col = shade(p, float(i)/float(MAX_DIST));
-      if (hitType > 1.5) col = vec3(float(i)/float(MAX_DIST));
-      return vec4(col, 1.0);
+    float total = 0.0;
+
+    for (int i = 0; i < MAX_DIST; i++) {
+        vec3 p = ro + rd * total;
+        float dSphere = mapSphere(p);
+        float dWater = mapWater(p);
+        float d = min(dSphere, dWater);
+
+        total += d;
+        if (d < EPSI) {
+            if (dSphere < dWater) {
+                // попали в сферу
+                vec3 col = shadeSphere(p);
+                return vec4(col, 1.0);
+            } else {
+                // попали в воду — применяем бензиновый эффект, не трогая форму волн
+                vec3 base = benzineShade(p, iTime);
+
+                // тонкое освещение по нормали для глубины/блеска
+                vec3 n = getNormalWater(p);
+                vec3 light = normalize(vec3(-0.5, 0.8, -0.6));
+                float diffuse = max(dot(n, light), 0.0);
+                float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.0) * 0.2;
+
+                vec3 finalCol = base * (0.6 + 0.4 * diffuse) + rim;
+                return vec4(finalCol, 1.0);
+            }
+        }
+
+        if (total > float(MAX_DIST)) break;
     }
-    if (total > float(MAX_DIST)) break;
-  }
-  return vec4(0.0, 0.0, 0.0, 0.0);
+
+    // ничего не попало → прозрачность/фон
+    return vec4(0.0, 0.0, 0.0, 0.0);
 }
 
+// -------------------- main --------------------
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-  vec3 ro = vec3(0.0, 0.0, -8.0);
-  vec3 rd = normalize(vec3(uv, 1.0));
-  vec4 col = rayMarch(ro, rd);
+    vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
+    vec3 ro = vec3(0.0, 0.0, -8.0);
+    vec3 rd = normalize(vec3(uv, 1.0));
 
-  float fade = smoothstep(0.235, 0.52, gl_FragCoord.y / iResolution.y);
-  float brightness = dot(col.rgb, vec3(0.333));
-  if (brightness < 0.6) col.a *= 1.0 - fade;
+    vec4 col = rayMarch(ro, rd);
 
-  fragColor = col;
+    // Если прозрачный (ничего не попало) — можно добавить фон, сейчас оставляем прозрачным
+    fragColor = col;
 }`;
-
 
   // Shader compilation
   function compileShader(gl, type, src) {
@@ -292,6 +307,7 @@ void main() {
   
   requestAnimationFrame(render);
 });
+
 
 
 
