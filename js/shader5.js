@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+  
+const vertexSrc = `#version 300 es
+in vec4 a_position;
+void main() {
+    gl_Position = a_position;
+}`;
+  
   // Vertex shader
   const fragmentSrc = `#version 300 es
 precision highp float;
@@ -179,3 +186,4 @@ void main() {
   
   requestAnimationFrame(render);
 });
+
