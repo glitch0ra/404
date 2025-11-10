@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   float mapWater(vec3 p) {
   // та же структура, просто волны выше
-  float wave = octaves((p.xz / 30.0) + (iTime / 18.0) + sin(length(p.xz * 2.0)) * 0.04);
+  float wave = octaves((p.xz / 30.0) + (iTime / 19.0) + sin(length(p.xz * 2.0)) * 0.04);
   return p.y + 8.0 + wave * 5.0; // было *1.0, теперь *5.0 — волны выше, динамика та же
 }
   
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   vec4 col = rayMarch(ro, rd);
 
   // --- определяем тип попадания: если альфа == 1.0 → вода или сфера ---
-  float fade = smoothstep(0.26, 0.5, gl_FragCoord.y / iResolution.y);
+  float fade = smoothstep(0.22, 0.52, gl_FragCoord.y / iResolution.y);
 
   // fade только для воды (вода в твоей логике — это hitType == 1)
   // так как ты возвращаешь только цвет без типа, мы определим "воду" по яркости:
@@ -231,4 +231,5 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
