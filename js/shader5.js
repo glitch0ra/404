@@ -187,11 +187,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // advance немного чтобы не залипать
         pos.y = 0.0;
         pos += abs(sphereR * 0.001 / (ray.y + 1e-6)) * ray;
-        // композитируем диск (простая альфа-композиция)
-        vec3 newRgb = diskCol.rgb * (1.0 - col.a) + col.rgb;
-        float newA = col.a + diskCol.a * (1.0 - col.a);
+      
+        // композитируем диск (альфа-композиция)
+        vec3 newRgb = mix(col, diskCol.rgb, diskCol.a);
+        float newA = clamp(diskCol.a, 0.0, 1.0);
+      
         col = newRgb;
-        // если накопилась непрозрачность диска — возьмём его как окончательный цвет
+      
+        // если накопилась непрозрачность диска — берём как итог
         if (newA > 0.001) {
           outCol = vec4(col, 1.0);
           break;
@@ -303,3 +306,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   requestAnimationFrame(render);
 });
+
