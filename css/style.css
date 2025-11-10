@@ -467,6 +467,7 @@ h2 {
   height: 100%;
   z-index: 5; /* под шапкой (z=6), но над фоновым видео (z=0) */
   pointer-events: none;
+  background: transparent;
 }
 
 .page-header {
@@ -505,6 +506,7 @@ h2 {
       font-size: 2.2rem; /* Адаптивный размер для мобильных, если нужно */
   }
 }
+
 
 
 
