@@ -73,79 +73,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Рендеринг аккреционного диска ---
-    // --- Рендеринг аккреционного диска с правильной ориентацией ---
-    vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
-        // ИНВЕРТИРУЕМ локальную Y внутри диска
-        // чтобы камера всегда видела его "сверху"
-        vec3 position = zeroPos;
-        position.y = -position.y;  // <-- КЛЮЧЕВАЯ СТРОКА
+vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
+    vec3 position = zeroPos;
+    float lengthPos = length(position.xz);
+    float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
+    
+    position += dist * _Steps * ray * 0.5;
+
+    vec2 deltaPos;
+    deltaPos.x = -position.z * 0.01 + position.x;
+    deltaPos.y = position.x * 0.01 + position.z;
+    deltaPos = normalize(deltaPos - position.xz);
+    
+    float parallel = dot(ray.xz, deltaPos);
+    parallel /= sqrt(lengthPos + 0.0001);
+    parallel *= 0.6;
+    float redShift = parallel + 0.4;
+    redShift *= redShift;
+    redShift = clamp(redShift, 0.0, 1.0);
+    
+    float disMix = clamp((lengthPos - _Size * 2.0) * (1.0 / _Size) * 0.24, 0.0, 1.0);
+    vec3 insideCol = mix(vec3(1.0, 0.8, 0.0), vec3(0.5, 0.13, 0.02) * 0.2, disMix);
+    insideCol *= mix(vec3(0.4, 0.2, 0.1), vec3(1.6, 2.4, 4.0), redShift);
+    insideCol *= 1.4;
+    redShift += 0.14;
+    redShift *= redShift;
+
+    vec4 o = vec4(0.0);
+
+    for(float i = 0.0; i < _Steps; i++) {
+        position -= dist * ray;
         
-        float lengthPos = length(position.xz);
-        float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * 
-                    (1.0 / _Steps) / (abs(ray.y) + 0.0001);
+        float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
+        lengthPos = length(position.xz);
+        float distMult = 1.0;
+
+        distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+        distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
+        distMult *= distMult;
+
+        float u = lengthPos + iTime * _Size * 0.3 + intensity * _Size * 0.2;
+
+        vec2 xy;
+        float rot = mod(iTime * _Speed, 8192.0);
+        xy.x = -position.z * sin(rot) + position.x * cos(rot);
+        xy.y = position.x * sin(rot) + position.z * cos(rot);
+
+        // ИНВЕРТИРУЕМ Y в текстурных координатах - это должно перевернуть визуальную ориентацию
+        xy.y = -xy.y;  // <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
+
+        float x = abs(xy.x / (xy.y + 0.0001));
+        float angle = 0.02 * atan(x);
+
+        const float f = 70.0;
+        float noise = value(vec2(angle, u * (1.0 / _Size) * 0.05), f);
+        noise = noise * 0.66 + 0.33 * value(vec2(angle, u * (1.0 / _Size) * 0.05), f * 2.0);
         
-        position += dist * _Steps * ray * 0.5;
-    
-        vec2 deltaPos;
-        deltaPos.x = -position.z * 0.01 + position.x;
-        deltaPos.y = position.x * 0.01 + position.z;
-        deltaPos = normalize(deltaPos - position.xz);
-        
-        float parallel = dot(ray.xz, deltaPos);
-        parallel /= sqrt(lengthPos + 0.0001);
-        parallel *= 0.6;
-        float redShift = parallel + 0.4;
-        redShift *= redShift;
-        redShift = clamp(redShift, 0.0, 1.0);
-        
-        float disMix = clamp((lengthPos - _Size * 2.0) * (1.0 / _Size) * 0.24, 0.0, 1.0);
-        vec3 insideCol = mix(vec3(1.0, 0.8, 0.0), vec3(0.5, 0.13, 0.02) * 0.2, disMix);
-        insideCol *= mix(vec3(0.4, 0.2, 0.1), vec3(1.6, 2.4, 4.0), redShift);
-        insideCol *= 1.4;
-        redShift += 0.14;
-        redShift *= redShift;
-    
-        vec4 o = vec4(0.0);
-    
-        for(float i = 0.0; i < _Steps; i++) {
-            position -= dist * ray;
-            
-            float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
-            lengthPos = length(position.xz);
-            float distMult = 1.0;
-    
-            distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
-            distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
-            distMult *= distMult;
-    
-            float u = lengthPos + iTime * _Size * 0.3 + intensity * _Size * 0.2;
-    
-            vec2 xy;
-            float rot = mod(iTime * _Speed, 8192.0);
-            xy.x = -position.z * sin(rot) + position.x * cos(rot);
-            xy.y = position.x * sin(rot) + position.z * cos(rot);
-    
-            float x = abs(xy.x / (xy.y + 0.0001));
-            float angle = 0.02 * atan(x);
-    
-            const float f = 70.0;
-            float noise = value(vec2(angle, u * (1.0 / _Size) * 0.05), f);
-            noise = noise * 0.66 + 0.33 * value(vec2(angle, u * (1.0 / _Size) * 0.05), f * 2.0);
-            
-            float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
-    
-            float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
-    
-            vec3 colVec = 2.0 * mix(vec3(0.3, 0.2, 0.15) * insideCol, insideCol, min(1.0, intensity * 2.0));
-            o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(1.0));
-    
-            lengthPos *= (1.0 / _Size);
-            o.rgb += redShift * (intensity * 1.0 + 0.5) * (1.0 / _Steps) * 100.0 * distMult / (lengthPos * lengthPos + 0.001);
-        }
-    
-        o.rgb = clamp(o.rgb - 0.005, 0.0, 1.0);
-        return o;
+        float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
+
+        float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
+
+        vec3 colVec = 2.0 * mix(vec3(0.3, 0.2, 0.15) * insideCol, insideCol, min(1.0, intensity * 2.0));
+        o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(1.0));
+
+        lengthPos *= (1.0 / _Size);
+        o.rgb += redShift * (intensity * 1.0 + 0.5) * (1.0 / _Steps) * 100.0 * distMult / (lengthPos * lengthPos + 0.001);
     }
+
+    o.rgb = clamp(o.rgb - 0.005, 0.0, 1.0);
+    return o;
+}
 
     // --- Позиция черной дыры (исходная позиция) ---
     vec3 spherePos = vec3(8.0, 6.0, 25.0);
@@ -330,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
 
 
 
