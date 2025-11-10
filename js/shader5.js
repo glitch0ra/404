@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
         uniform vec3 iResolution;
         uniform float iTime;
 
-        // --- Параметры черной дыры ---
+        // --- Параметры черной дыры (адаптированы под размер вашей сферы) ---
         #define _Speed 2.0
         #define _Steps 12.0
-        #define _Size 0.9
+        #define _Size 0.9  // Масштаб для корректного отображения на вашем расстоянии
 
-        // --- Функции шума ---
+        // --- Функции шума (для текстуры диска) ---
         float hash(float x) { 
             return fract(sin(x) * 15.0); 
         }
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return mix(b, t, fr.y);
         }
 
-        // --- Поворот вектора ---
+        // --- Поворот вектора (для анимации) ---
         void Rotate(inout vec3 vector, vec2 angle) {
             vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
@@ -81,9 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
             position += dist * _Steps * ray * 0.5;
 
             vec2 deltaPos;
-            deltaPos.x = -position.z * 0.01 + position.x;
-            deltaPos.y = position.x * 0.01 + position.z;
-            deltaPos = normalize(deltaPos - position.xz);
+            deltaPos.x = -zeroPos.z * 0.01 + zeroPos.x;
+            deltaPos.y = zeroPos.x * 0.01 + zeroPos.z;
+            deltaPos = normalize(deltaPos - zeroPos.xz);
             
             float parallel = dot(ray.xz, deltaPos);
             parallel /= sqrt(lengthPos + 0.0001);
@@ -141,26 +141,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return o;
         }
 
-        // --- Позиция черной дыры ---
+        // --- Позиция исходной сферы (заменяем на черную дыру) ---
         vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
-        // --- Основной рэймаршинг ---
+        // --- Основной рэймаршинг черной дыры ---
         vec4 rayMarch(vec3 ro, vec3 rd) {
-            // ВИРТУАЛЬНО поднимаем камеру внутри рэймаршинга
-            // Это создает эффект "вида сверху" на диск
-            ro.y += 20.0;
-            
-            // Переходим в систему координат черной дыры
-            ro -= spherePos;
-            
-            // Применяем поворот
-            vec2 angleRot = vec2(0.03 * iTime, 0.12);
-            Rotate(ro, angleRot);
-            Rotate(rd, angleRot);
-            
             vec3 pos = ro;
             vec4 col = vec4(0.0);
             vec4 glow = vec4(0.0);
+            vec3 bhPos = spherePos;
+            bool hasDisk = false;
+
+            // Преобразование в систему координат черной дыры
+            pos -= bhPos;
+
+            // Легкое вращение камеры для динамики (опционально, можно закомментировать)
+            vec2 angle = vec2(0.03 * iTime, 0.12);
+            Rotate(pos, angle);
+            Rotate(rd, angle);
 
             for(int disks = 0; disks < 32; disks++) {
                 for(int h = 0; h < 6; h++) {
@@ -195,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Попали в диск
                 else if(abs(pos.y) <= _Size * 0.002) {
+                    hasDisk = true;
                     vec4 diskCol = raymarchDisk(rd, pos);
                     pos.y = 0.0;
                     pos += abs(_Size * 0.001 / (rd.y + 0.0001)) * rd;
@@ -203,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Прозрачный фон, если ничего не зацепили
+            // Если ничего не зацепили - прозрачный пиксель
             if(col.a == 0.0 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
@@ -213,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         void main() {
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-            
             vec3 ro = vec3(0.0, 0.0, -8.0);
             vec3 rd = normalize(vec3(uv, 1.0));
             
@@ -222,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
 
+    // Shader compilation function
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
@@ -253,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gl.deleteShader(vs);
     gl.deleteShader(fs);
 
+    // Fullscreen quad setup
     const quadBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -263,9 +263,11 @@ document.addEventListener('DOMContentLoaded', () => {
     gl.enableVertexAttribArray(positionLoc);
     gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
 
+    // Uniform locations
     const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
     const iTimeLoc = gl.getUniformLocation(program, 'iTime');
 
+    // Resize handling
     function resize() {
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
@@ -276,6 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resize);
     resize();
 
+    // Visibility handling
     let isPaused = false;
     let lastRenderTime = 0;
     const FPS = 50;
@@ -292,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     observer.observe(canvas);
 
+    // Render loop
     function render(now) {
         if (isPaused) {
             requestAnimationFrame(render);
