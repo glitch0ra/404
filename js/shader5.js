@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
   float w = p.y + 8.0 + wave * 5.0;
 
   // --- плавное размытие горизонта ---
-  float horizonMask = smoothstep(0.2, 0.45, p.y * 0.08 + wave * 0.3);
-  w = mix(w, w + 1.5, horizonMask);
+  float horizon = smoothstep(0.25, 0.45, wave + 0.3); 
+  w = mix(w, w + 3.0, horizon); // поднимает и размазывает дальний край
 
   // --- возвращаем ---
   return w;
@@ -232,6 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   requestAnimationFrame(render);
 });
+
 
 
 
