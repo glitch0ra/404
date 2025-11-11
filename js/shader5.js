@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Speed 2.0
         #define _Steps 12.0
         #define _Size 0.3  // УМЕНЬШЕНО В 3 РАЗА (было 0.9)
+        #define GRAVITY_STRENGTH 3.0
+        #define LENS_RADIUS 2.5
 
         // --- Функции шума ---
         float hash(float x) { 
@@ -70,6 +72,24 @@ document.addEventListener('DOMContentLoaded', () => {
         void Rotate(inout vec3 vector, vec2 angle) {
             vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
+        }
+
+        // --- Гравитационное линзирование ---
+        vec2 gravitationalLensing(vec2 uv, vec2 blackHoleCenter, float mass, float radius) {
+            vec2 delta = uv - blackHoleCenter;
+            float distance = length(delta);
+            
+            // Внутри дыры — без искажения
+            if (distance < radius * 0.5) return uv;
+            
+            // Вычисляем смещение по формуле гравитационного линзирования
+            float lensingStrength = mass / (distance * distance + 0.01);
+            vec2 offset = delta * lensingStrength * GRAVITY_STRENGTH;
+            
+            // Ограничиваем максимальное смещение
+            offset = clamp(offset, -0.1, 0.1);
+            
+            return uv + offset;
         }
 
         // --- Рендеринг аккреционного диска ---
@@ -180,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 float dist2 = length(pos);
 
                 if(dist2 < _Size * 0.1) {
-                    // Внутри черной дыры
                     float finalAlpha = min(1.0, length(glow.rgb) * 0.5);
                     return vec4(glow.rgb, finalAlpha);
                 }
@@ -197,12 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // ПРОЗРАЧНОСТЬ: если пиксель пустой — полностью прозрачный
             if(col.a == 0.0 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
 
-            // СМЕШЕНИЕ: правильный alpha-канал
             float finalAlpha = min(1.0, col.a + length(glow.rgb) * 0.5);
             return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), finalAlpha);
         }
@@ -212,13 +229,40 @@ document.addEventListener('DOMContentLoaded', () => {
             vec3 ro = vec3(0.0, 0.0, -8.0);
             vec3 rd = normalize(vec3(uv, 1.0));
             
-            fragColor = rayMarch(ro, rd);
+            // Координаты черной дыры в экранном пространстве
+            vec2 blackHoleUV = vec2(0.5, 0.5); // Центр экрана
+            float distToBlackHole = distance(uv, blackHoleUV);
+            
+            // Рендерим черную дыру
+            vec4 blackHoleColor = rayMarch(ro, rd);
+            
+            // Если пиксель в зоне влияния дыры, но не в самой дыре
+            if (distToBlackHole < LENS_RADIUS && blackHoleColor.a < 0.1) {
+                // Вычисляем искажение
+                vec2 distortedUV = gravitationalLensing(uv, blackHoleUV, _Size, LENS_RADIUS);
+                
+                // Создаем эффект Эйнштейнова кольца
+                float ringIntensity = smoothstep(LENS_RADIUS, _Size * 2.0, distToBlackHole);
+                ringIntensity *= 1.0 - smoothstep(_Size * 2.0, _Size * 0.5, distToBlackHole);
+                
+                // Добавляем искажение света (синее смещение)
+                vec3 lensColor = vec3(0.0);
+                lensColor.r = 0.3 * ringIntensity;
+                lensColor.g = 0.5 * ringIntensity;
+                lensColor.b = 0.8 * ringIntensity;
+                
+                // Смешиваем с фоном (прозрачность создает эффект искажения)
+                fragColor = vec4(lensColor, ringIntensity * 0.4);
+            } else {
+                // Обычный рендер черной дыры с прозрачным фоном
+                fragColor = blackHoleColor;
+            }
+            
             fragColor.rgb = pow(fragColor.rgb, vec3(0.6));
-            // Alpha-канал сохраняется из rayMarch
         }
     `;
 
-    // Shader compilation function
+    // Shader compilation function (оставьте без изменений)
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
@@ -250,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gl.deleteShader(vs);
     gl.deleteShader(fs);
 
-    // Fullscreen quad setup
+    // Fullscreen quad setup (оставьте без изменений)
     const quadBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -261,11 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
     gl.enableVertexAttribArray(positionLoc);
     gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
 
-    // Uniform locations
     const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
     const iTimeLoc = gl.getUniformLocation(program, 'iTime');
 
-    // Resize handling
     function resize() {
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
@@ -276,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resize);
     resize();
 
-    // Visibility handling
     let isPaused = false;
     let lastRenderTime = 0;
     const FPS = 50;
@@ -293,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     observer.observe(canvas);
 
-    // Render loop
     function render(now) {
         if (isPaused) {
             requestAnimationFrame(render);
@@ -321,4 +361,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
-
