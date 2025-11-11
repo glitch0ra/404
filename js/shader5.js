@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Size 0.3
         
         // === СКОРОСТИ ===
-        #define ROT_X_SPEED 0.3
+        #define ROT_X_SPEED 0.5
         #define ROT_Y_SPEED 0.5
-        #define ROT_Z_SPEED 0.2
+        #define ROT_Z_SPEED 0.5
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         void Rotate3D(inout vec3 vector, vec3 angles) {
             vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
-            vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
+            vector.xz = cos(angles.y) * vector.xz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zx;
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
@@ -133,7 +133,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 lengthPos = length(position.xz);
                 
                 float distMult = 1.0;
-                distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+                // ИСПРАВЛЕНО: рисуем кольца поверх черного круга, уменьшаем порог
+                if(lengthPos < _Size * 0.1) {
+                    distMult = 0.0; // В самом центре кольца не рисуем
+                } else {
+                    distMult *= clamp((lengthPos - _Size * 0.1) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+                }
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
@@ -170,12 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         vec4 rayMarch(vec3 ro, vec3 rd) {
             vec3 pos = ro;
-            vec4 col = vec4(0.0);
+            vec4 col = vec4(0.0); // Кольца
             vec4 glow = vec4(0.0);
             vec3 bhPos = spherePos;
 
-            // Сохраняем начальное смещение для расчета черной дыры
-            vec3 offsetPos = pos - bhPos;
+            // Сохраняем позицию для черного круга (до изменений)
+            vec3 originalPos = pos - bhPos;
             
             pos -= bhPos;
             float time = iTime * 0.5;
@@ -221,22 +226,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // === СОЗДАЕМ ЧЕРНЫЙ КРУГ ПОД КОЛЬЦАМИ ===
-            float distFromCenter = length(offsetPos.xz);
+            // === СОЗДАЕМ ЧЕРНЫЙ КРУГ В ЦЕНТРЕ ПОД КОЛЬЦАМИ ===
+            float distFromCenter = length(originalPos.xz);
             float blackHoleRadius = _Size * 0.1;
-            // Alpha 0.8 для видимости, но не полной непрозрачности
-            float blackHoleAlpha = 1.8 * (1.0 - smoothstep(0.0, blackHoleRadius, distFromCenter));
             
-            // Смешиваем черный круг с колыцами (кольца сверху)
-            vec3 finalColor = mix(vec3(0.0), col.rgb, col.a);
-            float finalAlpha = max(col.a, blackHoleAlpha);
+            // Черный круг с alpha=1.0 (непрозрачный)
+            vec4 blackHoleDisk = vec4(0.0, 0.0, 0.0, step(distFromCenter, blackHoleRadius));
+            
+            // Смешиваем: черный круг - фон (снизу), кольца - сверху
+            vec4 finalColor;
+            finalColor.rgb = mix(blackHoleDisk.rgb, col.rgb, col.a);
+            finalColor.a = max(blackHoleDisk.a, col.a);
 
-            if(finalAlpha < 0.01 && length(glow.rgb) < 0.01) {
+            if(finalColor.a < 0.01 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
 
-            return vec4(finalColor * finalAlpha + glow.rgb * (1.0 - finalAlpha), 
-                       min(1.0, finalAlpha + length(glow.rgb) * 0.5));
+            return vec4(finalColor.rgb * finalColor.a + glow.rgb * (1.0 - finalColor.a), 
+                       min(1.0, finalColor.a + length(glow.rgb) * 0.5));
         }
 
         void main() {
@@ -361,4 +368,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
-
