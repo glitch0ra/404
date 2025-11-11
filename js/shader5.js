@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             float distFromCenter = length(offsetPos.xz);
             float blackHoleRadius = _Size * 0.1;
             // Alpha 0.8 для видимости, но не полной непрозрачности
-            float blackHoleAlpha = 0.8 * (1.0 - smoothstep(0.0, blackHoleRadius, distFromCenter));
+            float blackHoleAlpha = 1.8 * (1.0 - smoothstep(0.0, blackHoleRadius, distFromCenter));
             
             // Смешиваем черный круг с колыцами (кольца сверху)
             vec3 finalColor = mix(vec3(0.0), col.rgb, col.a);
@@ -361,3 +361,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
