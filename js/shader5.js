@@ -49,11 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
-        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ ===
-        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);
-        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);
-        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);
-        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);
+        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (точные HEX) ===
+        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff (голубой)
+        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0 (розовый)
+        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff (фиолетовый)
+        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);   // #00ff80 (зелёный)
 
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
             float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
 
             vec3 col;
+            // Точный порядок цветов: голубой → фиолетовый → розовый → зелёный → голубой
             if (segment < 1.0)
                 col = mix(COLOR_CYAN, COLOR_PURPLE, smoothstep(0.0, 1.0, segment));
             else if (segment < 2.0)
@@ -132,7 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lengthPos = length(position.xz);
                 
                 float distMult = 1.0;
-                distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+                // ИСПРАВЛЕНО: уменьшен порог для видимости колец в центре
+                distMult *= clamp((lengthPos - _Size * 0.2) * (1.0 / _Size) * 3.0, 0.0, 1.0);
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
@@ -151,14 +153,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
                 float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
-                // === МАСЛЯНИСТЫЙ ЦВЕТ + НЕОНОВАЯ ПОДСВЕТКА ===
                 vec3 p3d = position * 0.1;
                 vec3 baseColor = oilMix(p3d, iTime * 0.5);
                 vec3 neonColor = neonGlow(baseColor, intensity, alpha) * intensity * 2.5;
                 neonColor *= distMult;
                 
                 vec3 colVec = neonColor;
-                // ИСПРАВЛЕНО: col.a → alpha
                 o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
                 
                 lengthPos *= (1.0 / _Size);
@@ -207,10 +207,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 float dist2 = length(pos);
-                if(dist2 < _Size * 0.1) {
-                    return vec4(0.0, 0.0, 0.0, 1.0);
-                }
-                else if(dist2 > _Size * 1000.0) {
+                
+                // ИСПРАВЛЕНО: убран return, чтобы черный круг не перекрывал кольца
+                // Теперь кольца будут отрисовываться поверх черного фона
+                if(dist2 > _Size * 1000.0) {
                     break;
                 }
                 else if(abs(pos.y) <= _Size * 0.002) {
