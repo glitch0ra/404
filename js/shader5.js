@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = ((now - startTime) * 0.001) % 300;
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
         gl.uniform1f(iTimeLoc, t);
-        gl.uniform1f(ringBlurLoc, 0.0); // ✅ РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 (без размытия) ДО 1.0 (сильное размытие)
+        gl.uniform1f(ringBlurLoc, 1.0); // ✅ РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 (без размытия) ДО 1.0 (сильное размытие)
         
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -356,3 +356,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
