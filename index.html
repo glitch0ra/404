@@ -1,114 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Glitch Slime // [Glitchora]</title>
-  <meta name="description" content="Digital rupture between reality and signal.">
+  <meta name="description" content="Личная медиа-галерея автора Glitchora — цифровые работы, коллекции, видео, скриншоты, истории и эксперименты.">
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="page-header">
-  <video autoplay muted loop playsinline class="page-header-video">
-    <source src="assets/fonshapka.webm" type="video/webm">
-  </video>
-</div>
 
-<!-- Шейдер-слой -->
-<canvas id="shader-canvas" class="shader-layer"></canvas>
-<canvas id="shader-canvas2" class="shader-layer2"></canvas>
-<canvas id="shader-canvas3" class="shader-layer3"></canvas>
-<canvas id="shader-canvas4" class="shader-layer4"></canvas>
-
-  
-<video autoplay muted loop playsinline class="bg-full">
-        <source src="assets/background.webm" type="video/webm">
+  <!-- ======= АНИМИРОВАННАЯ ШАПКА ======= -->
+  <header class="page-header" role="banner" aria-label="Анимированная шапка">
+    <video autoplay muted loop playsinline class="page-header-video" aria-hidden="true">
+      <source src="assets/fonshapka.webm" type="video/webm">
     </video>
+  </header>
 
-<canvas id="shader-canvas5" class="shader-layer5"></canvas>
-  
-  <!-- Основной контент -->
-  <main class="app-container">
-    <!-- Навигация (верхнее меню) -->
-    <nav class="main-nav">
-      <button class="nav-btn active" data-page="home">Home</button>
-      <button class="nav-btn" data-page="vhs">VHS Glitch</button>
-      <button class="nav-btn" data-page="matrix">Digital Rupture</button>
-      <button class="nav-btn" data-page="about">About</button>
+  <!-- ======= ШЕЙДЕРНЫЕ СЛОИ ======= -->
+  <canvas id="shader-canvas" class="shader-layer"></canvas>
+  <canvas id="shader-canvas2" class="shader-layer2"></canvas>
+  <canvas id="shader-canvas3" class="shader-layer3"></canvas>
+  <canvas id="shader-canvas4" class="shader-layer4"></canvas>
+  <canvas id="shader-canvas5" class="shader-layer5"></canvas>
+
+  <!-- ======= ФОНОВОЕ ВИДЕО ======= -->
+  <video autoplay muted loop playsinline class="bg-full" aria-hidden="true">
+    <source src="assets/background.webm" type="video/webm">
+  </video>
+
+  <!-- ======= ОСНОВНОЙ ЦЕНТРАЛЬНЫЙ БЛОК ======= -->
+  <main class="app-container" role="main">
+
+    <!-- ======= НАВИГАЦИЯ (ВКЛАДКИ) ======= -->
+    <nav class="tabs-panel" role="tablist" aria-label="Основная панель навигации">
+      <button class="tab-btn active" data-tab="home" role="tab" aria-selected="true">Главная</button>
+      <button class="tab-btn" data-tab="collections" role="tab">Коллекции</button>
+      <button class="tab-btn" data-tab="screenshots" role="tab">Скриншоты</button>
+      <button class="tab-btn" data-tab="videos" role="tab">Видео</button>
+      <button class="tab-btn" data-tab="history" role="tab">История</button>
+      <button class="tab-btn" data-tab="about" role="tab">Об авторе</button>
     </nav>
 
-    <!-- Страницы -->
-    <div class="pages">
+    <!-- ======= ОБЛАСТЬ ВКЛАДОК ======= -->
+    <section class="pages">
+
       <!-- Главная -->
-      <section id="home" class="page active">
-        <h1>rupture</h1>
-        <p>A digital artist exploring the fracture between reality and signal through glitch, noise, and hidden motion.</p>
-        <div class="preview-grid">
-          <div class="preview-item" data-type="vhs">
-            <img src="https://glichorahost.pages.dev/pashalka6.webp" alt="VHS Fragment">
-            <span>VHS Glitch #01</span>
-          </div>
-          <div class="preview-item" data-type="matrix">
-            <img src="https://glichorahost.pages.dev/pashalka5.webp" alt="Matrix Fragment">
-            <span>Digital Rupture #01</span>
-          </div>
-        </div>
-      </section>
+      <div id="home" class="page active" data-rendered="false">
+        <!-- Заполняется динамически через JS -->
+      </div>
 
-      <!-- Галерея: VHS Glitch -->
-      <section id="vhs" class="page">
-        <h2>VHS Glitch Archive</h2>
-        <div class="glitch-carousel" id="carousel-vhs">
-          <div class="wrapper">
-            <div class="inner" data-quantity="6"></div>
-          </div>
-        </div>
-      </section>
+      <!-- Коллекции -->
+      <div id="collections" class="page" data-rendered="false">
+        <!-- Здесь будут блоки с коллекциями -->
+      </div>
 
-      <!-- Галерея: Digital Rupture -->
-      <section id="matrix" class="page">
-        <h2>Digital Rupture</h2>
-        <div class="glitch-carousel" id="carousel-matrix">
-          <div class="wrapper">
-            <div class="inner" data-quantity="6"></div>
-          </div>
-        </div>
-      </section>
+      <!-- Скриншоты -->
+      <div id="screenshots" class="page" data-rendered="false">
+        <!-- Здесь будут блоки скриншотов -->
+      </div>
 
-      <!-- Обо мне -->
-      <section id="about" class="page">
-        <div class="about-content">
-          <img src="https://glichorahost.pages.dev/ava.webp" alt="Artist" class="avatar">
-          <div class="bio">
-            <h2>About Me</h2>
-            <p>Digital motion designer specializing in glitch aesthetics, VHS decay, and the rupture between internet space and physical reality.</p>
-            <p>I embed hidden 2D R34 animations within digital noise as poetic artifacts of forbidden signal.</p>
-            <div class="social-links">
-              <a href="https://twitter.com/you" target="_blank">Twitter</a>
-              <a href="https://instagram.com/you" target="_blank">Instagram</a>
-              <a href="https://artstation.com/you" target="_blank">ArtStation</a>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+      <!-- Видео -->
+      <div id="videos" class="page" data-rendered="false">
+        <!-- Здесь будут блоки с видео -->
+      </div>
+
+      <!-- История -->
+      <div id="history" class="page" data-rendered="false">
+        <!-- Здесь будут блоки с историями -->
+      </div>
+
+      <!-- Об авторе -->
+      <div id="about" class="page" data-rendered="false">
+        <!-- Здесь будет информация об авторе -->
+      </div>
+    </section>
   </main>
 
-  <!-- Модальное окно — ВНЕ .pages! -->
-  <div id="modal" class="modal">
+  <!-- ======= УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ======= -->
+  <div id="modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
-      <button class="modal-close">&times;</button>
-      <img id="modal-image" src="" alt="">
-      <h3 id="modal-title"></h3>
-      <p id="modal-description"></p>
-      <div class="modal-actions">
-        <button class="btn">Close</button>
+
+      <!-- Кнопка закрытия -->
+      <button class="modal-close" aria-label="Закрыть">&times;</button>
+
+      <!-- Основной медиаконтейнер -->
+      <div class="modal-media" id="modal-media"></div>
+
+      <!-- Блок описания и действий -->
+      <div class="modal-meta">
+        <h3 id="modal-title"></h3>
+        <p id="modal-description"></p>
+
+        <!-- Галерея миниатюр -->
+        <div class="modal-thumbs" id="modal-thumbs" aria-hidden="true"></div>
+
+        <!-- Кнопки действий -->
+        <div class="modal-actions">
+          <a id="modal-download" class="btn download-btn" href="#" download>Скачать</a>
+          <button class="btn close-btn">Закрыть</button>
+        </div>
       </div>
+
+      <!-- Перелистывание (для скриншотов) -->
+      <button class="modal-arrow left" id="modal-prev" aria-label="Предыдущий">&lsaquo;</button>
+      <button class="modal-arrow right" id="modal-next" aria-label="Следующий">&rsaquo;</button>
     </div>
   </div>
-  
+
+  <!-- ======= СКРИПТЫ ======= -->
   <script src="js/lazysizes.min.js"></script>
   <script src="js/main.js"></script>
   <script src="js/shader.js"></script>
@@ -117,8 +118,5 @@
   <script src="js/shader4.js"></script>
   <script src="js/shader5.js"></script>
 
-  <script src="s/AT.js"></script>
-  
 </body>
 </html>
-
