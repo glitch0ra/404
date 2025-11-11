@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Персональная галерея медиа-проектов и творческих работ в стилях Liquid Glass и Anti-Design">
+    <meta name="keywords" content="медиа-галерея, цифровое искусство, anti-design, liquid glass">
     <title>Личная медиа-галерея</title>
-    <meta name="description" content="Персональная галерея медиа-проектов и творческих работ">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Анимированная шапка сайта -->
+    <!-- Анимированная шапка -->
     <header class="site-header" role="banner">
         <div class="header-content">
             <h1 class="site-title">Медиа-галерея</h1>
@@ -22,22 +23,22 @@
         <nav class="tab-panel" role="navigation" aria-label="Основная навигация">
             <ul class="tab-list" role="tablist">
                 <li role="presentation">
-                    <button class="tab-button active" role="tab" aria-selected="true" aria-controls="tab-main" id="btn-main">Главная</button>
+                    <button class="tab-button active" role="tab" aria-selected="true" aria-controls="tab-main" data-tab="tab-main">Главная</button>
                 </li>
                 <li role="presentation">
-                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-collections" id="btn-collections">Коллекции</button>
+                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-collections" data-tab="tab-collections">Коллекции</button>
                 </li>
                 <li role="presentation">
-                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-screenshots" id="btn-screenshots">Скриншоты</button>
+                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-screenshots" data-tab="tab-screenshots">Скриншоты</button>
                 </li>
                 <li role="presentation">
-                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-videos" id="btn-videos">Видео</button>
+                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-videos" data-tab="tab-videos">Видео</button>
                 </li>
                 <li role="presentation">
-                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-history" id="btn-history">История</button>
+                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-history" data-tab="tab-history">История</button>
                 </li>
                 <li role="presentation">
-                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-about" id="btn-about">Об авторе</button>
+                    <button class="tab-button" role="tab" aria-selected="false" aria-controls="tab-about" data-tab="tab-about">Об авторе</button>
                 </li>
             </ul>
         </nav>
@@ -47,375 +48,54 @@
             <!-- Вкладка: Главная -->
             <section class="tab-content active" id="tab-main" role="tabpanel" aria-labelledby="btn-main">
                 <h2 class="visually-hidden">Лента последних проектов</h2>
-                
-                <article class="project-card" data-modal="project-modal">
-                    <header class="project-card-header">
-                        <h3 class="project-title">Проект "Название работы"</h3>
-                        <time class="project-date" datetime="2025-01-15">15 января 2025</time>
-                    </header>
-                    
-                    <div class="project-main-media">
-                        <img src="https://via.placeholder.com/1200x600/00e5ff/000000?text=Главное+изображение" alt="Главное изображение проекта" class="project-main-image">
-                    </div>
-                    
-                    <div class="project-screenshots">
-                        <h4 class="visually-hidden">Скриншоты проекта</h4>
-                        <img src="https://via.placeholder.com/400x300/ff00d0/ffffff?text=Скриншот+1" alt="Скриншот 1">
-                        <img src="https://via.placeholder.com/400x300/7300ff/ffffff?text=Скриншот+2" alt="Скриншот 2">
-                        <img src="https://via.placeholder.com/400x300/00ff80/000000?text=Скриншот+3" alt="Скриншот 3">
-                    </div>
-                    
-                    <div class="project-video">
-                        <h4 class="visually-hidden">Видео проекта</h4>
-                        <video controls poster="https://via.placeholder.com/800x450/333/fff?text=Видео+превью">
-                            <source src="#" type="video/mp4">
-                            Ваш браузер не поддерживает видео.
-                        </video>
-                    </div>
-                </article>
-
-                <article class="project-card" data-modal="project-modal">
-                    <header class="project-card-header">
-                        <h3 class="project-title">Проект "Вторая работа"</h3>
-                        <time class="project-date" datetime="2025-01-10">10 января 2025</time>
-                    </header>
-                    
-                    <div class="project-main-media">
-                        <img src="https://via.placeholder.com/1200x600/ff00d0/ffffff?text=Главное+изображение+2" alt="Главное изображение проекта" class="project-main-image">
-                    </div>
-                    
-                    <div class="project-screenshots">
-                        <h4 class="visually-hidden">Скриншоты проекта</h4>
-                        <img src="https://via.placeholder.com/400x300/00e5ff/000000?text=Скриншот+1" alt="Скриншот 1">
-                        <img src="https://via.placeholder.com/400x300/7300ff/ffffff?text=Скриншот+2" alt="Скриншот 2">
-                        <img src="https://via.placeholder.com/400x300/00ff80/000000?text=Скриншот+3" alt="Скриншот 3">
-                    </div>
-                    
-                    <div class="project-video">
-                        <h4 class="visually-hidden">Видео проекта</h4>
-                        <video controls poster="https://via.placeholder.com/800x450/444/fff?text=Видео+превью+2">
-                            <source src="#" type="video/mp4">
-                            Ваш браузер не поддерживает видео.
-                        </video>
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
 
             <!-- Вкладка: Коллекции -->
             <section class="tab-content" id="tab-collections" role="tabpanel" aria-labelledby="btn-collections">
                 <h2 class="visually-hidden">Коллекции работ</h2>
-                
-                <article class="collection-card">
-                    <h3 class="collection-title">Коллекция "Цветные абстракции"</h3>
-                    <p class="collection-description">Серия работ в жанре цифрового арта</p>
-                    
-                    <div class="collection-carousel" data-carousel="collection-1">
-                        <button class="carousel-nav prev" aria-label="Предыдущее изображение">‹</button>
-                        
-                        <div class="carousel-images">
-                            <img src="https://via.placeholder.com/500x500/00e5ff/000000?text=Работа+1" alt="Работа 1" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/ff00d0/ffffff?text=Работа+2" alt="Работа 2" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/7300ff/ffffff?text=Работа+3" alt="Работа 3" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/00ff80/000000?text=Работа+4" alt="Работа 4" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/00e5ff/000000?text=Работа+5" alt="Работа 5" data-modal="collection-image-modal">
-                        </div>
-                        
-                        <button class="carousel-nav next" aria-label="Следующее изображение">›</button>
-                    </div>
-                </article>
-
-                <article class="collection-card">
-                    <h3 class="collection-title">Коллекция "Минимализм"</h3>
-                    <p class="collection-description">Минималистичные композиции</p>
-                    
-                    <div class="collection-carousel" data-carousel="collection-2">
-                        <button class="carousel-nav prev" aria-label="Предыдущее изображение">‹</button>
-                        
-                        <div class="carousel-images">
-                            <img src="https://via.placeholder.com/500x500/ff00d0/ffffff?text=Минимал+1" alt="Работа 1" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/7300ff/ffffff?text=Минимал+2" alt="Работа 2" data-modal="collection-image-modal">
-                            <img src="https://via.placeholder.com/500x500/00ff80/000000?text=Минимал+3" alt="Работа 3" data-modal="collection-image-modal">
-                        </div>
-                        
-                        <button class="carousel-nav next" aria-label="Следующее изображение">›</button>
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
 
             <!-- Вкладка: Скриншоты -->
             <section class="tab-content" id="tab-screenshots" role="tabpanel" aria-labelledby="btn-screenshots">
                 <h2 class="visually-hidden">Галерея скриншотов</h2>
-                
-                <article class="screenshot-block">
-                    <h3 class="screenshot-block-title">Этапы разработки проекта A</h3>
-                    <p class="screenshot-block-desc">Процесс создания первой версии</p>
-                    
-                    <div class="screenshot-grid" data-block="screenshots-1">
-                        <img src="https://via.placeholder.com/600x400/00e5ff/000000?text=Этап+1" alt="Этап 1" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/ff00d0/ffffff?text=Этап+2" alt="Этап 2" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/7300ff/ffffff?text=Этап+3" alt="Этап 3" data-modal="screenshot-modal">
-                    </div>
-                </article>
-
-                <article class="screenshot-block">
-                    <h3 class="screenshot-block-title">Результаты тестирования</h3>
-                    <p class="screenshot-block-desc">Различные варианты и эксперименты</p>
-                    
-                    <div class="screenshot-grid" data-block="screenshots-2">
-                        <img src="https://via.placeholder.com/600x400/00ff80/000000?text=Тест+1" alt="Тест 1" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/00e5ff/000000?text=Тест+2" alt="Тест 2" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/ff00d0/ffffff?text=Тест+3" alt="Тест 3" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/7300ff/ffffff?text=Тест+4" alt="Тест 4" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/00ff80/000000?text=Тест+5" alt="Тест 5" data-modal="screenshot-modal">
-                        <img src="https://via.placeholder.com/600x400/00e5ff/000000?text=Тест+6" alt="Тест 6" data-modal="screenshot-modal">
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
 
             <!-- Вкладка: Видео -->
             <section class="tab-content" id="tab-videos" role="tabpanel" aria-labelledby="btn-videos">
                 <h2 class="visually-hidden">Галерея видео</h2>
-                
-                <article class="video-block">
-                    <h3 class="video-block-title">Видео-процессы создания</h3>
-                    <p class="video-block-desc">Записи экрана и таймлапсы</p>
-                    
-                    <div class="video-grid" data-block="videos-1">
-                        <video controls poster="https://via.placeholder.com/800x450/00e5ff/000000?text=Таймлапс+1" data-modal="video-modal">
-                            <source src="#" type="video/mp4">
-                        </video>
-                        <video controls poster="https://via.placeholder.com/800x450/ff00d0/ffffff?text=Таймлапс+2" data-modal="video-modal">
-                            <source src="#" type="video/mp4">
-                        </video>
-                        <video controls poster="https://via.placeholder.com/800x450/7300ff/ffffff?text=Таймлапс+3" data-modal="video-modal">
-                            <source src="#" type="video/mp4">
-                        </video>
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
 
             <!-- Вкладка: История -->
             <section class="tab-content" id="tab-history" role="tabpanel" aria-labelledby="btn-history">
                 <h2 class="visually-hidden">История создания проектов</h2>
-                
-                <article class="history-item">
-                    <div class="history-media">
-                        <img src="https://via.placeholder.com/600x800/00e5ff/000000?text=Главное+изображение" alt="История проекта" class="history-main-image">
-                        <video controls class="history-vertical-video" poster="https://via.placeholder.com/450x800/ff00d0/ffffff?text=Вертикальное+видео">
-                            <source src="#" type="video/mp4">
-                        </video>
-                    </div>
-                    
-                    <div class="history-content">
-                        <h3 class="history-title">Проект "Революционный дизайн"</h3>
-                        <div class="history-description">
-                            <p>Проект начался в 2024 году как эксперимент по объединению двух стилей: Liquid Glass и Anti-Design. Целью было создать уникальную визуальную эстетику, которая противоречила бы традиционным канонам, но при этом сохраняла бы читаемость и функциональность.</p>
-                            
-                            <p>В течение первого месяца я экспериментировал с различными комбинациями размытия, прозрачности и дисторсии элементов. Главной проблемой было найти баланс между хаотичностью Anti-Design и чистотой Liquid Glass эффектов. После множества итераций родилась концепция "упорядоченного хаоса".</p>
-                            
-                            <p>Работа над цветовой палитрой заняла значительное время. Выбранные четыре основных цвета (голубой #00e5ff, розовый #ff00d0, фиолетовый #7300ff и зеленый #00ff80) должны были создавать контраст на темном фоне и подчеркивать ключевые элементы интерфейса.</p>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="history-item">
-                    <div class="history-media">
-                        <img src="https://via.placeholder.com/600x800/7300ff/ffffff?text=Главное+изображение+2" alt="История проекта" class="history-main-image">
-                        <video controls class="history-vertical-video" poster="https://via.placeholder.com/450x800/00ff80/000000?text=Вертикальное+видео+2">
-                            <source src="#" type="video/mp4">
-                        </video>
-                    </div>
-                    
-                    <div class="history-content">
-                        <h3 class="history-title">Проект "Минималистичный максимализм"</h3>
-                        <div class="history-description">
-                            <p>Второй проект был посвящен исследованию противоположностей в дизайне. Идея заключалась в том, чтобы создать максимально насыщенный контент при минималистичной подаче. Работа началась с набросков на бумаге, где я пытался визуализировать, как может выглядеть такой подход.</p>
-                            
-                            <p>Ключевым моментом стала разработка системы сеток, которая позволяла бы размещать большое количество элементов без ощущения захламленности. Были созданы десятки прототипов, прежде чем была найдена оптимальная структура.</p>
-                        </div>
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
 
             <!-- Вкладка: Об авторе -->
             <section class="tab-content" id="tab-about" role="tabpanel" aria-labelledby="btn-about">
-                <article class="author-info">
-                    <div class="author-photo-container">
-                        <img src="https://via.placeholder.com/400x400/00e5ff/000000?text=Фото+автора" alt="Фотография автора" class="author-photo">
-                    </div>
-                    
-                    <div class="author-details">
-                        <h2 class="author-nickname">@Creative_Mind</h2>
-                        
-                        <div class="author-bio">
-                            <h3>О себе</h3>
-                            <p>Цифровой художник и медиа-дизайнер с 5-летним опытом создания визуального контента. Специализируюсь на экспериментальных техниках и нестандартных подходах к визуальной коммуникации.</p>
-                        </div>
-                        
-                        <div class="author-stats">
-                            <h3>Данные</h3>
-                            <ul>
-                                <li><strong>Проектов:</strong> 47</li>
-                                <li><strong>Работ:</strong> 320+</li>
-                                <li><strong>Опыт:</strong> 5 лет</li>
-                                <li><strong>Локация:</strong> Digital Space</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="author-history">
-                            <h3>История</h3>
-                            <p>Начал свой творческий путь в 2019 году с простых экспериментов в Photoshop. Быстро осознал, что меня привлекает нестандартное мышление и разрушение шаблонов. anti-design стал моим главным вдохновением.</p>
-                        </div>
-                        
-                        <div class="author-links">
-                            <h3>Соцсети</h3>
-                            <ul>
-                                <li><a href="#" aria-label="Instagram">Instagram</a></li>
-                                <li><a href="#" aria-label="Behance">Behance</a></li>
-                                <li><a href="#" aria-label="Dribbble">Dribbble</a></li>
-                                <li><a href="#" aria-label="Twitter">Twitter</a></li>
-                                <li><a href="#" aria-label="YouTube">YouTube</a></li>
-                                <li><a href="#" aria-label="Telegram">Telegram</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </article>
+                <div class="content-area"></div>
             </section>
         </main>
     </div>
 
-    <!-- Модальное окно: Проект (для вкладки Главная) -->
-    <div class="modal" id="project-modal" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
-        <div class="modal-overlay" data-modal-close></div>
+    <!-- Универсальное модальное окно -->
+    <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-content">
-            <button class="modal-close" aria-label="Закрыть модальное окно" data-modal-close>×</button>
-            
-            <div class="project-modal-header">
-                <h2 id="project-modal-title" class="project-modal-title">Название проекта</h2>
-                <p class="project-modal-date">Дата публикации</p>
+            <button class="modal-close" aria-label="Закрыть модальное окно">×</button>
+            <div class="modal-header">
+                <h2 id="modal-title" class="modal-title"></h2>
             </div>
-            
-            <div class="project-modal-media">
-                <div class="project-modal-main-image">
-                    <img src="#" alt="Главное изображение проекта" id="project-modal-main-img">
-                </div>
-                
-                <div class="project-modal-screenshots">
-                    <h3>Скриншоты</h3>
-                    <img src="#" alt="Скриншот 1" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 2" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 3" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 4" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 5" class="modal-screenshot">
-                </div>
-                
-                <div class="project-modal-video">
-                    <h3>Видео</h3>
-                    <video controls id="project-modal-video-player">
-                        <source src="#" type="video/mp4">
-                    </video>
-                </div>
-                
-                <div class="project-modal-description">
-                    <h3>Описание проекта</h3>
-                    <p>Полное описание проекта с деталями и технической информацией.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно: Изображение из коллекции -->
-    <div class="modal" id="collection-image-modal" role="dialog" aria-modal="true" aria-labelledby="collection-modal-title">
-        <div class="modal-overlay" data-modal-close></div>
-        <div class="modal-content">
-            <button class="modal-close" aria-label="Закрыть модальное окно" data-modal-close>×</button>
-            
-            <div class="collection-modal-header">
-                <h2 id="collection-modal-title" class="collection-modal-title">Название коллекции</h2>
-                <p class="collection-image-title">Название работы</p>
-            </div>
-            
-            <div class="collection-modal-media">
-                <img src="#" alt="Работа из коллекции" class="collection-modal-main-image" id="collection-modal-img">
-                
-                <div class="collection-modal-screenshots">
-                    <h3>Связанные скриншоты</h3>
-                    <img src="#" alt="Скриншот 1" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 2" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 3" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 4" class="modal-screenshot">
-                    <img src="#" alt="Скриншот 5" class="modal-screenshot">
-                </div>
-                
-                <div class="collection-modal-video">
-                    <h3>Видео</h3>
-                    <video controls>
-                        <source src="#" type="video/mp4">
-                    </video>
-                </div>
-                
-                <div class="collection-modal-description">
-                    <h3>Описание работы</h3>
-                    <p>Детальное описание концепции и выполнения работы.</p>
-                </div>
-                
-                <button class="download-button">Скачать работу</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно: Скриншот -->
-    <div class="modal" id="screenshot-modal" role="dialog" aria-modal="true" aria-labelledby="screenshot-modal-title">
-        <div class="modal-overlay" data-modal-close></div>
-        <div class="modal-content">
-            <button class="modal-close" aria-label="Закрыть модальное окно" data-modal-close>×</button>
-            
-            <div class="screenshot-modal-header">
-                <h2 id="screenshot-modal-title" class="screenshot-modal-title">Название блока скриншотов</h2>
-                <p class="screenshot-block-description">Описание блока</p>
-            </div>
-            
-            <div class="screenshot-modal-viewer">
-                <img src="#" alt="Скриншот" class="screenshot-modal-image" id="screenshot-modal-img">
-                
-                <div class="screenshot-navigation">
-                    <button class="nav-button prev" aria-label="Предыдущий скриншот" data-nav="prev">‹</button>
-                    <span class="screenshot-counter">1 / 6</span>
-                    <button class="nav-button next" aria-label="Следующий скриншот" data-nav="next">›</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно: Видео -->
-    <div class="modal" id="video-modal" role="dialog" aria-modal="true" aria-labelledby="video-modal-title">
-        <div class="modal-overlay" data-modal-close></div>
-        <div class="modal-content">
-            <button class="modal-close" aria-label="Закрыть модальное окно" data-modal-close>×</button>
-            
-            <div class="video-modal-header">
-                <h2 id="video-modal-title" class="video-modal-title">Название блока видео</h2>
-                <p class="video-block-description">Описание блока</p>
-            </div>
-            
-            <div class="video-modal-viewer">
-                <video controls class="video-modal-player" id="video-modal-player">
-                    <source src="#" type="video/mp4">
-                </video>
-                
-                <div class="video-navigation">
-                    <button class="nav-button prev" aria-label="Предыдущее видео" data-nav="prev">‹</button>
-                    <span class="video-counter">1 / 3</span>
-                    <button class="nav-button next" aria-label="Следующее видео" data-nav="next">›</button>
-                </div>
-            </div>
+            <div class="modal-body"></div>
         </div>
     </div>
 
     <!-- Вспомогательный элемент для семантики -->
     <div class="visually-hidden" aria-live="polite" id="announcement"></div>
 
-    <script src="js/main.js"></script>
-    
+    <script src="main.js"></script>
 </body>
 </html>
