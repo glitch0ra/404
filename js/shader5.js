@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
         gl.uniform1f(iTimeLoc, t);
         
-        const blurValue = 1.0; // РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 ДО 1.0
+        const blurValue = 0.6; // РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 ДО 1.0
         gl.uniform1f(ringBlurLoc, blurValue);
         
         gl.clearColor(0, 0, 0, 0);
@@ -346,4 +346,5 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
 
