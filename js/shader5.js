@@ -33,213 +33,215 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     const fragmentSrc = `#version 300 es
-        precision highp float;
-        out vec4 fragColor;
+    precision highp float;
+    out vec4 fragColor;
+    
+    uniform vec3 iResolution;
+    uniform float iTime;
+
+    #define _Steps 12.0
+    #define _Size 0.3
+    
+    // === РЕГУЛЯТОРЫ СКОРОСТЕЙ ===
+    #define ROT_X_SPEED 0.7        // Скорость вращения по оси X (меньше = медленнее)
+    #define ROT_Y_SPEED 0.7        // Скорость вращения по оси Y (основная)
+    #define ROT_Z_SPEED 0.7        // Скорость вращения по оси Z (качание)
+    #define RING_SPEED 1.0         // Скорость движения колец (была 2.0, сейчас медленнее)
+    #define RING_FLOW_SPEED 0.2   // Скорость потока внутри диска (была 0.3)
+
+    // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (НОРМАЛИЗОВАННЫЕ) ===
+    const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff
+    const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0
+    const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff
+    const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);   // #00ff80
+
+    float hash(float x) { return fract(sin(x) * 15.0); }
+    float hash(vec2 x) { return hash(x.x + hash(x.y)); }
+
+    float value(vec2 p, float f) {
+        float bl = hash(floor(p * f + vec2(0.0, 0.0)));
+        float br = hash(floor(p * f + vec2(1.0, 0.0)));
+        float tl = hash(floor(p * f + vec2(0.0, 1.0)));
+        float tr = hash(floor(p * f + vec2(1.0, 1.0)));
+        vec2 fr = fract(p * f);
+        fr = (3.0 - 2.0 * fr) * fr * fr;
+        float b = mix(bl, br, fr.x);
+        float t = mix(tl, tr, fr.x);
+        return mix(b, t, fr.y);
+    }
+
+    void Rotate(inout vec3 vector, vec2 angle) {
+        vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
+        vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
+    }
+
+    // Исправленная функция: использовалась неверная переменная 'angle' -> должно быть 'angles'
+    void Rotate3D(inout vec3 vector, vec3 angles) {
+        vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
+        vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
+        vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
+    }
+
+    // === ФУНКЦИЯ МАСЛЯНИСТОГО ПЕРЕЛИВАНИЯ ===
+    vec3 oilMix(vec3 p, float t) {
+        // 4 волны с разными частотами и фазами
+        float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 1.8);
+        float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 2.2);
+        float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 1.6);
+        float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.0);
         
-        uniform vec3 iResolution;
-        uniform float iTime;
-
-        #define _Steps 12.0
-        #define _Size 0.3
+        // Нормализуем от -1..1 к 0..1
+        n1 = n1 * 0.5 + 0.5;
+        n2 = n2 * 0.5 + 0.5;
+        n3 = n3 * 0.5 + 0.5;
+        n4 = n4 * 0.5 + 0.5;
         
-        // === РЕГУЛЯТОРЫ СКОРОСТЕЙ ===
-        #define ROT_X_SPEED 0.7        // Скорость вращения по оси X (меньше = медленнее)
-        #define ROT_Y_SPEED 0.7        // Скорость вращения по оси Y (основная)
-        #define ROT_Z_SPEED 0.7        // Скорость вращения по оси Z (качание)
-        #define RING_SPEED 1.0         // Скорость движения колец (была 2.0, сейчас медленнее)
-        #define RING_FLOW_SPEED 0.2   // Скорость потока внутри диска (была 0.3)
+        // Смешиваем как в примере — перемножаем и нормализуем
+        vec3 result = normalize(
+            COLOR_CYAN * n1 + 
+            COLOR_PINK * n2 + 
+            COLOR_PURPLE * n3 + 
+            COLOR_GREEN * n4
+        );
+        
+        return result * 4.0; // Усиление яркости
+    }
 
-        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (НОРМАЛИЗОВАННЫЕ) ===
-        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff
-        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0
-        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff
-        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);   // #00ff80
-
-        float hash(float x) { return fract(sin(x) * 15.0); }
-        float hash(vec2 x) { return hash(x.x + hash(x.y)); }
-
-        float value(vec2 p, float f) {
-            float bl = hash(floor(p * f + vec2(0.0, 0.0)));
-            float br = hash(floor(p * f + vec2(1.0, 0.0)));
-            float tl = hash(floor(p * f + vec2(0.0, 1.0)));
-            float tr = hash(floor(p * f + vec2(1.0, 1.0)));
-            vec2 fr = fract(p * f);
-            fr = (3.0 - 2.0 * fr) * fr * fr;
-            float b = mix(bl, br, fr.x);
-            float t = mix(tl, tr, fr.x);
-            return mix(b, t, fr.y);
-        }
-
-        void Rotate(inout vec3 vector, vec2 angle) {
-            vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
-            vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
-        }
-
-        void Rotate3D(inout vec3 vector, vec3 angles) {
-            vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
-            vector.xz = cos(angles.y) * vector.xz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zx;
-            vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
-        }
-
-        // === ФУНКЦИЯ МАСЛЯНИСТОГО ПЕРЕЛИВАНИЯ ===
-        vec3 oilMix(vec3 p, float t) {
-            // 4 волны с разными частотами и фазами
-            float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 1.8);
-            float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 2.2);
-            float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 1.6);
-            float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.0);
+    vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
+        vec3 position = zeroPos;
+        float lengthPos = length(position.xz);
+        float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
+        position += dist * _Steps * ray * 0.5;
+        
+        vec4 o = vec4(0.0);
+        for(float i = 0.0; i < _Steps; i++) {
+            position -= dist * ray;
+            float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
+            lengthPos = length(position.xz);
             
-            // Нормализуем от -1..1 к 0..1
-            n1 = n1 * 0.5 + 0.5;
-            n2 = n2 * 0.5 + 0.5;
-            n3 = n3 * 0.5 + 0.5;
-            n4 = n4 * 0.5 + 0.5;
+            float distMult = 1.0;
+            distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+            distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
+            distMult *= distMult;
             
-            // Смешиваем как в примере — перемножаем и нормализуем
-            vec3 result = normalize(
-                COLOR_CYAN * n1 + 
-                COLOR_PINK * n2 + 
-                COLOR_PURPLE * n3 + 
-                COLOR_GREEN * n4
-            );
+            float u = lengthPos + iTime * RING_FLOW_SPEED + intensity * _Size * 0.2;
             
-            return result * 4.0; // Усиление яркости
+            vec2 xy;
+            float rot = mod(iTime * RING_SPEED, 8192.0);
+            xy.x = -position.z * sin(rot) + position.x * cos(rot);
+            xy.y = position.x * sin(rot) + position.z * cos(rot);
+            float x = abs(xy.x / (xy.y + 0.0001));
+            float angle = 0.02 * atan(x);
+            
+            const float f = 70.0;
+            float noise = value(vec2(angle, u * (1.0 / _Size) * 0.05), f);
+            noise = noise * 0.66 + 0.33 * value(vec2(angle, u * (1.0 / _Size) * 0.05), f * 2.0);
+            float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
+            float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
+            
+            // === ПОДСВЕТКА И ПЕРЕЛИВ КОЛЕЦ ===
+            vec3 p3d = position * 0.1; // Масштабируем для oilMix
+            vec3 oilColor = oilMix(p3d, iTime * 0.5) * intensity * 3.0;
+            oilColor *= distMult;
+            
+            vec3 colVec = oilColor;
+            o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
+            
+            lengthPos *= (1.0 / _Size);
+            // Убрано redShift — оно мешает цвету
         }
+        o.rgb = pow(clamp(o.rgb, 0.0, 10.0), vec3(0.75)); // Gamma correction
+        return o;
+    }
 
-        vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
-            vec3 position = zeroPos;
-            float lengthPos = length(position.xz);
-            float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
-            position += dist * _Steps * ray * 0.5;
-            
-            vec4 o = vec4(0.0);
-            for(float i = 0.0; i < _Steps; i++) {
-                position -= dist * ray;
-                float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
-                lengthPos = length(position.xz);
-                
-                float distMult = 1.0;
-                distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
-                distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
-                distMult *= distMult;
-                
-                float u = lengthPos + iTime * RING_FLOW_SPEED + intensity * _Size * 0.2;
-                
-                vec2 xy;
-                float rot = mod(iTime * RING_SPEED, 8192.0);
-                xy.x = -position.z * sin(rot) + position.x * cos(rot);
-                xy.y = position.x * sin(rot) + position.z * cos(rot);
-                float x = abs(xy.x / (xy.y + 0.0001));
-                float angle = 0.02 * atan(x);
-                
-                const float f = 70.0;
-                float noise = value(vec2(angle, u * (1.0 / _Size) * 0.05), f);
-                noise = noise * 0.66 + 0.33 * value(vec2(angle, u * (1.0 / _Size) * 0.05), f * 2.0);
-                float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
-                float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
-                
-                // === ПОДСВЕТКА И ПЕРЕЛИВ КОЛЕЦ ===
-                vec3 p3d = position * 0.1; // Масштабируем для oilMix
-                vec3 oilColor = oilMix(p3d, iTime * 0.5) * intensity * 3.0;
-                oilColor *= distMult;
-                
-                vec3 colVec = oilColor;
-                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
-                
-                lengthPos *= (1.0 / _Size);
-                // Убрано redShift — оно мешает цвету
-            }
-            o.rgb = pow(clamp(o.rgb, 0.0, 10.0), vec3(0.75)); // Gamma correction
-            return o;
-        }
+    vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
-        vec3 spherePos = vec3(8.0, 6.0, 25.0);
+    vec4 rayMarch(vec3 ro, vec3 rd) {
+        vec3 pos = ro;
+        vec4 col = vec4(0.0);
+        vec4 glow = vec4(0.0);
+        vec3 bhPos = spherePos;
 
-        vec4 rayMarch(vec3 ro, vec3 rd) {
-            vec3 pos = ro;
-            vec4 col = vec4(0.0);
-            vec4 glow = vec4(0.0);
-            vec3 bhPos = spherePos;
+        pos -= bhPos;
+        float time = iTime * 0.5;
+        vec3 rotationAngles = vec3(
+            sin(time * ROT_X_SPEED) * 0.5,
+            cos(time * ROT_Y_SPEED) * 0.8,
+            sin(time * ROT_Z_SPEED) * 0.3
+        );
+        Rotate3D(pos, rotationAngles);
+        Rotate3D(rd, rotationAngles);
 
-            pos -= bhPos;
-            float time = iTime * 0.5;
-            vec3 rotationAngles = vec3(
-                sin(time * ROT_X_SPEED) * 0.5,
-                cos(time * ROT_Y_SPEED) * 0.8,
-                sin(time * ROT_Z_SPEED) * 0.3
-            );
-            Rotate3D(pos, rotationAngles);
-            Rotate3D(rd, rotationAngles);
+        for(int disks = 0; disks < 32; disks++) {
+            for(int h = 0; h < 6; h++) {
+                float dotpos = dot(pos, pos);
+                float invDist = inversesqrt(dotpos);
+                float centDist = dotpos * invDist;
+                float stepDist = 0.92 * abs(pos.y / (rd.y + 0.0001));
+                float farLimit = centDist * 0.5;
+                float closeLimit = centDist * 0.1 + 0.05 * centDist * centDist * (1.0 / _Size);
+                stepDist = min(stepDist, min(farLimit, closeLimit));
 
-            for(int disks = 0; disks < 32; disks++) {
-                for(int h = 0; h < 6; h++) {
-                    float dotpos = dot(pos, pos);
-                    float invDist = inversesqrt(dotpos);
-                    float centDist = dotpos * invDist;
-                    float stepDist = 0.92 * abs(pos.y / (rd.y + 0.0001));
-                    float farLimit = centDist * 0.5;
-                    float closeLimit = centDist * 0.1 + 0.05 * centDist * centDist * (1.0 / _Size);
-                    stepDist = min(stepDist, min(farLimit, closeLimit));
+                float invDistSqr = invDist * invDist;
+                float forceK = 0.725;
+                float bendForce = stepDist * invDistSqr * _Size * forceK;
+                rd = normalize(rd - (bendForce * invDist) * pos);
+                pos += stepDist * rd;
 
-                    float invDistSqr = invDist * invDist;
-                    float forceK = 0.725;
-                    float bendForce = stepDist * invDistSqr * _Size * forceK;
-                    rd = normalize(rd - (bendForce * invDist) * pos);
-                    pos += stepDist * rd;
-
-                    glow += vec4(1.2, 1.1, 1.0, 1.0) * 
-                            (0.01 * stepDist * invDistSqr * invDistSqr * 
-                             clamp(centDist * 2.0 - 1.2, 0.0, 1.0));
-                }
-
-                float dist2 = length(pos);
-                if(dist2 < _Size * 0.1) {
-                    return vec4(0.0, 0.0, 0.0, 1.0);
-                }
-                else if(dist2 > _Size * 1000.0) {
-                    break;
-                }
-                else if(abs(pos.y) <= _Size * 0.002) {
-                    vec4 diskCol = raymarchDisk(rd, pos);
-                    pos.y = 0.0;
-                    pos += abs(_Size * 0.001 / (rd.y + 0.0001)) * rd;
-                    col = vec4(diskCol.rgb * (1.0 - col.a) + col.rgb, 
-                               col.a + diskCol.a * (1.0 - col.a));
-                }
+                glow += vec4(1.2, 1.1, 1.0, 1.0) * 
+                        (0.01 * stepDist * invDistSqr * invDistSqr * 
+                         clamp(centDist * 2.0 - 1.2, 0.0, 1.0));
             }
 
-            if(col.a == 0.0 && length(glow.rgb) < 0.01) {
-                return vec4(0.0);
+            float dist2 = length(pos);
+            if(dist2 < _Size * 0.1) {
+                return vec4(0.0, 0.0, 0.0, 1.0);
             }
-
-            return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 
-                       min(1.0, col.a + length(glow.rgb) * 0.5));
+            else if(dist2 > _Size * 1000.0) {
+                break;
+            }
+            else if(abs(pos.y) <= _Size * 0.002) {
+                vec4 diskCol = raymarchDisk(rd, pos);
+                pos.y = 0.0;
+                pos += abs(_Size * 0.001 / (rd.y + 0.0001)) * rd;
+                col = vec4(diskCol.rgb * (1.0 - col.a) + col.rgb, 
+                           col.a + diskCol.a * (1.0 - col.a));
+            }
         }
 
-        void main() {
-            vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-            vec3 ro = vec3(0.0, 0.0, -8.0);
-            vec3 rd = normalize(vec3(uv, 1.0));
-            
-            vec4 blackHole = rayMarch(ro, rd);
-            
-            float dist = length(uv);
-            if (dist < 0.8 && dist > _Size * 2.0 && blackHole.a < 0.5) {
-                float suction = 1.0 - smoothstep(_Size * 2.0, 0.8, dist);
-                float angle = atan(uv.y, uv.x);
-                float twist = angle + suction * sin(iTime * 3.0) * 0.3;
-                vec2 twistedUV = vec2(cos(twist), sin(twist)) * dist;
-                vec3 suctionColor = vec3(0.2, 0.4, 0.7) * suction * 0.3;
-                float suctionAlpha = suction * 0.4;
-                blackHole.rgb += suctionColor * suctionAlpha;
-                blackHole.a = max(blackHole.a, suctionAlpha);
-            }
-            
-            fragColor = blackHole;
-            // Добавляем глобальную подсветку
-            fragColor.rgb = pow(clamp(fragColor.rgb, 0.0, 10.0), vec3(0.65));
+        if(col.a == 0.0 && length(glow.rgb) < 0.01) {
+            return vec4(0.0);
         }
-    `;
+
+        return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 
+                   min(1.0, col.a + length(glow.rgb) * 0.5));
+    }
+
+    void main() {
+        vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
+        vec3 ro = vec3(0.0, 0.0, -8.0);
+        vec3 rd = normalize(vec3(uv, 1.0));
+        
+        vec4 blackHole = rayMarch(ro, rd);
+        
+        float dist = length(uv);
+        if (dist < 0.8 && dist > _Size * 2.0 && blackHole.a < 0.5) {
+            float suction = 1.0 - smoothstep(_Size * 2.0, 0.8, dist);
+            float angle = atan(uv.y, uv.x);
+            float twist = angle + suction * sin(iTime * 3.0) * 0.3;
+            vec2 twistedUV = vec2(cos(twist), sin(twist)) * dist;
+            vec3 suctionColor = vec3(0.2, 0.4, 0.7) * suction * 0.3;
+            float suctionAlpha = suction * 0.4;
+            blackHole.rgb += suctionColor * suctionAlpha;
+            blackHole.a = max(blackHole.a, suctionAlpha);
+        }
+        
+        fragColor = blackHole;
+        // Добавляем глобальную подсветку
+        fragColor.rgb = pow(clamp(fragColor.rgb, 0.0, 10.0), vec3(0.65));
+    }
+`;
+
 
     // === ОСТАЛЬНОЙ КОД БЕЗ ИЗМЕНЕНИЙ ===
     function compileShader(gl, type, src) {
@@ -339,3 +341,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
