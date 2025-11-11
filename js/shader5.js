@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
         uniform vec3 iResolution;
         uniform float iTime;
 
-        // --- Параметры черной дыры (адаптированы под размер вашей сферы) ---
+        // --- Параметры черной дыры ---
         #define _Speed 2.0
         #define _Steps 12.0
-        #define _Size 0.9  // Масштаб для корректного отображения на вашем расстоянии
+        #define _Size 0.3  // УМЕНЬШЕНО В 3 РАЗА (было 0.9)
 
-        // --- Функции шума (для текстуры диска) ---
+        // --- Функции шума ---
         float hash(float x) { 
             return fract(sin(x) * 15.0); 
         }
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return mix(b, t, fr.y);
         }
 
-        // --- Поворот вектора (для анимации) ---
+        // --- Поворот вектора ---
         void Rotate(inout vec3 vector, vec2 angle) {
             vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
@@ -141,10 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return o;
         }
 
-        // --- Позиция исходной сферы (заменяем на черную дыру) ---
         vec3 spherePos = vec3(8.0, 6.0, 25.0);
 
-        // --- Основной рэймаршинг черной дыры ---
+        // --- Основной рэймаршинг ---
         vec4 rayMarch(vec3 ro, vec3 rd) {
             vec3 pos = ro;
             vec4 col = vec4(0.0);
@@ -152,13 +151,10 @@ document.addEventListener('DOMContentLoaded', () => {
             vec3 bhPos = spherePos;
             bool hasDisk = false;
 
-            // Преобразование в систему координат черной дыры
             pos -= bhPos;
-
-            // Легкое вращение камеры для динамики (ОПЦИОНАЛЬНО, можно закомментировать)
-            // vec2 angle = vec2(0.03 * iTime, 0.12);
-            // Rotate(pos, angle);
-            // Rotate(rd, angle);
+            vec2 angle = vec2(0.03 * iTime, 0.12);
+            Rotate(pos, angle);
+            Rotate(rd, angle);
 
             for(int disks = 0; disks < 32; disks++) {
                 for(int h = 0; h < 6; h++) {
@@ -183,15 +179,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 float dist2 = length(pos);
 
-                // Попали в черную дыру
                 if(dist2 < _Size * 0.1) {
-                    return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 1.0);
+                    // Внутри черной дыры
+                    float finalAlpha = min(1.0, length(glow.rgb) * 0.5);
+                    return vec4(glow.rgb, finalAlpha);
                 }
-                // Ушли далеко - прозрачный фон
                 else if(dist2 > _Size * 1000.0) {
                     break;
                 }
-                // Попали в диск
                 else if(abs(pos.y) <= _Size * 0.002) {
                     hasDisk = true;
                     vec4 diskCol = raymarchDisk(rd, pos);
@@ -202,43 +197,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Если ничего не зацепили - прозрачный пиксель
+            // ПРОЗРАЧНОСТЬ: если пиксель пустой — полностью прозрачный
             if(col.a == 0.0 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
 
-            return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 1.0);
+            // СМЕШЕНИЕ: правильный alpha-канал
+            float finalAlpha = min(1.0, col.a + length(glow.rgb) * 0.5);
+            return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), finalAlpha);
         }
 
         void main() {
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-            
-            // === НОВАЯ КОНФИГУРАЦИЯ КАМЕРЫ: ВИД СВЕРХУ ===
-            
-            // Центр черной дыры (берем из существующей переменной spherePos)
-            vec3 blackHoleCenter = spherePos; // vec3(8.0, 6.0, 25.0)
-            
-            // Позиция камеры: прямо над дырой, на значительной высоте
-            // X и Z совпадают с центром дыры, Y поднята вверх
-            vec3 ro = blackHoleCenter + vec3(0.0, 20.0, 0.0);
-            
-            // Создаем перспективу: чем меньше fov, тем меньше искажение по краям
-            float fov = 0.4;
-            
-            // Направление взгляда прямо вниз (отрицательная ось Y)
-            vec3 forward = vec3(0.0, -1.0, 0.0);
-            
-            // Вектора "вправо" и "вверх" для камеры
-            vec3 right = vec3(1.0, 0.0, 0.0); // Вдоль мировой оси X
-            vec3 up = vec3(0.0, 0.0, 1.0);   // Вдоль мировой оси Z
-            
-            // Формируем луч с перспективой
-            vec3 rd = normalize(forward + uv.x * right * fov + uv.y * up * fov);
-            
-            // =============================================
+            vec3 ro = vec3(0.0, 0.0, -8.0);
+            vec3 rd = normalize(vec3(uv, 1.0));
             
             fragColor = rayMarch(ro, rd);
             fragColor.rgb = pow(fragColor.rgb, vec3(0.6));
+            // Alpha-канал сохраняется из rayMarch
         }
     `;
 
@@ -345,3 +321,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
