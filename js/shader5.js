@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Size 0.3
         
         // === СКОРОСТИ ===
-        #define ROT_X_SPEED 0.3
+        #define ROT_X_SPEED 0.5
         #define ROT_Y_SPEED 0.5
-        #define ROT_Z_SPEED 0.2
+        #define ROT_Z_SPEED 0.5
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
@@ -81,22 +81,49 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
-        // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ ===
+        // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ (адаптировано из shader3) ===
         vec3 oilMix(vec3 p, float t) {
-            float n1 = sin(p.x * 0.35 + p.y * 0.25 + t * 1.8);
-            float n2 = cos(p.y * 0.4 - p.z * 0.3 + t * 2.2);
-            float n3 = sin(p.z * 0.45 + p.x * 0.4 - t * 1.6);
-            float n4 = cos(p.x * 0.25 + p.y * 0.6 + t * 2.0);
-            n1 = n1 * 0.5 + 0.5;
-            n2 = n2 * 0.5 + 0.5;
-            n3 = n3 * 0.5 + 0.5;
-            n4 = n4 * 0.5 + 0.5;
-            return normalize(COLOR_CYAN * n1 + COLOR_PINK * n2 + COLOR_PURPLE * n3 + COLOR_GREEN * n4);
+            // Используем xz координаты для 2D эффекта
+            vec2 pos = p.xz * 0.7;
+            
+            // Фаза для дополнительного смещения
+            float phase = sin(p.x * 12.731 + p.z * 3.91);
+            
+            // Циклический угол для плавного переливания 4 цветов
+            float angle = t * 0.5 + pos.x * 0.1 + pos.y * 0.05 + phase * 0.3;
+            float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
+
+            // Плавное смешивание через сегменты
+            vec3 col;
+            if (segment < 1.0)
+                col = mix(COLOR_CYAN, COLOR_PURPLE, smoothstep(0.0, 1.0, segment));
+            else if (segment < 2.0)
+                col = mix(COLOR_PURPLE, COLOR_PINK, smoothstep(1.0, 2.0, segment));
+            else if (segment < 3.0)
+                col = mix(COLOR_PINK, COLOR_GREEN, smoothstep(2.0, 3.0, segment));
+            else
+                col = mix(COLOR_GREEN, COLOR_CYAN, smoothstep(3.0, 4.0, segment));
+
+            // Маслянистый шум/текучесть
+            float flow = sin(pos.x * 0.7 + pos.y * 0.9 + t * 1.5 + phase) * 0.06;
+            col += flow;
+
+            // Увеличение насыщенности без подъема яркости
+            float lum = dot(col, vec3(0.299, 0.587, 0.114));
+            col = mix(vec3(lum), col, 1.4);
+
+            // Ограничение Value чтобы не выгорало
+            float maxVal = max(max(col.r, col.g), col.b);
+            if (maxVal > 1.0) col /= (maxVal + 0.1);
+
+            // Гамма-коррекция для глубины
+            col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
+
+            return col;
         }
 
-        // === НЕОНОВАЯ ПОДСВЕТКА (свечение вокруг) ===
+        // === НЕОНОВАЯ ПОДСВЕТКА ===
         vec3 neonGlow(vec3 color, float intensity, float radius) {
-            // Создаем свечение вокруг цвета
             float glowRadius = smoothstep(0.0, 0.5, radius);
             float glowPower = intensity * (1.0 + glowRadius * 2.0);
             return color * glowPower;
@@ -134,14 +161,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
                 float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
-                // === МАСЛЯНИСТЫЙ ЦВЕТ + НЕОНОВАЯ ПОДСВЕТКА ===
+                // Применяем маслянистые цвета с неоновым свечением
                 vec3 p3d = position * 0.1;
                 vec3 baseColor = oilMix(p3d, iTime * 0.5);
                 vec3 neonColor = neonGlow(baseColor, intensity, alpha) * intensity * 2.5;
                 neonColor *= distMult;
                 
                 vec3 colVec = neonColor;
-                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
+                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - col.a) + alpha), vec4(0.0), vec4(10.0));
                 
                 lengthPos *= (1.0 / _Size);
             }
@@ -236,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
 
-    // === ОСТАЛЬНОЙ КОД БЕЗ ИЗМЕНЕНИЙ ===
+    // === ОСТАЛЬНОЙ КОД JS БЕЗ ИЗМЕНЕНИЙ ===
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
