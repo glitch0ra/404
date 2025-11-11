@@ -38,23 +38,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         uniform vec3 iResolution;
         uniform float iTime;
-        uniform float ringBlur; // РЕГУЛИРУЕМОЕ РАЗМЫТИЕ ДЛЯ КОЛЕЦ
+        uniform float ringBlur;
 
         #define _Steps 12.0
         #define _Size 0.3
         
-        // === СКОРОСТИ ===
         #define ROT_X_SPEED 0.5
         #define ROT_Y_SPEED 0.5
         #define ROT_Z_SPEED 0.5
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
-        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (точные HEX) ===
-        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff (голубой)
-        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0 (розовый)
-        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff (фиолетовый)
-        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);   // #00ff80 (зелёный)
+        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);
+        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);
+        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);
+        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);
 
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
@@ -71,18 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return mix(b, t, fr.y);
         }
 
-        void Rotate(inout vec3 vector, vec2 angle) {
-            vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
-            vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
-        }
-
         void Rotate3D(inout vec3 vector, vec3 angles) {
             vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
-        // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ (адаптировано из shader3) ===
         vec3 oilMix(vec3 p, float t) {
             vec2 pos = p.xz * 0.7;
             float phase = sin(p.x * 12.731 + p.z * 3.91);
@@ -113,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return col;
         }
 
-        // === НЕОНОВАЯ ПОДСВЕТКА ===
         vec3 neonGlow(vec3 color, float intensity, float radius) {
             float glowRadius = smoothstep(0.0, 0.5, radius);
             float glowPower = intensity * (1.0 + glowRadius * 2.0);
@@ -125,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             float lengthPos = length(position.xz);
             float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
             
-            // РАЗМЫТИЕ: увеличиваем шаг для более диффузного сэмплинга
             float blurSpread = 1.0 + ringBlur * 0.5;
             position += dist * _Steps * ray * 0.5 * blurSpread;
             
@@ -155,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
                 float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
-                // РАЗМЫТИЕ: сглаживание и смягчение альфы
                 alpha = pow(alpha, 1.0 + ringBlur * 2.0);
                 
                 vec3 p3d = position * 0.1;
@@ -300,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
     const iTimeLoc = gl.getUniformLocation(program, 'iTime');
-    const ringBlurLoc = gl.getUniformLocation(program, 'ringBlur'); // ЛОКАЦИЯ ЮНИФОРМА РАЗМЫТИЯ
+    const ringBlurLoc = gl.getUniformLocation(program, 'ringBlur');
 
     function resize() {
         const dpr = window.devicePixelRatio || 1;
@@ -345,15 +334,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = ((now - startTime) * 0.001) % 300;
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
         gl.uniform1f(iTimeLoc, t);
-        gl.uniform1f(ringBlurLoc, 1.0); // ✅ РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 (без размытия) ДО 1.0 (сильное размытие)
+        
+        const blurValue = 0.3; // РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 ДО 1.0
+        gl.uniform1f(ringBlurLoc, blurValue);
         
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGHS, 0, 6);
-        
+        gl.drawArrays(gl.TRIANGLES, 0, 6); // ✅ ИСПРАВЛЕНО: TRIANGLES
         requestAnimationFrame(render);
     }
     
     requestAnimationFrame(render);
 });
-
