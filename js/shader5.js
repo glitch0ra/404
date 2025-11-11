@@ -39,11 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
         uniform vec3 iResolution;
         uniform float iTime;
 
-        #define _Speed 2.0
         #define _Steps 12.0
         #define _Size 0.3
-        #define DISTORTION_RADIUS 0.8
-        #define ROTATION_SPEED 0.5  // Умеренная скорость вращения
+        
+        // === РЕГУЛЯТОРЫ СКОРОСТЕЙ ===
+        #define ROT_X_SPEED 0.3        // Скорость вращения по оси X (меньше = медленнее)
+        #define ROT_Y_SPEED 0.5        // Скорость вращения по оси Y (основная)
+        #define ROT_Z_SPEED 0.2        // Скорость вращения по оси Z (качание)
+        #define RING_SPEED 0.6         // Скорость движения колец (была 2.0, сейчас медленнее)
+        #define RING_FLOW_SPEED 0.15   // Скорость потока внутри диска (была 0.3)
 
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
@@ -65,13 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
         }
 
-        // --- ТРЁХМЕРНОЕ ВРАЩЕНИЕ ---
+        // Трёхмерное вращение
         void Rotate3D(inout vec3 vector, vec3 angles) {
-            // Вращение вокруг X
             vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
-            // Вращение вокруг Y
             vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
-            // Вращение вокруг Z
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
@@ -102,9 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
-                float u = lengthPos + iTime * _Size * 0.3 + intensity * _Size * 0.2;
+                // === ЗАМЕДЛЕННАЯ АНИМАЦИЯ КОЛЕЦ ===
+                float u = lengthPos + iTime * RING_FLOW_SPEED + intensity * _Size * 0.2;
+                
+                // === ВРАЩЕНИЕ ДИСКА ===
                 vec2 xy;
-                float rot = mod(iTime * _Speed, 8192.0);
+                float rot = mod(iTime * RING_SPEED, 8192.0);  // Используем новую скорость
                 xy.x = -position.z * sin(rot) + position.x * cos(rot);
                 xy.y = position.x * sin(rot) + position.z * cos(rot);
                 float x = abs(xy.x / (xy.y + 0.0001));
@@ -136,12 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pos -= bhPos;
             
-            // === КОМПЛЕКСНОЕ ТРЁХМЕРНОЕ ВРАЩЕНИЕ ===
-            float time = iTime * ROTATION_SPEED;
+            // === ТРЁХМЕРНОЕ ВРАЩЕНИЕ ЧЕРНОЙ ДЫРЫ ===
+            float time = iTime * 0.5;  // Общий множитель скорости
             vec3 rotationAngles = vec3(
-                sin(time * 0.7) * 0.5,      // Вращение X (по синусоиде)
-                cos(time * 0.5) * 0.8,      // Вращение Y (по косинусоиде)
-                sin(time * 0.3) * 0.3       // Вращение Z (медленное качание)
+                sin(time * ROT_X_SPEED) * 0.5,      // X-ось вращения
+                cos(time * ROT_Y_SPEED) * 0.8,      // Y-ось вращения
+                sin(time * ROT_Z_SPEED) * 0.3       // Z-ось вращения
             );
             Rotate3D(pos, rotationAngles);
             Rotate3D(rd, rotationAngles);
@@ -169,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 float dist2 = length(pos);
                 if(dist2 < _Size * 0.1) {
-                    // Черный центр
                     return vec4(0.0, 0.0, 0.0, 1.0);
                 }
                 else if(dist2 > _Size * 1000.0) {
@@ -200,8 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
             vec4 blackHole = rayMarch(ro, rd);
             
             float dist = length(uv);
-            if (dist < DISTORTION_RADIUS && dist > _Size * 2.0 && blackHole.a < 0.5) {
-                float suction = 1.0 - smoothstep(_Size * 2.0, DISTORTION_RADIUS, dist);
+            if (dist < 0.8 && dist > _Size * 2.0 && blackHole.a < 0.5) {
+                float suction = 1.0 - smoothstep(_Size * 2.0, 0.8, dist);
                 float angle = atan(uv.y, uv.x);
                 float twist = angle + suction * sin(iTime * 3.0) * 0.3;
                 vec2 twistedUV = vec2(cos(twist), sin(twist)) * dist;
