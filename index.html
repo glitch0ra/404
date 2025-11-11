@@ -10,27 +10,30 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="page-header">
-  <video autoplay muted loop playsinline class="page-header-video">
-    <source src="assets/fonshapka.webm" type="video/webm">
-  </video>
-</div>
-
-<!-- Шейдер-слой -->
-<canvas id="shader-canvas" class="shader-layer"></canvas>
-<canvas id="shader-canvas2" class="shader-layer2"></canvas>
-<canvas id="shader-canvas3" class="shader-layer3"></canvas>
-<canvas id="shader-canvas4" class="shader-layer4"></canvas>
-
   
-<video autoplay muted loop playsinline class="bg-full">
-        <source src="assets/background.webm" type="video/webm">
+  <!-- ======= АНИМИРОВАННАЯ ШАПКА ======= -->
+  <header class="page-header" role="banner" aria-label="Анимированная шапка">
+    <video autoplay muted loop playsinline class="page-header-video" aria-hidden="true">
+      <source src="assets/fonshapka.webm" type="video/webm">
     </video>
+  </header>
 
-<canvas id="shader-canvas5" class="shader-layer5"></canvas>
+<!-- ======= ШЕЙДЕРНЫЕ СЛОИ ======= -->
+  <canvas id="shader-canvas" class="shader-layer"></canvas>
+  <canvas id="shader-canvas2" class="shader-layer2"></canvas>
+  <canvas id="shader-canvas3" class="shader-layer3"></canvas>
+  <canvas id="shader-canvas4" class="shader-layer4"></canvas>
+  <canvas id="shader-canvas5" class="shader-layer5"></canvas>
   
-  <!-- Основной контент -->
-  <main class="app-container">
+<!-- ======= ФОНОВОЕ ВИДЕО ======= -->
+  <video autoplay muted loop playsinline class="bg-full" aria-hidden="true">
+    <source src="assets/background.webm" type="video/webm">
+  </video>
+
+  
+  <!-- ======= ОСНОВНОЙ ЦЕНТРАЛЬНЫЙ БЛОК ======= -->
+  <main class="app-container" role="main">
+    
     <!-- Навигация (верхнее меню) -->
     <nav class="main-nav">
       <button class="nav-btn active" data-page="home">Home</button>
