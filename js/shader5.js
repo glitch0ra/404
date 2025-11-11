@@ -83,17 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ (адаптировано из shader3) ===
         vec3 oilMix(vec3 p, float t) {
-            // Используем xz координаты для 2D эффекта
             vec2 pos = p.xz * 0.7;
-            
-            // Фаза для дополнительного смещения
             float phase = sin(p.x * 12.731 + p.z * 3.91);
-            
-            // Циклический угол для плавного переливания 4 цветов
             float angle = t * 0.5 + pos.x * 0.1 + pos.y * 0.05 + phase * 0.3;
             float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
 
-            // Плавное смешивание через сегменты
             vec3 col;
             if (segment < 1.0)
                 col = mix(COLOR_CYAN, COLOR_PURPLE, smoothstep(0.0, 1.0, segment));
@@ -104,19 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
             else
                 col = mix(COLOR_GREEN, COLOR_CYAN, smoothstep(3.0, 4.0, segment));
 
-            // Маслянистый шум/текучесть
             float flow = sin(pos.x * 0.7 + pos.y * 0.9 + t * 1.5 + phase) * 0.06;
             col += flow;
 
-            // Увеличение насыщенности без подъема яркости
             float lum = dot(col, vec3(0.299, 0.587, 0.114));
             col = mix(vec3(lum), col, 1.4);
 
-            // Ограничение Value чтобы не выгорало
             float maxVal = max(max(col.r, col.g), col.b);
             if (maxVal > 1.0) col /= (maxVal + 0.1);
 
-            // Гамма-коррекция для глубины
             col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
 
             return col;
@@ -161,14 +151,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
                 float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
-                // Применяем маслянистые цвета с неоновым свечением
+                // === МАСЛЯНИСТЫЙ ЦВЕТ + НЕОНОВАЯ ПОДСВЕТКА ===
                 vec3 p3d = position * 0.1;
                 vec3 baseColor = oilMix(p3d, iTime * 0.5);
                 vec3 neonColor = neonGlow(baseColor, intensity, alpha) * intensity * 2.5;
                 neonColor *= distMult;
                 
                 vec3 colVec = neonColor;
-                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - col.a) + alpha), vec4(0.0), vec4(10.0));
+                // ИСПРАВЛЕНО: col.a → alpha
+                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
                 
                 lengthPos *= (1.0 / _Size);
             }
