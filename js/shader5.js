@@ -89,15 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
             float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
 
             vec3 col;
-            // Точный порядок цветов: голубой → фиолетовый → розовый → зелёный → голубой
+            // ТОЛЬКО ИЗМЕНЕН: порядок цветов - фиолетовый → зелёный → голубой → розовый → фиолетовый
             if (segment < 1.0)
-                col = mix(COLOR_CYAN, COLOR_PURPLE, smoothstep(0.0, 1.0, segment));
+                col = mix(COLOR_PURPLE, COLOR_GREEN, smoothstep(0.0, 1.0, segment));
             else if (segment < 2.0)
-                col = mix(COLOR_PURPLE, COLOR_PINK, smoothstep(1.0, 2.0, segment));
+                col = mix(COLOR_GREEN, COLOR_CYAN, smoothstep(1.0, 2.0, segment));
             else if (segment < 3.0)
-                col = mix(COLOR_PINK, COLOR_GREEN, smoothstep(2.0, 3.0, segment));
+                col = mix(COLOR_CYAN, COLOR_PINK, smoothstep(2.0, 3.0, segment));
             else
-                col = mix(COLOR_GREEN, COLOR_CYAN, smoothstep(3.0, 4.0, segment));
+                col = mix(COLOR_PINK, COLOR_PURPLE, smoothstep(3.0, 4.0, segment));
 
             float flow = sin(pos.x * 0.7 + pos.y * 0.9 + t * 1.5 + phase) * 0.06;
             col += flow;
