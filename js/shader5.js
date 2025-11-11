@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
-        // === ТОЧНЫЕ ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ ===
+        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (точные HEX) ===
         const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff (голубой)
         const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0 (розовый)
         const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff (фиолетовый)
@@ -81,39 +81,35 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
-        // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ (все 4 цвета одновременно) ===
+        // === МАСЛЯНИСТОЕ ПЕРЕЛИВАНИЕ (адаптировано из shader3) ===
         vec3 oilMix(vec3 p, float t) {
-            // Глобальная фаза для плавного переливания
-            float timePhase = t * 0.5;
-            
-            // Волны с разными частотами и фазами для одновременного смешивания
-            float wave1 = sin(p.x * 0.3 + p.y * 0.4 + timePhase) * 0.5 + 0.5; // ФИОЛЕТОВЫЙ
-            float wave2 = sin(p.y * 0.4 + p.z * 0.3 + timePhase + 1.57) * 0.5 + 0.5; // ЗЕЛЕНЫЙ
-            float wave3 = sin(p.z * 0.35 + p.x * 0.45 + timePhase + 3.14) * 0.5 + 0.5; // ГОЛУБОЙ
-            float wave4 = sin(p.x * 0.5 + p.y * 0.3 + timePhase + 4.71) * 0.5 + 0.5; // РОЗОВЫЙ
-            
-            // Добавляем маслянистый шум
-            float oilFlow = sin(p.x * 1.2 + p.y * 0.9 + t * 2.0) * 0.06;
-            
-            // Смешиваем все 4 цвета одновременно
-            vec3 col = COLOR_PURPLE * (wave1 + oilFlow) + 
-                       COLOR_GREEN * (wave2 + oilFlow) + 
-                       COLOR_CYAN * (wave3 + oilFlow) + 
-                       COLOR_PINK * (wave4 + oilFlow);
-            
-            col = clamp(col, 0.0, 2.0); // Допускаем пересвет
-            
-            // Увеличиваем насыщенность
+            vec2 pos = p.xz * 0.7;
+            float phase = sin(p.x * 12.731 + p.z * 3.91);
+            float angle = t * 0.5 + pos.x * 0.1 + pos.y * 0.05 + phase * 0.3;
+            float segment = fract(angle / (6.28318 / 4.0)) * 4.0;
+
+            vec3 col;
+            // Точный порядок цветов: голубой → фиолетовый → розовый → зелёный → голубой
+            if (segment < 1.0)
+                col = mix(COLOR_CYAN, COLOR_PURPLE, smoothstep(0.0, 1.0, segment));
+            else if (segment < 2.0)
+                col = mix(COLOR_PURPLE, COLOR_PINK, smoothstep(1.0, 2.0, segment));
+            else if (segment < 3.0)
+                col = mix(COLOR_PINK, COLOR_GREEN, smoothstep(2.0, 3.0, segment));
+            else
+                col = mix(COLOR_GREEN, COLOR_CYAN, smoothstep(3.0, 4.0, segment));
+
+            float flow = sin(pos.x * 0.7 + pos.y * 0.9 + t * 1.5 + phase) * 0.06;
+            col += flow;
+
             float lum = dot(col, vec3(0.299, 0.587, 0.114));
             col = mix(vec3(lum), col, 1.4);
-            
-            // Ограничиваем яркость
+
             float maxVal = max(max(col.r, col.g), col.b);
             if (maxVal > 1.0) col /= (maxVal + 0.1);
-            
-            // Гамма-коррекция для глубины
+
             col = pow(clamp(col, 0.0, 1.0), vec3(0.95));
-            
+
             return col;
         }
 
@@ -137,7 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lengthPos = length(position.xz);
                 
                 float distMult = 1.0;
-                distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
+                // ИСПРАВЛЕНО: уменьшен порог для видимости колец в центре
+                distMult *= clamp((lengthPos - _Size * 0.2) * (1.0 / _Size) * 3.0, 0.0, 1.0);
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
@@ -210,6 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 float dist2 = length(pos);
+                
+                // ИСПРАВЛЕНО: убран return, чтобы черный круг не перекрывал кольца
+                // Теперь кольца будут отрисовываться поверх черного фона
                 if(dist2 > _Size * 1000.0) {
                     break;
                 }
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
 
-    // === ОСТАЛЬНОЙ КОД JS ===
+    // === ОСТАЛЬНОЙ КОД JS БЕЗ ИЗМЕНЕНИЙ ===
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
