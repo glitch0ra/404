@@ -1,145 +1,133 @@
-// main.js - JavaScript для личной медиа-галереи
-// Стили: Liquid Glass + Anti-Design
+// ============================================================================
+// ЛИЧНАЯ МЕДИА-ГАЛЕРЕЯ
+// JavaScript для стилей Liquid Glass + Anti-Design
+// ============================================================================
 
-// ==================== ДАННЫЕ ДЛЯ ПРИМЕРА ====================
-// В реальном проекте данные могут загружаться из JSON/API
-const galleryData = {
+// ==================== БАЗОВЫЕ ДАННЫЕ ====================
+const GALLERY_DATA = {
   main: [
     {
       id: 1,
       title: "Проект 'Киберпанк 2077'",
-      description: "Исследование будущего через призму киберпанка",
-      mainImage: "https://picsum.photos/600/400?random=1",
+      description: "Исследование будущего через призму киберпанка. Эксперименты с неоновыми эффектами и дисторсией.",
+      mainImage: "https://picsum.photos/1200/600?random=1",
       screenshots: [
-        "https://picsum.photos/200/150?random=11",
-        "https://picsum.photos/200/150?random=12",
-        "https://picsum.photos/200/150?random=13"
+        "https://picsum.photos/400/300?random=11",
+        "https://picsum.photos/400/300?random=12",
+        "https://picsum.photos/400/300?random=13"
       ],
       video: "https://www.w3schools.com/html/mov_bbb.mp4",
-      alt: "Киберпанк проект"
+      date: "2025-01-15"
     },
     {
       id: 2,
       title: "Абстрактные визуализации",
-      description: "Эксперименты с формами и цветом",
-      mainImage: "https://picsum.photos/600/400?random=2",
+      description: "Эксперименты с формами и цветом в стиле Anti-Design. Разрушение канонов типографики и композиции.",
+      mainImage: "https://picsum.photos/1200/600?random=2",
       screenshots: [
-        "https://picsum.photos/200/150?random=21",
-        "https://picsum.photos/200/150?random=22",
-        "https://picsum.photos/200/150?random=23"
+        "https://picsum.photos/400/300?random=21",
+        "https://picsum.photos/400/300?random=22",
+        "https://picsum.photos/400/300?random=23"
       ],
       video: "https://www.w3schools.com/html/mov_bbb.mp4",
-      alt: "Абстрактная работа"
+      date: "2025-01-10"
     }
   ],
+  
   collections: [
     {
       id: "col-1",
       name: "Серия 'Неоновые сны'",
-      images: Array.from({length: 8}, (_, i) => `https://picsum.photos/300/200?random=col1-${i}`)
+      description: "Серия работ в жанре цифрового арта с яркими неоновыми акцентами",
+      images: Array.from({length: 8}, (_, i) => `https://picsum.photos/500/500?random=col1-${i}`)
     },
     {
       id: "col-2",
       name: "Фрактальные структуры",
-      images: Array.from({length: 5}, (_, i) => `https://picsum.photos/300/200?random=col2-${i}`)
+      description: "Минималистичные композиции на основе фрактальных паттернов",
+      images: Array.from({length: 5}, (_, i) => `https://picsum.photos/500/500?random=col2-${i}`)
     }
   ],
+  
   screenshots: [
     {
       id: "ss-1",
-      title: "Процесс работы",
-      description: "Различные этапы создания проектов",
-      images: Array.from({length: 6}, (_, i) => `https://picsum.photos/300/200?random=ss1-${i}`)
+      title: "Этапы разработки проекта A",
+      description: "Процесс создания первой версии интерфейса",
+      images: Array.from({length: 6}, (_, i) => `https://picsum.photos/600/400?random=ss1-${i}`)
     },
     {
       id: "ss-2",
       title: "UI/UX Прототипы",
-      description: "Эскизы интерфейсов",
-      images: Array.from({length: 4}, (_, i) => `https://picsum.photos/300/200?random=ss2-${i}`)
+      description: "Эскизы интерфейсов и варианты взаимодействия",
+      images: Array.from({length: 4}, (_, i) => `https://picsum.photos/600/400?random=ss2-${i}`)
     }
   ],
+  
   videos: [
     {
       id: "vid-1",
-      title: "Таймлапсы",
-      description: "Ускоренные записи процесса",
+      title: "Видео-процессы создания",
+      description: "Записи экрана и таймлапсы работы над проектами",
       videos: [
-        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/300/200?random=vid1-1" },
-        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/300/200?random=vid1-2" },
-        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/300/200?random=vid1-3" }
+        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/800/450?random=vid1-1" },
+        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/800/450?random=vid1-2" },
+        { url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/800/450?random=vid1-3" }
       ]
     }
   ],
+  
   history: [
     {
       id: "h-1",
       title: "Проект 'Квантовый скачок'",
-      description: "Это был долгий путь от идеи до реализации. Началось все с простого эскиза на бумаге в 3 часа ночи...",
-      mainImage: "https://picsum.photos/300/400?random=hist1",
-      verticalVideo: "https://www.w3schools.com/html/mov_bbb.mp4"
+      description: "Это был долгий путь от идеи до реализации. Началось все с простого эскиза на бумаге в 3 часа ночи. Проект начался в 2024 году как эксперимент по объединению двух стилей: Liquid Glass и Anti-Design.",
+      mainImage: "https://picsum.photos/600/800?random=hist1",
+      verticalVideo: "https://www.w3schools.com/html/mov_bbb.mp4",
+      date: "2024-12-01"
     },
     {
       id: "h-2",
       title: "Эволюция стиля",
-      description: "Как я пришел к Anti-Design через боль и разочарование в современных трендах...",
-      mainImage: "https://picsum.photos/300/400?random=hist2",
-      verticalVideo: "https://www.w3schools.com/html/mov_bbb.mp4"
+      description: "Как я пришел к Anti-Design через боль и разочарование в современных трендах. Ключевым моментом стала разработка системы сеток, которая позволяла бы размещать большое количество элементов без ощущения захламленности.",
+      mainImage: "https://picsum.photos/600/800?random=hist2",
+      verticalVideo: "https://www.w3schools.com/html/mov_bbb.mp4",
+      date: "2024-11-15"
     }
   ]
 };
 
-// ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
-let currentModal = null;
-let currentCarousel = {
-  items: [],
-  currentIndex: 0,
-  groupId: null
-};
-
 // ==================== УТИЛИТЫ ====================
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
-
-// Создание элемента с классами
+const $ = (selector, context = document) => context.querySelector(selector);
+const $$ = (selector, context = document) => context.querySelectorAll(selector);
 const createElement = (tag, classes = [], attrs = {}) => {
   const el = document.createElement(tag);
   if (classes.length) el.classList.add(...classes);
-  Object.entries(attrs).forEach(([key, value]) => {
-    el.setAttribute(key, value);
-  });
+  Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
   return el;
 };
 
-// Генерация ID
-const generateId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-// ==================== СИСТЕМА ВКЛАДОК ====================
-const TabManager = {
-  tabs: [],
-  activeTab: null,
-
-  init() {
-    this.cacheDOM();
-    this.bindEvents();
-    // Активировать первую вкладку
-    const firstTab = $('.tab-button');
-    if (firstTab) this.activateTab(firstTab.dataset.tab);
-  },
-
-  cacheDOM() {
+// ==================== МЕНЕДЖЕР ВКЛАДОК ====================
+class TabManager {
+  constructor() {
+    this.activeTab = null;
     this.tabButtons = $$('.tab-button');
     this.tabContents = $$('.tab-content');
-  },
+    this.init();
+  }
+
+  init() {
+    this.bindEvents();
+    // Автоматически активируем первую вкладку
+    const firstTab = this.tabButtons[0];
+    if (firstTab) this.activateTab(firstTab.dataset.tab);
+  }
 
   bindEvents() {
     this.tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        this.activateTab(button.dataset.tab);
-        // Добавить эффект жидкого стекла
-        this.addLiquidEffect(button);
-      });
+      button.addEventListener('click', () => this.activateTab(button.dataset.tab));
     });
-  },
+  }
 
   activateTab(tabName) {
     // Скрыть все вкладки
@@ -147,75 +135,82 @@ const TabManager = {
       content.classList.remove('active');
       content.style.display = 'none';
     });
-    
+
     // Снять активность с кнопок
-    this.tabButtons.forEach(btn => btn.classList.remove('active'));
-    
+    this.tabButtons.forEach(btn => {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-selected', 'false');
+    });
+
     // Показать выбранную вкладку
     const targetContent = $(`#${tabName}`);
     const targetButton = $(`[data-tab="${tabName}"]`);
-    
+
     if (targetContent && targetButton) {
       targetContent.style.display = 'block';
-      setTimeout(() => targetContent.classList.add('active'), 10);
+      requestAnimationFrame(() => targetContent.classList.add('active'));
       targetButton.classList.add('active');
+      targetButton.setAttribute('aria-selected', 'true');
       this.activeTab = tabName;
-      
-      // Загрузить контент для вкладки
-      this.loadTabContent(tabName);
-    }
-  },
 
-  loadTabContent(tabName) {
-    const contentArea = $(`#${tabName} .content-area`);
-    if (!contentArea) return;
+      // Загрузить контент
+      this.loadTabContent(tabName, targetContent);
+    }
+  }
+
+  loadTabContent(tabName, container) {
+    const contentArea = $('.content-area', container);
+    if (!contentArea || contentArea.dataset.rendered) return;
 
     switch(tabName) {
-      case 'main':
+      case 'tab-main':
         this.renderMainFeed(contentArea);
         break;
-      case 'collections':
+      case 'tab-collections':
         this.renderCollections(contentArea);
         break;
-      case 'screenshots':
+      case 'tab-screenshots':
         this.renderScreenshots(contentArea);
         break;
-      case 'videos':
+      case 'tab-videos':
         this.renderVideos(contentArea);
         break;
-      case 'history':
+      case 'tab-history':
         this.renderHistory(contentArea);
         break;
-      case 'about':
+      case 'tab-about':
         this.renderAbout(contentArea);
         break;
     }
-  },
+    
+    contentArea.dataset.rendered = 'true';
+  }
 
   renderMainFeed(container) {
     container.innerHTML = '';
-    galleryData.main.forEach(item => {
-      const block = createElement('div', ['feed-block', 'liquid-glass']);
+    GALLERY_DATA.main.forEach(item => {
+      const block = createElement('article', ['feed-block', 'liquid-glass']);
       block.innerHTML = `
         <div class="block-header">
           <h3 class="cyber-title">${item.title}</h3>
           <p class="block-description">${item.description}</p>
+          <time class="project-date" datetime="${item.date}">${new Date(item.date).toLocaleDateString('ru-RU')}</time>
         </div>
         <div class="media-grid">
           <div class="main-media">
-            <img src="${item.mainImage}" alt="${item.alt}" data-action="open-modal" data-type="main" data-id="${item.id}">
+            <img src="${item.mainImage}" alt="${item.title}" data-action="open-modal" data-type="main" data-id="${item.id}">
           </div>
           <div class="screenshots-grid">
             ${item.screenshots.map((ss, i) => `
-              <img src="${ss}" alt="Скриншот ${i+1}" data-action="open-modal" data-type="main" data-id="${item.id}" data-ss="${i}">
+              <img src="${ss}" alt="Скриншот ${i+1}" data-action="open-modal" data-type="screenshot" data-group="main-${item.id}" data-index="${i}">
             `).join('')}
           </div>
-          <div class="video-container">
-            <video muted loop data-action="open-modal" data-type="main" data-id="${item.id}" data-video="true">
+          <div class="video-container" data-action="open-modal" data-type="video" data-group="main-${item.id}" data-index="0">
+            <video muted loop poster="https://picsum.photos/800/450?random=video-${item.id}">
               <source src="${item.video}" type="video/mp4">
             </video>
             <div class="video-controls">
-              <button class="play-btn">▶</button>
+              <button class="play-btn" aria-label="Воспроизвести видео">▶</button>
             </div>
           </div>
         </div>
@@ -223,56 +218,39 @@ const TabManager = {
       container.appendChild(block);
     });
     
-    // Добавить обработчики для видео
     this.attachVideoHandlers();
-  },
+  }
 
   renderCollections(container) {
     container.innerHTML = '';
-    galleryData.collections.forEach(collection => {
-      const block = createElement('div', ['collection-block', 'liquid-glass']);
-      const titleEl = createElement('h3', ['collection-title']);
-      titleEl.textContent = collection.name;
-      block.appendChild(titleEl);
-      
-      const carousel = createElement('div', ['carousel']);
-      const track = createElement('div', ['carousel-track']);
-      
-      collection.images.forEach((img, index) => {
-        const slide = createElement('div', ['carousel-slide']);
-        const imgEl = createElement('img', [], {
-          src: img,
-          'data-action': 'open-modal',
-          'data-type': 'collection',
-          'data-collection-id': collection.id,
-          'data-image-index': index
-        });
-        slide.appendChild(imgEl);
-        track.appendChild(slide);
-      });
-      
-      carousel.appendChild(track);
-      
-      // Добавить кнопки навигации
-      const prevBtn = createElement('button', ['carousel-btn', 'prev'], { 'data-action': 'carousel-prev' });
-      const nextBtn = createElement('button', ['carousel-btn', 'next'], { 'data-action': 'carousel-next' });
-      prevBtn.innerHTML = '‹';
-      nextBtn.innerHTML = '›';
-      carousel.appendChild(prevBtn);
-      carousel.appendChild(nextBtn);
-      
-      block.appendChild(carousel);
+    GALLERY_DATA.collections.forEach(collection => {
+      const block = createElement('article', ['collection-block', 'liquid-glass']);
+      block.innerHTML = `
+        <h3 class="collection-title">${collection.name}</h3>
+        <p class="collection-description">${collection.description}</p>
+        <div class="carousel" data-carousel-id="${collection.id}">
+          <div class="carousel-track">
+            ${collection.images.map((img, index) => `
+              <div class="carousel-slide">
+                <img src="${img}" alt="${collection.name} - работа ${index + 1}" 
+                     data-action="open-modal" data-type="collection" data-collection-id="${collection.id}" data-image-index="${index}">
+              </div>
+            `).join('')}
+          </div>
+          <button class="carousel-btn prev" aria-label="Предыдущее изображение">‹</button>
+          <button class="carousel-btn next" aria-label="Следующее изображение">›</button>
+        </div>
+      `;
       container.appendChild(block);
     });
     
-    // Инициализировать карусели
     this.initCarousels();
-  },
+  }
 
   renderScreenshots(container) {
     container.innerHTML = '';
-    galleryData.screenshots.forEach(group => {
-      const block = createElement('div', ['screenshot-group', 'liquid-glass']);
+    GALLERY_DATA.screenshots.forEach(group => {
+      const block = createElement('article', ['screenshot-group', 'liquid-glass']);
       block.innerHTML = `
         <h3 class="group-title">${group.title}</h3>
         <p class="group-description">${group.description}</p>
@@ -284,12 +262,12 @@ const TabManager = {
       `;
       container.appendChild(block);
     });
-  },
+  }
 
   renderVideos(container) {
     container.innerHTML = '';
-    galleryData.videos.forEach(group => {
-      const block = createElement('div', ['video-group', 'liquid-glass']);
+    GALLERY_DATA.videos.forEach(group => {
+      const block = createElement('article', ['video-group', 'liquid-glass']);
       block.innerHTML = `
         <h3 class="group-title">${group.title}</h3>
         <p class="group-description">${group.description}</p>
@@ -304,455 +282,425 @@ const TabManager = {
       `;
       container.appendChild(block);
     });
-  },
+  }
 
   renderHistory(container) {
     container.innerHTML = '';
-    galleryData.history.forEach(item => {
-      const block = createElement('div', ['history-block', 'liquid-glass']);
+    GALLERY_DATA.history.forEach(item => {
+      const block = createElement('article', ['history-block', 'liquid-glass']);
       block.innerHTML = `
         <div class="history-media">
-          <img src="${item.mainImage}" alt="${item.title}" class="history-main-img" data-action="open-modal" data-type="history-image" data-id="${item.id}">
-          <video muted class="history-video" data-action="open-modal" data-type="history-video" data-id="${item.id}">
+          <img src="${item.mainImage}" alt="${item.title}" class="history-main-image" 
+               data-action="open-modal" data-type="history-image" data-id="${item.id}">
+          <video muted class="history-vertical-video" data-action="open-modal" data-type="history-video" data-id="${item.id}">
             <source src="${item.verticalVideo}" type="video/mp4">
           </video>
         </div>
         <div class="history-content">
           <h3 class="history-title">${item.title}</h3>
-          <div class="history-description">${item.description}</div>
+          <div class="history-description">
+            <p>${item.description}</p>
+          </div>
           <div class="history-meta">
-            <span class="date">${new Date().toLocaleDateString()}</span>
-            <button class="read-more" data-action="expand-history" data-id="${item.id}">Развернуть</button>
+            <time class="date" datetime="${item.date}">${new Date(item.date).toLocaleDateString('ru-RU')}</time>
+            <button class="read-more" data-action="expand-history" data-text="${item.description}">Развернуть</button>
           </div>
         </div>
       `;
       container.appendChild(block);
     });
-  },
+  }
 
   renderAbout(container) {
-    // Если контент уже есть в HTML, не перерисовываем
     if (container.dataset.rendered) return;
     
-    // Пример динамического контента
     const aboutData = {
-      photo: "https://picsum.photos/200/200?random=author",
-      name: "@Ваш Никнейм",
-      bio: "Медиа-художник, исследующий цифровые границы реальности. 10+ лет в созидании визуальных концепций.",
+      photo: "https://picsum.photos/400/400?random=author",
+      nickname: "@Creative_Mind",
+      bio: "Цифровой художник и медиа-дизайнер с 5-летним опытом создания визуального контента. Специализируюсь на экспериментальных техниках и нестандартных подходах к визуальной коммуникации.",
       stats: {
-        "Проектов": "150+",
-        "Год опыта": "10+",
-        "Стран": "25",
-        "Наград": "12"
+        "Проектов": "47",
+        "Работ": "320+",
+        "Опыт": "5 лет",
+        "Локация": "Digital Space"
       },
       socials: {
         "Instagram": "#",
         "Behance": "#",
+        "Dribbble": "#",
         "Twitter": "#",
+        "YouTube": "#",
         "Telegram": "#"
       }
     };
     
     container.innerHTML = `
       <div class="about-container liquid-glass">
-        <div class="about-photo">
-          <img src="${aboutData.photo}" alt="Автор">
-          <div class="photo-glow"></div>
+        <div class="about-photo-container">
+          <img src="${aboutData.photo}" alt="Фотография автора" class="author-photo">
         </div>
-        <div class="about-info">
-          <h2 class="author-name">${aboutData.name}</h2>
-          <p class="author-bio">${aboutData.bio}</p>
-          <div class="stats-grid">
-            ${Object.entries(aboutData.stats).map(([k, v]) => `
-              <div class="stat-item">
-                <span class="stat-value">${v}</span>
-                <span class="stat-key">${k}</span>
-              </div>
-            `).join('')}
+        <div class="author-details">
+          <h2 class="author-nickname">${aboutData.nickname}</h2>
+          <div class="author-bio">
+            <h3>О себе</h3>
+            <p>${aboutData.bio}</p>
           </div>
-          <div class="social-links">
-            ${Object.entries(aboutData.socials).map(([name, url]) => `
-              <a href="${url}" class="social-link" target="_blank">${name}</a>
-            `).join('')}
+          <div class="author-stats">
+            <h3>Данные</h3>
+            <ul>
+              ${Object.entries(aboutData.stats).map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`).join('')}
+            </ul>
+          </div>
+          <div class="author-links">
+            <h3>Соцсети</h3>
+            <ul>
+              ${Object.entries(aboutData.socials).map(([name, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${name}</a></li>`).join('')}
+            </ul>
           </div>
         </div>
       </div>
     `;
     
-    container.dataset.rendered = true;
-  },
+    container.dataset.rendered = 'true';
+  }
 
   attachVideoHandlers() {
-    $$('video').forEach(video => {
+    $$('.video-container video').forEach(video => {
       const playBtn = video.parentElement.querySelector('.play-btn');
-      if (playBtn) {
-        playBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (video.paused) {
-            video.play();
+      if (!playBtn) return;
+      
+      playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (video.paused) {
+          video.play().then(() => {
             playBtn.style.opacity = '0';
-          } else {
-            video.pause();
+          }).catch(() => {
+            // Браузер заблокировал автовоспроизведение
             playBtn.style.opacity = '1';
-          }
-        });
-        
-        video.addEventListener('click', (e) => {
-          e.stopPropagation();
-          video.dataset.action = 'open-modal';
-          video.dataset.type = 'main';
-          video.click();
-        });
-      }
+          });
+        } else {
+          video.pause();
+          playBtn.style.opacity = '1';
+        }
+      });
     });
-  },
+  }
 
   initCarousels() {
     $$('.carousel').forEach(carousel => {
-      const track = carousel.querySelector('.carousel-track');
-      const slides = carousel.querySelectorAll('.carousel-slide');
-      const prevBtn = carousel.querySelector('.carousel-btn.prev');
-      const nextBtn = carousel.querySelector('.carousel-btn.next');
+      const track = $('.carousel-track', carousel);
+      const slides = $$('.carousel-slide', carousel);
+      const prevBtn = $('.carousel-btn.prev', carousel);
+      const nextBtn = $('.carousel-btn.next', carousel);
+      
+      if (!track || slides.length === 0) return;
       
       let currentIndex = 0;
       
       const updateCarousel = () => {
-        track.style.transform = `translateX(-${currentIndex * 320}px)`;
+        const slideWidth = slides[0].offsetWidth + 20; // gap учтён
+        track.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
       };
       
-      prevBtn.addEventListener('click', (e) => {
+      prevBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         currentIndex = Math.max(0, currentIndex - 1);
         updateCarousel();
       });
       
-      nextBtn.addEventListener('click', (e) => {
+      nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         currentIndex = Math.min(slides.length - 1, currentIndex + 1);
         updateCarousel();
       });
+      
+      // Инициализация
+      updateCarousel();
     });
-  },
-
-  addLiquidEffect(element) {
-    const ripple = createElement('div', ['liquid-ripple']);
-    element.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 600);
   }
-};
+}
 
-// ==================== МОДАЛЬНЫЕ ОКНА ====================
-const ModalManager = {
-  isOpen: false,
-  
+// ==================== МЕНЕДЖЕР МОДАЛЬНЫХ ОКОН ====================
+class ModalManager {
+  constructor() {
+    this.overlay = $('#modal-overlay');
+    this.content = $('.modal-content', this.overlay);
+    this.title = $('#modal-title', this.overlay);
+    this.body = $('.modal-body', this.content);
+    this.closeBtn = $('.modal-close', this.overlay);
+    this.isOpen = false;
+    this.currentCarousel = null;
+    this.init();
+  }
+
   init() {
-    this.cacheDOM();
     this.bindEvents();
-  },
-
-  cacheDOM() {
-    this.modal = $('.modal-overlay');
-    this.modalContent = $('.modal-content');
-    this.closeBtn = $('.modal-close');
-  },
+  }
 
   bindEvents() {
-    // Обработка кликов по элементам с data-action="open-modal"
-    document.addEventListener('click', (e) => {
-      const target = e.target.closest('[data-action="open-modal"]');
-      if (target) this.handleOpenModal(target.dataset, e);
+    // Закрытие
+    this.closeBtn.addEventListener('click', () => this.close());
+    this.overlay.addEventListener('click', (e) => {
+      if (e.target === this.overlay) this.close();
     });
     
-    // Закрытие модального окна
-    this.closeBtn?.addEventListener('click', () => this.close());
-    this.modal?.addEventListener('click', (e) => {
-      if (e.target === this.modal) this.close();
-    });
-    
-    // Обработка навигации в модальном окне
+    // Клавиатура
     document.addEventListener('keydown', (e) => {
       if (!this.isOpen) return;
       if (e.key === 'Escape') this.close();
-      if (e.key === 'ArrowLeft') this.navigatePrev();
-      if (e.key === 'ArrowRight') this.navigateNext();
+      if (e.key === 'ArrowLeft' && this.currentCarousel) this.navigatePrev();
+      if (e.key === 'ArrowRight' && this.currentCarousel) this.navigateNext();
     });
-  },
 
-  handleOpenModal(data, event) {
-    const { type, id, collectionId, group, index, imageIndex, ss, video } = data;
-    
-    switch(type) {
-      case 'main':
-        this.openMainModal(id, ss, video);
-        break;
-      case 'collection':
-        this.openCollectionModal(collectionId, imageIndex);
-        break;
-      case 'screenshot':
-      case 'video':
-        this.openGroupModal(type, group, parseInt(index));
-        break;
-      case 'history-image':
-        this.openHistoryImageModal(id);
-        break;
-      case 'history-video':
-        this.openHistoryVideoModal(id);
-        break;
-    }
-  },
+    // Обработчик открытия (делегирование)
+    document.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-action="open-modal"]');
+      if (!trigger) return;
+      
+      const { type, id, collectionId, group, index, imageIndex } = trigger.dataset;
+      
+      switch(type) {
+        case 'main':
+          this.openMainModal(id);
+          break;
+        case 'collection':
+          this.openCollectionModal(collectionId, parseInt(imageIndex));
+          break;
+        case 'screenshot':
+        case 'video':
+          this.openGroupModal(type, group, parseInt(index));
+          break;
+        case 'history-image':
+          this.openHistoryImageModal(id);
+          break;
+        case 'history-video':
+          this.openHistoryVideoModal(id);
+          break;
+      }
+    });
+  }
 
-  openMainModal(itemId, screenshotIndex = null, isVideo = null) {
-    const item = galleryData.main.find(i => i.id == itemId);
+  openMainModal(itemId) {
+    const item = GALLERY_DATA.main.find(i => String(i.id) === itemId);
     if (!item) return;
-    
-    const modalData = {
+
+    this.currentCarousel = {
+      items: item.screenshots.map(src => ({ type: 'image', src, title: `${item.title} - Скриншот` })),
+      currentIndex: 0,
+      groupId: `main-${item.id}`
+    };
+
+    this.render({
       title: item.title,
       content: `
         <div class="modal-media-grid">
-          <div class="modal-main-image">
-            <img src="${item.mainImage}" alt="${item.alt}" class="anti-image">
-          </div>
+          <img src="${item.mainImage}" alt="${item.title}" class="modal-main-image">
           <div class="modal-screenshots">
             ${item.screenshots.map((ss, i) => `
-              <img src="${ss}" alt="Скриншот ${i+1}" class="anti-thumbnail">
+              <img src="${ss}" alt="Скриншот ${i+1}" data-action="open-modal" data-type="screenshot" data-group="main-${item.id}" data-index="${i}">
             `).join('')}
           </div>
           <video controls class="modal-video">
             <source src="${item.video}" type="video/mp4">
           </video>
+          <div class="modal-description">${item.description}</div>
         </div>
-        <div class="modal-description">${item.description}</div>
       `
-    };
-    
-    this.render(modalData);
-  },
+    });
+  }
 
   openCollectionModal(collectionId, imageIndex) {
-    const collection = galleryData.collections.find(c => c.id === collectionId);
+    const collection = GALLERY_DATA.collections.find(c => c.id === collectionId);
     if (!collection) return;
-    
-    const images = collection.images;
-    const currentIndex = parseInt(imageIndex);
-    
-    currentCarousel = {
-      items: images.map(src => ({ type: 'image', src, title: collection.name })),
-      currentIndex: currentIndex,
+
+    this.currentCarousel = {
+      items: collection.images.map(src => ({ type: 'image', src, title: collection.name })),
+      currentIndex: imageIndex,
       groupId: collectionId
     };
-    
-    const modalData = {
+
+    this.render({
       title: collection.name,
-      content: `
-        <div class="modal-carousel">
-          <img src="${images[currentIndex]}" alt="${collection.name}" class="anti-image">
-          ${this.renderCarouselControls()}
-        </div>
-      `,
-      showDownload: true
-    };
-    
-    this.render(modalData);
-  },
+      content: this.renderCarouselContent()
+    });
+  }
 
   openGroupModal(type, groupId, itemIndex) {
-    const group = galleryData[type === 'screenshot' ? 'screenshots' : 'videos']
+    const group = GALLERY_DATA[type === 'screenshot' ? 'screenshots' : 'videos']
       .find(g => g.id === groupId);
     if (!group) return;
-    
-    const items = type === 'screenshot' 
-      ? group.images.map(src => ({ type: 'image', src }))
-      : group.videos.map(v => ({ type: 'video', src: v.url, thumb: v.thumb }));
-    
-    currentCarousel = {
-      items: items,
+
+    this.currentCarousel = {
+      items: type === 'screenshot' 
+        ? group.images.map(src => ({ type: 'image', src }))
+        : group.videos.map(v => ({ type: 'video', src: v.url, thumb: v.thumb })),
       currentIndex: itemIndex,
       groupId: groupId
     };
-    
-    const currentItem = items[itemIndex];
-    const content = currentItem.type === 'image'
-      ? `<img src="${currentItem.src}" alt="${group.title}" class="anti-image">`
-      : `<video controls class="modal-video"><source src="${currentItem.src}" type="video/mp4"></video>`;
-    
-    const modalData = {
+
+    this.render({
       title: group.title,
       content: `
-        <div class="modal-carousel">
-          ${content}
-          ${this.renderCarouselControls()}
-        </div>
+        ${this.renderCarouselContent()}
         <div class="modal-description">${group.description}</div>
-      `,
-      showDownload: type === 'screenshot'
-    };
-    
-    this.render(modalData);
-  },
+        ${type === 'screenshot' ? '<button class="download-btn" data-action="download-current">Скачать</button>' : ''}
+      `
+    });
+  }
 
   openHistoryImageModal(itemId) {
-    const item = galleryData.history.find(i => i.id === itemId);
+    const item = GALLERY_DATA.history.find(i => i.id === itemId);
     if (!item) return;
-    
+
     this.render({
       title: item.title,
-      content: `<img src="${item.mainImage}" alt="${item.title}" class="anti-image">`
+      content: `<img src="${item.mainImage}" alt="${item.title}" class="modal-main-image">`
     });
-  },
+  }
 
   openHistoryVideoModal(itemId) {
-    const item = galleryData.history.find(i => i.id === itemId);
+    const item = GALLERY_DATA.history.find(i => i.id === itemId);
     if (!item) return;
-    
+
     this.render({
       title: item.title,
       content: `<video controls class="modal-video"><source src="${item.verticalVideo}" type="video/mp4"></video>`
     });
-  },
+  }
 
-  renderCarouselControls() {
+  renderCarouselContent() {
+    const item = this.currentCarousel.items[this.currentCarousel.currentIndex];
     return `
-      <button class="carousel-nav prev" data-action="modal-prev">‹</button>
-      <button class="carousel-nav next" data-action="modal-next">›</button>
+      <div class="modal-carousel">
+        ${item.type === 'image' 
+          ? `<img src="${item.src}" alt="${item.title}" class="modal-main-image">`
+          : `<video controls class="modal-video"><source src="${item.src}" type="video/mp4"></video>`
+        }
+        <div class="carousel-controls">
+          <button class="carousel-nav prev" data-action="modal-prev">‹</button>
+          <span class="carousel-counter">${this.currentCarousel.currentIndex + 1} / ${this.currentCarousel.items.length}</span>
+          <button class="carousel-nav next" data-action="modal-next">›</button>
+        </div>
+      </div>
     `;
-  },
+  }
 
   render(data) {
-    if (!this.modal) return;
-    
-    this.modalContent.innerHTML = `
-      <div class="modal-header">
-        <h2 class="modal-title">${data.title}</h2>
-        <button class="modal-close">✕</button>
-      </div>
-      <div class="modal-body">${data.content}</div>
-      ${data.showDownload ? '<button class="download-btn" data-action="download">Скачать</button>' : ''}
-    `;
-    
-    this.modal.classList.add('active');
+    this.title.textContent = data.title;
+    this.body.innerHTML = data.content;
+    this.overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
     this.isOpen = true;
-    
-    // Повторно привязать события для новых элементов
-    this.cacheDOM();
-    this.bindEvents();
-  },
+  }
 
   close() {
-    if (!this.modal) return;
-    
-    this.modal.classList.remove('active');
+    this.overlay.classList.remove('active');
     document.body.style.overflow = '';
     this.isOpen = false;
+    this.currentCarousel = null;
     
-    // Остановить все видео
-    this.modalContent.querySelectorAll('video').forEach(v => v.pause());
-  },
+    // Остановить видео
+    $$('video', this.body).forEach(v => v.pause());
+  }
 
   navigatePrev() {
-    if (!currentCarousel.items.length) return;
-    
-    currentCarousel.currentIndex = 
-      (currentCarousel.currentIndex - 1 + currentCarousel.items.length) % currentCarousel.items.length;
-    this.updateModalCarousel();
-  },
+    if (!this.currentCarousel?.items.length) return;
+    this.currentCarousel.currentIndex = 
+      (this.currentCarousel.currentIndex - 1 + this.currentCarousel.items.length) % this.currentCarousel.items.length;
+    this.updateCarousel();
+  }
 
   navigateNext() {
-    if (!currentCarousel.items.length) return;
-    
-    currentCarousel.currentIndex = 
-      (currentCarousel.currentIndex + 1) % currentCarousel.items.length;
-    this.updateModalCarousel();
-  },
-
-  updateModalCarousel() {
-    const item = currentCarousel.items[currentCarousel.currentIndex];
-    const container = this.modalContent.querySelector('.modal-carousel');
-    if (!container) return;
-    
-    container.innerHTML = `
-      ${item.type === 'image' 
-        ? `<img src="${item.src}" alt="${item.title || ''}" class="anti-image">`
-        : `<video controls class="modal-video"><source src="${item.src}" type="video/mp4"></video>`
-      }
-      ${this.renderCarouselControls()}
-    `;
-    
-    this.bindEvents();
+    if (!this.currentCarousel?.items.length) return;
+    this.currentCarousel.currentIndex = 
+      (this.currentCarousel.currentIndex + 1) % this.currentCarousel.items.length;
+    this.updateCarousel();
   }
-};
 
-// ==================== ОБРАБОТЧИКИ СКАЧИВАНИЯ ====================
-const DownloadManager = {
+  updateCarousel() {
+    const carousel = $('.modal-carousel', this.body);
+    if (!carousel || !this.currentCarousel) return;
+    
+    carousel.outerHTML = this.renderCarouselContent();
+  }
+}
+
+// ==================== МЕНЕДЖЕР ЗАГРУЗОК ====================
+class DownloadManager {
+  constructor(modalManager) {
+    this.modalManager = modalManager;
+    this.init();
+  }
+
   init() {
     document.addEventListener('click', (e) => {
-      if (e.target.dataset.action === 'download') {
+      if (e.target.dataset.action === 'download-current') {
         this.downloadCurrentItem();
       }
     });
-  },
+  }
 
   downloadCurrentItem() {
-    const item = currentCarousel.items[currentCarousel.currentIndex];
-    if (!item) return;
+    const carousel = this.modalManager.currentCarousel;
+    if (!carousel) return;
     
+    const item = carousel.items[carousel.currentIndex];
+    if (!item || item.type !== 'image') return;
+
     const link = createElement('a', [], {
       href: item.src,
-      download: `gallery-item-${Date.now()}.jpg`
+      download: `gallery-item-${Date.now()}.jpg`,
+      target: '_blank'
     });
     
+    document.body.appendChild(link);
     link.click();
     link.remove();
     
     // Anti-Design эффект
     this.showGlitchMessage('Загрузка началась...');
-  },
+  }
 
   showGlitchMessage(text) {
     const glitch = createElement('div', ['glitch-message'], { textContent: text });
     document.body.appendChild(glitch);
     setTimeout(() => glitch.remove(), 1500);
   }
-};
+}
 
 // ==================== ЭФФЕКТЫ И АНИМАЦИИ ====================
-const EffectsManager = {
+class EffectsManager {
+  constructor() {
+    this.init();
+  }
+
   init() {
     this.addScrollEffects();
     this.addHoverEffects();
     this.addGlitchEffect();
-  },
+  }
 
   addScrollEffects() {
-    let ticking = false;
-    
     const updateScrollEffects = () => {
-      const blocks = $$('.feed-block, .collection-block, .screenshot-group, .video-group, .history-block');
+      const blocks = $$('.liquid-glass');
       blocks.forEach(block => {
         const rect = block.getBoundingClientRect();
-        const isVisible = rect.top < window.innerHeight * 0.85;
+        const isVisible = rect.top < window.innerHeight * 0.85 && rect.bottom > 0;
         
-        if (isVisible) {
+        if (isVisible && !block.classList.contains('loaded')) {
+          block.classList.add('loaded');
           block.style.opacity = '1';
           block.style.transform = 'translateY(0)';
         }
       });
-      
-      ticking = false;
     };
     
-    const requestScrollUpdate = () => {
-      if (!ticking) {
-        requestAnimationFrame(updateScrollEffects);
-        ticking = true;
-      }
-    };
-    
-    window.addEventListener('scroll', requestScrollUpdate);
-  },
+    // Инициализация
+    updateScrollEffects();
+    window.addEventListener('scroll', updateScrollEffects, { passive: true });
+  }
 
   addHoverEffects() {
-    // Эффект жидкого стекла при наведении
     document.addEventListener('mouseenter', (e) => {
       const el = e.target.closest('.liquid-glass');
       if (el) {
@@ -768,75 +716,58 @@ const EffectsManager = {
         el.style.boxShadow = '';
       }
     }, true);
-  },
+  }
 
   addGlitchEffect() {
-    // Anti-Design: случайные глюки
+    // Случайные глюки для заголовков
     setInterval(() => {
-      const elements = $$('.cyber-title, .modal-title');
+      const elements = $$('.cyber-title, .site-title');
       if (!elements.length) return;
       
       const el = elements[Math.floor(Math.random() * elements.length)];
       this.triggerGlitch(el);
     }, 5000);
-  },
+  }
 
   triggerGlitch(element) {
     element.classList.add('glitch');
     setTimeout(() => element.classList.remove('glitch'), 300);
   }
-};
+}
 
-// ==================== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ====================
-document.addEventListener('DOMContentLoaded', () => {
-  // Инициализировать все модули
-  TabManager.init();
-  ModalManager.init();
-  DownloadManager.init();
-  EffectsManager.init();
-  
-  // Добавить глобальные обработчики
-  document.addEventListener('click', (e) => {
-    // Навигация в модальном окне
-    if (e.target.dataset.action === 'modal-prev') {
-      ModalManager.navigatePrev();
-    }
-    if (e.target.dataset.action === 'modal-next') {
-      ModalManager.navigateNext();
-    }
-    
-    // Эффект Anti-Design при клике
-    if (e.target.matches('h1, h2, h3')) {
-      EffectsManager.triggerGlitch(e.target);
-    }
-  });
-  
-  // Обработка каруселей в коллекциях
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action="carousel-prev"], [data-action="carousel-next"]');
-    if (!btn) return;
-    
-    const carousel = btn.parentElement;
-    const track = carousel.querySelector('.carousel-track');
-    const direction = btn.dataset.action === 'carousel-prev' ? -1 : 1;
-    
-    // Простая карусель
-    const currentTransform = track.style.transform || 'translateX(0)';
-    const currentX = parseInt(currentTransform.match(/-?\d+/)?.[0] || 0);
-    const newX = Math.max(Math.min(currentX - direction * 320, 0), -320 * (track.children.length - 1));
-    
-    track.style.transform = `translateX(${newX}px)`;
-  });
-  
+// ==================== ОБРАБОТЧИКИ ДРУГИХ ЭЛЕМЕНТОВ ====================
+function initCustomHandlers(modalManager) {
   // Развернуть историю
   document.addEventListener('click', (e) => {
     if (e.target.dataset.action === 'expand-history') {
       const block = e.target.closest('.history-block');
-      const desc = block.querySelector('.history-description');
-      desc.style.maxHeight = desc.scrollHeight + 'px';
-      e.target.style.display = 'none';
+      const desc = $('.history-description', block);
+      if (desc) {
+        desc.style.maxHeight = desc.scrollHeight + 'px';
+        e.target.style.display = 'none';
+      }
+    }
+    
+    // Навигация в модалке
+    if (e.target.dataset.action === 'modal-prev') {
+      modalManager.navigatePrev();
+    }
+    if (e.target.dataset.action === 'modal-next') {
+      modalManager.navigateNext();
     }
   });
+}
+
+// ==================== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ====================
+document.addEventListener('DOMContentLoaded', () => {
+  // Создаем экземпляры классов
+  const tabManager = new TabManager();
+  const modalManager = new ModalManager();
+  const downloadManager = new DownloadManager(modalManager);
+  const effectsManager = new EffectsManager();
   
-  console.log('Галерея инициализирована. Anti-Design активен.');
+  // Инициализируем кастомные обработчики
+  initCustomHandlers(modalManager);
+  
+  console.log('Галерея инициализирована. Anti-Design активен. Все системы работают.');
 });
