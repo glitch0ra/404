@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Steps 12.0
         #define _Size 0.3
         #define DISTORTION_RADIUS 0.8
+        #define ROTATION_SPEED 0.5  // Умеренная скорость вращения
 
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
@@ -62,6 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
         void Rotate(inout vec3 vector, vec2 angle) {
             vector.yz = cos(angle.y) * vector.yz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
+        }
+
+        // --- ТРЁХМЕРНОЕ ВРАЩЕНИЕ ---
+        void Rotate3D(inout vec3 vector, vec3 angles) {
+            // Вращение вокруг X
+            vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
+            // Вращение вокруг Y
+            vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
+            // Вращение вокруг Z
+            vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
         vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
@@ -124,9 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
             vec3 bhPos = spherePos;
 
             pos -= bhPos;
-            vec2 angle = vec2(0.03 * iTime, 0.12);
-            Rotate(pos, angle);
-            Rotate(rd, angle);
+            
+            // === КОМПЛЕКСНОЕ ТРЁХМЕРНОЕ ВРАЩЕНИЕ ===
+            float time = iTime * ROTATION_SPEED;
+            vec3 rotationAngles = vec3(
+                sin(time * 0.7) * 0.5,      // Вращение X (по синусоиде)
+                cos(time * 0.5) * 0.8,      // Вращение Y (по косинусоиде)
+                sin(time * 0.3) * 0.3       // Вращение Z (медленное качание)
+            );
+            Rotate3D(pos, rotationAngles);
+            Rotate3D(rd, rotationAngles);
 
             for(int disks = 0; disks < 32; disks++) {
                 for(int h = 0; h < 6; h++) {
@@ -151,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 float dist2 = length(pos);
                 if(dist2 < _Size * 0.1) {
-                    // Внутри черной дыры - ЧЕРНЫЙ ЦЕНТР
+                    // Черный центр
                     return vec4(0.0, 0.0, 0.0, 1.0);
                 }
                 else if(dist2 > _Size * 1000.0) {
@@ -167,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if(col.a == 0.0 && length(glow.rgb) < 0.01) {
-                return vec4(0.0); // прозрачный для пустоты
+                return vec4(0.0);
             }
 
             return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 
@@ -181,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             vec4 blackHole = rayMarch(ro, rd);
             
-            // Эффект втягивания вокруг дыры
             float dist = length(uv);
             if (dist < DISTORTION_RADIUS && dist > _Size * 2.0 && blackHole.a < 0.5) {
                 float suction = 1.0 - smoothstep(_Size * 2.0, DISTORTION_RADIUS, dist);
@@ -190,8 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 vec2 twistedUV = vec2(cos(twist), sin(twist)) * dist;
                 vec3 suctionColor = vec3(0.2, 0.4, 0.7) * suction * 0.3;
                 float suctionAlpha = suction * 0.4;
-                
-                // Добавляем эффект втягивания ТОЛЬКО если нет дыры/диска
                 blackHole.rgb += suctionColor * suctionAlpha;
                 blackHole.a = max(blackHole.a, suctionAlpha);
             }
@@ -201,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
 
-    // === ОСТАЛЬНОЙ КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ===
+    // === ОСТАЛЬНОЙ КОД БЕЗ ИЗМЕНЕНИЙ ===
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
