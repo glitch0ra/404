@@ -43,11 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Size 0.3
         
         // === РЕГУЛЯТОРЫ СКОРОСТЕЙ ===
-        #define ROT_X_SPEED 0.3        // Скорость вращения по оси X (меньше = медленнее)
+        #define ROT_X_SPEED 0.5        // Скорость вращения по оси X (меньше = медленнее)
         #define ROT_Y_SPEED 0.5        // Скорость вращения по оси Y (основная)
-        #define ROT_Z_SPEED 0.2        // Скорость вращения по оси Z (качание)
-        #define RING_SPEED 0.6         // Скорость движения колец (была 2.0, сейчас медленнее)
-        #define RING_FLOW_SPEED 0.15   // Скорость потока внутри диска (была 0.3)
+        #define ROT_Z_SPEED 0.5        // Скорость вращения по оси Z (качание)
+        #define RING_SPEED 1.0         // Скорость движения колец (была 2.0, сейчас медленнее)
+        #define RING_FLOW_SPEED 0.2   // Скорость потока внутри диска (была 0.3)
 
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
@@ -317,3 +317,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
+
