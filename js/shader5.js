@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Size 0.3
         
         // === СКОРОСТИ ===
-        #define ROT_X_SPEED 0.5
+        #define ROT_X_SPEED 0.3
         #define ROT_Y_SPEED 0.5
-        #define ROT_Z_SPEED 0.5
+        #define ROT_Z_SPEED 0.2
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
@@ -75,9 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
         }
 
+        // ИСПРАВЛЕНО: angle.y → angles.y
         void Rotate3D(inout vec3 vector, vec3 angles) {
             vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
-            vector.xz = cos(angles.y) * vector.xz + sin(angle.y) * vec2(-1.0, 1.0) * vector.zx;
+            vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx; // Исправлено
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
         }
 
