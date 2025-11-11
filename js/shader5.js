@@ -155,10 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Преобразование в систему координат черной дыры
             pos -= bhPos;
 
-            // Легкое вращение камеры для динамики (опционально, можно закомментировать)
-            vec2 angle = vec2(0.03 * iTime, 0.12);
-            Rotate(pos, angle);
-            Rotate(rd, angle);
+            // Легкое вращение камеры для динамики (ОПЦИОНАЛЬНО, можно закомментировать)
+            // vec2 angle = vec2(0.03 * iTime, 0.12);
+            // Rotate(pos, angle);
+            // Rotate(rd, angle);
 
             for(int disks = 0; disks < 32; disks++) {
                 for(int h = 0; h < 6; h++) {
@@ -212,8 +212,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         void main() {
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
-            vec3 ro = vec3(0.0, 0.0, -8.0);
-            vec3 rd = normalize(vec3(uv, 1.0));
+            
+            // === НОВАЯ КОНФИГУРАЦИЯ КАМЕРЫ: ВИД СВЕРХУ ===
+            
+            // Центр черной дыры (берем из существующей переменной spherePos)
+            vec3 blackHoleCenter = spherePos; // vec3(8.0, 6.0, 25.0)
+            
+            // Позиция камеры: прямо над дырой, на значительной высоте
+            // X и Z совпадают с центром дыры, Y поднята вверх
+            vec3 ro = blackHoleCenter + vec3(0.0, 20.0, 0.0);
+            
+            // Создаем перспективу: чем меньше fov, тем меньше искажение по краям
+            float fov = 0.4;
+            
+            // Направление взгляда прямо вниз (отрицательная ось Y)
+            vec3 forward = vec3(0.0, -1.0, 0.0);
+            
+            // Вектора "вправо" и "вверх" для камеры
+            vec3 right = vec3(1.0, 0.0, 0.0); // Вдоль мировой оси X
+            vec3 up = vec3(0.0, 0.0, 1.0);   // Вдоль мировой оси Z
+            
+            // Формируем луч с перспективой
+            vec3 rd = normalize(forward + uv.x * right * fov + uv.y * up * fov);
+            
+            // =============================================
             
             fragColor = rayMarch(ro, rd);
             fragColor.rgb = pow(fragColor.rgb, vec3(0.6));
