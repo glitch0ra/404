@@ -49,6 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
         #define RING_SPEED 1.0         // Скорость движения колец (была 2.0, сейчас медленнее)
         #define RING_FLOW_SPEED 0.2   // Скорость потока внутри диска (была 0.3)
 
+        // === ЦВЕТА ИРИДИСЦЕНТНОГО ЭФФЕКТА ===
+        const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff
+        const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0
+        const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff
+        const vec3 COLOR_GREEN = vec3(0.0, 1.0, 0.502);   // #00ff80
+
         float hash(float x) { return fract(sin(x) * 15.0); }
         float hash(vec2 x) { return hash(x.x + hash(x.y)); }
 
@@ -69,11 +75,34 @@ document.addEventListener('DOMContentLoaded', () => {
             vector.xz = cos(angle.x) * vector.xz + sin(angle.x) * vec2(-1.0, 1.0) * vector.zx;
         }
 
-        // Трёхмерное вращение
         void Rotate3D(inout vec3 vector, vec3 angles) {
             vector.yz = cos(angles.x) * vector.yz + sin(angles.x) * vec2(-1.0, 1.0) * vector.zy;
             vector.xz = cos(angles.y) * vector.xz + sin(angles.y) * vec2(-1.0, 1.0) * vector.zx;
             vector.xy = cos(angles.z) * vector.xy + sin(angles.z) * vec2(-1.0, 1.0) * vector.yx;
+        }
+
+        // === ИРИДИСЦЕНТНАЯ ФУНКЦИЯ ===
+        vec3 iridescentColor(float pos, float time, float noise) {
+            // Нормализуем шум
+            float n = noise * 2.0;
+            
+            // Создаем 4 волны для 4 цветов с разными частотами и фазами
+            float wave_cyan = sin(pos * 8.0 - time * 0.5 + n) * 0.5 + 0.5;
+            float wave_pink = cos(pos * 10.0 + time * 0.7 + n * 1.5) * 0.5 + 0.5;
+            float wave_purple = sin(pos * 12.0 - time * 0.3 + n * 2.0) * 0.5 + 0.5;
+            float wave_green = cos(pos * 9.0 + time * 0.9 + n * 0.5) * 0.5 + 0.5;
+            
+            // Смешиваем по принципу масляной пленки - перемножаем и складываем
+            vec3 color = vec3(0.0);
+            color += COLOR_CYAN * wave_cyan * wave_pink;
+            color += COLOR_PINK * wave_pink * wave_purple;
+            color += COLOR_PURPLE * wave_purple * wave_green;
+            color += COLOR_GREEN * wave_green * wave_cyan;
+            
+            // Усиливаем контраст для перелива
+            color = pow(color, vec3(0.8));
+            
+            return clamp(color * 2.5, 0.0, 1.5); // Усиление яркости
         }
 
         vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
@@ -87,10 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
             parallel *= 0.6;
             float redShift = clamp((parallel + 0.4) * (parallel + 0.4), 0.0, 1.0);
             
+            // === ЗАМЕНЯЕМ ЦВЕТ НА ИРИДИСЦЕНТНЫЙ ===
             float disMix = clamp((lengthPos - _Size * 2.0) * (1.0 / _Size) * 0.24, 0.0, 1.0);
-            vec3 insideCol = mix(vec3(1.0, 0.8, 0.0), vec3(0.5, 0.13, 0.02) * 0.2, disMix);
-            insideCol *= mix(vec3(0.4, 0.2, 0.1), vec3(1.6, 2.4, 4.0), redShift);
-            insideCol *= 1.4;
+            // Старая логика убрана
             
             vec4 o = vec4(0.0);
             for(float i = 0.0; i < _Steps; i++) {
@@ -103,12 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
-                // === ЗАМЕДЛЕННАЯ АНИМАЦИЯ КОЛЕЦ ===
                 float u = lengthPos + iTime * RING_FLOW_SPEED + intensity * _Size * 0.2;
                 
-                // === ВРАЩЕНИЕ ДИСКА ===
                 vec2 xy;
-                float rot = mod(iTime * RING_SPEED, 8192.0);  // Используем новую скорость
+                float rot = mod(iTime * RING_SPEED, 8192.0);
                 xy.x = -position.z * sin(rot) + position.x * cos(rot);
                 xy.y = position.x * sin(rot) + position.z * cos(rot);
                 float x = abs(xy.x / (xy.y + 0.0001));
@@ -120,11 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
                 float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
+                // === ПОЛУЧАЕМ ИРИДИСЦЕНТНЫЙ ЦВЕТ ===
+                vec3 insideCol = iridescentColor(u * 0.5, iTime, noise) * (0.6 + redShift * 0.4);
+                
                 vec3 colVec = 2.0 * mix(vec3(0.3, 0.2, 0.15) * insideCol, insideCol, min(1.0, intensity * 2.0));
                 o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(1.0));
                 
                 lengthPos *= (1.0 / _Size);
-                o.rgb += redShift * (intensity * 1.0 + 0.5) * (1.0 / _Steps) * 100.0 * distMult / (lengthPos * lengthPos + 0.001);
+                o.rgb += redShift * (intensity * 1.0 + 0.5) * 0.5 * distMult / (lengthPos * lengthPos + 0.001);
             }
             o.rgb = clamp(o.rgb - 0.005, 0.0, 1.0);
             return o;
@@ -139,13 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
             vec3 bhPos = spherePos;
 
             pos -= bhPos;
-            
-            // === ТРЁХМЕРНОЕ ВРАЩЕНИЕ ЧЕРНОЙ ДЫРЫ ===
-            float time = iTime * 0.5;  // Общий множитель скорости
+            float time = iTime * 0.5;
             vec3 rotationAngles = vec3(
-                sin(time * ROT_X_SPEED) * 0.5,      // X-ось вращения
-                cos(time * ROT_Y_SPEED) * 0.8,      // Y-ось вращения
-                sin(time * ROT_Z_SPEED) * 0.3       // Z-ось вращения
+                sin(time * ROT_X_SPEED) * 0.5,
+                cos(time * ROT_Y_SPEED) * 0.8,
+                sin(time * ROT_Z_SPEED) * 0.3
             );
             Rotate3D(pos, rotationAngles);
             Rotate3D(rd, rotationAngles);
@@ -317,6 +344,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     requestAnimationFrame(render);
 });
-
-
-
