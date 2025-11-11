@@ -43,13 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         #define _Size 0.3
         
         // === СКОРОСТИ ===
-        #define ROT_X_SPEED 0.5
+        #define ROT_X_SPEED 0.3
         #define ROT_Y_SPEED 0.5
-        #define ROT_Z_SPEED 0.5
+        #define ROT_Z_SPEED 0.2
         #define RING_SPEED 0.4
         #define RING_FLOW_SPEED 0.1
 
-        // === ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ (точные HEX) ===
+        // === ТОЧНЫЕ ЦВЕТА БЕНЗИНОВОГО ПЕРЕЛИВАНИЯ ===
         const vec3 COLOR_CYAN = vec3(0.0, 0.898, 1.0);    // #00e5ff (голубой)
         const vec3 COLOR_PINK = vec3(1.0, 0.0, 0.816);    // #ff00d0 (розовый)
         const vec3 COLOR_PURPLE = vec3(0.451, 0.0, 1.0);  // #7300ff (фиолетовый)
@@ -133,8 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lengthPos = length(position.xz);
                 
                 float distMult = 1.0;
-                // ИСПРАВЛЕНО: уменьшен порог для видимости колец в центре
-                distMult *= clamp((lengthPos - _Size * 0.2) * (1.0 / _Size) * 3.0, 0.0, 1.0);
+                distMult *= clamp((lengthPos - _Size * 0.75) * (1.0 / _Size) * 1.5, 0.0, 1.0);
                 distMult *= clamp((_Size * 10.0 - lengthPos) * (1.0 / _Size) * 0.20, 0.0, 1.0);
                 distMult *= distMult;
                 
@@ -175,6 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
             vec4 glow = vec4(0.0);
             vec3 bhPos = spherePos;
 
+            // Сохраняем начальное смещение для расчета черной дыры
+            vec3 offsetPos = pos - bhPos;
+            
             pos -= bhPos;
             float time = iTime * 0.5;
             vec3 rotationAngles = vec3(
@@ -207,9 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 float dist2 = length(pos);
-                
-                // ИСПРАВЛЕНО: убран return, чтобы черный круг не перекрывал кольца
-                // Теперь кольца будут отрисовываться поверх черного фона
                 if(dist2 > _Size * 1000.0) {
                     break;
                 }
@@ -222,12 +221,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if(col.a == 0.0 && length(glow.rgb) < 0.01) {
+            // === СОЗДАЕМ ЧЕРНЫЙ КРУГ ПОД КОЛЬЦАМИ ===
+            float distFromCenter = length(offsetPos.xz);
+            float blackHoleRadius = _Size * 0.1;
+            // Alpha 0.8 для видимости, но не полной непрозрачности
+            float blackHoleAlpha = 0.8 * (1.0 - smoothstep(0.0, blackHoleRadius, distFromCenter));
+            
+            // Смешиваем черный круг с колыцами (кольца сверху)
+            vec3 finalColor = mix(vec3(0.0), col.rgb, col.a);
+            float finalAlpha = max(col.a, blackHoleAlpha);
+
+            if(finalAlpha < 0.01 && length(glow.rgb) < 0.01) {
                 return vec4(0.0);
             }
 
-            return vec4(col.rgb * col.a + glow.rgb * (1.0 - col.a), 
-                       min(1.0, col.a + length(glow.rgb) * 0.5));
+            return vec4(finalColor * finalAlpha + glow.rgb * (1.0 - finalAlpha), 
+                       min(1.0, finalAlpha + length(glow.rgb) * 0.5));
         }
 
         void main() {
