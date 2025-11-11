@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         uniform vec3 iResolution;
         uniform float iTime;
+        uniform float ringBlur; // РЕГУЛИРУЕМОЕ РАЗМЫТИЕ ДЛЯ КОЛЕЦ
 
         #define _Steps 12.0
         #define _Size 0.3
@@ -119,28 +120,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return color * glowPower;
         }
 
-        // === ЛЕГКОЕ РАЗМЫТИЕ ГРАНИЦ КОЛЕЦ (НОВОЕ) ===
-        float softBlur(float noise, float intensity, float distMult, float dist) {
-            // Добавляем плавное падение альфа-канала вместо резкого обрезания
-            float baseAlpha = noise * (intensity) * ((1.0 / _Size) * 8.0 + 0.01) * dist * distMult;
-            
-            // ==== ИЗМЕНЕНИЕ 1: Плавное сглаживание границ ====
-            // Было: clamp(..., 0.0, 1.0)
-            // Стало: smoothstep для мягких переходов
-            float featheredAlpha = smoothstep(0.0, 0.4, baseAlpha) * smoothstep(1.0, 0.6, baseAlpha);
-            
-            return featheredAlpha;
-        }
-
         vec4 raymarchDisk(vec3 ray, vec3 zeroPos) {
             vec3 position = zeroPos;
             float lengthPos = length(position.xz);
             float dist = min(1.0, lengthPos * (1.0 / _Size) * 0.5) * _Size * 0.4 * (1.0 / _Steps) / (abs(ray.y) + 0.0001);
-            position += dist * _Steps * ray * 0.5;
+            
+            // РАЗМЫТИЕ: увеличиваем шаг для более диффузного сэмплинга
+            float blurSpread = 1.0 + ringBlur * 0.5;
+            position += dist * _Steps * ray * 0.5 * blurSpread;
             
             vec4 o = vec4(0.0);
             for(float i = 0.0; i < _Steps; i++) {
-                position -= dist * ray;
+                position -= dist * ray * blurSpread;
                 float intensity = clamp(1.0 - abs((i - 0.8) * (1.0 / _Steps) * 2.0), 0.0, 1.0);
                 lengthPos = length(position.xz);
                 
@@ -161,29 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const float f = 70.0;
                 float noise = value(vec2(angle, u * (1.0 / _Size) * 0.05), f);
                 noise = noise * 0.66 + 0.33 * value(vec2(angle, u * (1.0 / _Size) * 0.05), f * 2.0);
+                float extraWidth = noise * 1.0 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
+                float alpha = clamp(noise * (intensity + extraWidth) * ((1.0 / _Size) * 10.0 + 0.01) * dist * distMult, 0.0, 1.0);
                 
-                // ==== ИЗМЕНЕНИЕ 2: Уменьшение extraWidth для тоньших колец ====
-                float extraWidth = noise * 0.5 * (1.0 - clamp(i * (1.0 / _Steps) * 2.0 - 1.0, 0.0, 1.0));
-                
-                // ==== ИЗМЕНЕНИЕ 3: Применение мягкого размытия ====
-                float alpha = softBlur(noise, intensity + extraWidth, distMult, dist);
+                // РАЗМЫТИЕ: сглаживание и смягчение альфы
+                alpha = pow(alpha, 1.0 + ringBlur * 2.0);
                 
                 vec3 p3d = position * 0.1;
                 vec3 baseColor = oilMix(p3d, iTime * 0.5);
-                vec3 neonColor = neonGlow(baseColor, intensity, alpha) * intensity * 2.0;
+                vec3 neonColor = neonGlow(baseColor, intensity, alpha) * intensity * 2.5;
                 neonColor *= distMult;
                 
-                // ==== ИЗМЕНЕНИЕ 4: Мягкое смешивание с premultiplied alpha ====
-                vec3 colVec = neonColor * alpha; // Premultiply color
-                o.rgb += colVec * (1.0 - o.a); // Additive blending
-                o.a = max(o.a, alpha * 0.7); // Softer alpha accumulation
+                vec3 colVec = neonColor;
+                o = clamp(vec4(colVec * alpha + o.rgb * (1.0 - alpha), o.a * (1.0 - alpha) + alpha), vec4(0.0), vec4(10.0));
                 
                 lengthPos *= (1.0 / _Size);
             }
-            
-            // ==== ИЗМЕНЕНИЕ 5: Финальное размытие результата ====
-            o.rgb = pow(clamp(o.rgb, 0.0, 10.0), vec3(0.85));
-            o.a *= 0.8; // Уменьшаем общую непрозрачность для легкости
+            o.rgb = pow(clamp(o.rgb, 0.0, 10.0), vec3(0.75));
             return o;
         }
 
@@ -235,13 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     vec4 diskCol = raymarchDisk(rd, pos);
                     pos.y = 0.0;
                     pos += abs(_Size * 0.001 / (rd.y + 0.0001)) * rd;
-                    
-                    // ==== ИЗМЕНЕНИЕ 6: Плавное смешивание колец между собой ====
-                    // Было: col = vec4(diskCol.rgb * (1.0 - col.a) + col.rgb, col.a + diskCol.a * (1.0 - col.a));
-                    // Стало: mix с gamma correction для мягкости
-                    float blendFactor = diskCol.a * (1.0 - col.a) * 0.9; // Уменьшаем влияние новых колец
-                    col.rgb = mix(col.rgb, diskCol.rgb, blendFactor);
-                    col.a = min(1.0, col.a + diskCol.a * 0.6); // Мягкое накопление альфы
+                    col = vec4(diskCol.rgb * (1.0 - col.a) + col.rgb, 
+                               col.a + diskCol.a * (1.0 - col.a));
                 }
             }
 
@@ -255,16 +235,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         void main() {
             vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.x;
+            vec3 ro = vec3(0.0, 0.0, -8.0);
+            vec3 rd = normalize(vec3(uv, 1.0));
             
-            // ==== ИЗМЕНЕНИЕ 7: Легкий directional blur для всей сцены ====
-            // Берем 3 сэмпла с небольшим смещением для размытия движения
-            vec2 blurOffset = vec2(0.002, 0.0);
-            vec4 blackHole1 = rayMarch(vec3(0.0, 0.0, -8.0), normalize(vec3(uv - blurOffset, 1.0)));
-            vec4 blackHole2 = rayMarch(vec3(0.0, 0.0, -8.0), normalize(vec3(uv, 1.0)));
-            vec4 blackHole3 = rayMarch(vec3(0.0, 0.0, -8.0), normalize(vec3(uv + blurOffset, 1.0)));
-            
-            // Смешиваем с весами (0.25, 0.5, 0.25) для гауссового размытия
-            vec4 blackHole = blackHole1 * 0.25 + blackHole2 * 0.5 + blackHole3 * 0.25;
+            vec4 blackHole = rayMarch(ro, rd);
             
             float dist = length(uv);
             if (dist < 0.8 && dist > _Size * 2.0 && blackHole.a < 0.5) {
@@ -278,13 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 blackHole.a = max(blackHole.a, suctionAlpha);
             }
             
-            // ==== ИЗМЕНЕНИЕ 8: Финальное soften конечного результата ====
             fragColor = blackHole;
-            fragColor.rgb = pow(clamp(fragColor.rgb, 0.0, 10.0), vec3(0.75)); // Было 0.65, стало 0.75 для мягкости
+            fragColor.rgb = pow(clamp(fragColor.rgb, 0.0, 10.0), vec3(0.65));
         }
     `;
 
-    // === ОСТАЛЬНОЙ КОД JS БЕЗ ИЗМЕНЕНИЙ ===
     function compileShader(gl, type, src) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, src);
@@ -328,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const iResolutionLoc = gl.getUniformLocation(program, 'iResolution');
     const iTimeLoc = gl.getUniformLocation(program, 'iTime');
+    const ringBlurLoc = gl.getUniformLocation(program, 'ringBlur'); // ЛОКАЦИЯ ЮНИФОРМА РАЗМЫТИЯ
 
     function resize() {
         const dpr = window.devicePixelRatio || 1;
@@ -372,10 +345,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = ((now - startTime) * 0.001) % 300;
         gl.uniform3f(iResolutionLoc, canvas.width, canvas.height, 1.0);
         gl.uniform1f(iTimeLoc, t);
+        gl.uniform1f(ringBlurLoc, 0.3); // ✅ РЕГУЛИРУЙ ЗНАЧЕНИЕ ОТ 0.0 (без размытия) ДО 1.0 (сильное размытие)
         
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.drawArrays(gl.TRIANGHS, 0, 6);
         
         requestAnimationFrame(render);
     }
